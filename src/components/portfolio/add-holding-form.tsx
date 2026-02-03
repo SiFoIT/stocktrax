@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AddHoldingFormProps {
   portfolioId: number;
@@ -51,23 +49,29 @@ export function AddHoldingForm({ portfolioId, onHoldingAdded }: AddHoldingFormPr
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Add Holding</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
+        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+          <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+        </div>
+        <h2 className="font-semibold text-white">Add Holding</h2>
+      </div>
+      <div className="p-6">
         <form onSubmit={handleSubmit} className="flex gap-4 items-end flex-wrap">
-          <div className="flex-1 min-w-[100px]">
-            <label className="text-sm font-medium mb-1 block">Symbol</label>
+          <div className="flex-1 min-w-[120px]">
+            <label className="text-sm font-medium mb-2 block text-white/70">Symbol</label>
             <Input
               placeholder="AAPL"
               value={symbol}
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               required
+              className="bg-white/5 border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
             />
           </div>
-          <div className="flex-1 min-w-[100px]">
-            <label className="text-sm font-medium mb-1 block">Shares</label>
+          <div className="flex-1 min-w-[120px]">
+            <label className="text-sm font-medium mb-2 block text-white/70">Shares</label>
             <Input
               type="number"
               step="any"
@@ -75,10 +79,11 @@ export function AddHoldingForm({ portfolioId, onHoldingAdded }: AddHoldingFormPr
               value={shares}
               onChange={(e) => setShares(e.target.value)}
               required
+              className="bg-white/5 border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
             />
           </div>
-          <div className="flex-1 min-w-[100px]">
-            <label className="text-sm font-medium mb-1 block">Price per Share</label>
+          <div className="flex-1 min-w-[120px]">
+            <label className="text-sm font-medium mb-2 block text-white/70">Price per Share</label>
             <Input
               type="number"
               step="any"
@@ -86,14 +91,33 @@ export function AddHoldingForm({ portfolioId, onHoldingAdded }: AddHoldingFormPr
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               required
+              className="bg-white/5 border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
             />
           </div>
-          <Button type="submit" disabled={loading}>
-            {loading ? "Adding..." : "Add"}
-          </Button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Adding...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add Holding
+              </>
+            )}
+          </button>
         </form>
-        {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-      </CardContent>
-    </Card>
+        {error && (
+          <p className="text-red-400 text-sm mt-3 bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>
+        )}
+      </div>
+    </div>
   );
 }

@@ -68,6 +68,218 @@ export async function getHistoricalChanges(symbol: string): Promise<HistoricalCh
   }
 }
 
+export interface StockDetails {
+  // Basic info
+  symbol: string;
+  shortName?: string;
+  longName?: string;
+  exchange?: string;
+  currency?: string;
+  quoteType?: string;
+
+  // Price info
+  price?: number;
+  change?: number;
+  changePercent?: number;
+  previousClose?: number;
+  open?: number;
+  dayHigh?: number;
+  dayLow?: number;
+  volume?: number;
+  avgVolume?: number;
+
+  // 52-week
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+  fiftyTwoWeekChange?: number;
+
+  // Moving averages
+  fiftyDayAverage?: number;
+  twoHundredDayAverage?: number;
+
+  // Valuation
+  marketCap?: number;
+  enterpriseValue?: number;
+  trailingPE?: number;
+  forwardPE?: number;
+  priceToBook?: number;
+  priceToSales?: number;
+
+  // Dividends
+  dividendRate?: number;
+  dividendYield?: number;
+  exDividendDate?: string;
+  payoutRatio?: number;
+
+  // Financials
+  revenue?: number;
+  revenuePerShare?: number;
+  grossProfit?: number;
+  ebitda?: number;
+  netIncome?: number;
+  eps?: number;
+  forwardEps?: number;
+
+  // Profitability
+  profitMargin?: number;
+  operatingMargin?: number;
+  returnOnAssets?: number;
+  returnOnEquity?: number;
+
+  // Balance sheet
+  totalCash?: number;
+  totalDebt?: number;
+  debtToEquity?: number;
+  currentRatio?: number;
+  bookValue?: number;
+
+  // Shares
+  sharesOutstanding?: number;
+  floatShares?: number;
+  sharesShort?: number;
+  shortRatio?: number;
+  shortPercentOfFloat?: number;
+
+  // Analyst
+  targetHighPrice?: number;
+  targetLowPrice?: number;
+  targetMeanPrice?: number;
+  recommendationMean?: number;
+  recommendationKey?: string;
+  numberOfAnalystOpinions?: number;
+
+  // Other
+  beta?: number;
+  earningsDate?: string;
+  sector?: string;
+  industry?: string;
+  website?: string;
+  description?: string;
+}
+
+export async function getStockDetails(symbol: string): Promise<StockDetails | null> {
+  try {
+    const [quote, summary] = await Promise.all([
+      yahooFinance.quote(symbol),
+      yahooFinance.quoteSummary(symbol, {
+        modules: [
+          "price",
+          "summaryDetail",
+          "defaultKeyStatistics",
+          "financialData",
+          "calendarEvents",
+          "summaryProfile",
+        ],
+      }),
+    ]);
+
+    if (!quote) return null;
+
+    const price = summary?.price;
+    const detail = summary?.summaryDetail;
+    const keyStats = summary?.defaultKeyStatistics;
+    const financial = summary?.financialData;
+    const calendar = summary?.calendarEvents;
+    const profile = summary?.summaryProfile;
+
+    return {
+      // Basic info
+      symbol: quote.symbol,
+      shortName: quote.shortName,
+      longName: quote.longName,
+      exchange: quote.exchange,
+      currency: quote.currency,
+      quoteType: quote.quoteType,
+
+      // Price info
+      price: quote.regularMarketPrice,
+      change: quote.regularMarketChange,
+      changePercent: quote.regularMarketChangePercent,
+      previousClose: quote.regularMarketPreviousClose,
+      open: quote.regularMarketOpen,
+      dayHigh: quote.regularMarketDayHigh,
+      dayLow: quote.regularMarketDayLow,
+      volume: quote.regularMarketVolume,
+      avgVolume: quote.averageDailyVolume3Month,
+
+      // 52-week
+      fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh,
+      fiftyTwoWeekLow: quote.fiftyTwoWeekLow,
+      fiftyTwoWeekChange: keyStats?.["52WeekChange"],
+
+      // Moving averages
+      fiftyDayAverage: quote.fiftyDayAverage,
+      twoHundredDayAverage: quote.twoHundredDayAverage,
+
+      // Valuation
+      marketCap: price?.marketCap,
+      enterpriseValue: keyStats?.enterpriseValue,
+      trailingPE: detail?.trailingPE,
+      forwardPE: keyStats?.forwardPE,
+      priceToBook: keyStats?.priceToBook,
+      priceToSales: (keyStats as { priceToSalesTrailing12Months?: number } | undefined)?.priceToSalesTrailing12Months,
+
+      // Dividends
+      dividendRate: detail?.dividendRate,
+      dividendYield: detail?.dividendYield,
+      exDividendDate: detail?.exDividendDate
+        ? new Date(detail.exDividendDate).toISOString().split("T")[0]
+        : undefined,
+      payoutRatio: detail?.payoutRatio,
+
+      // Financials
+      revenue: financial?.totalRevenue,
+      revenuePerShare: financial?.revenuePerShare,
+      grossProfit: financial?.grossProfits,
+      ebitda: financial?.ebitda,
+      netIncome: keyStats?.netIncomeToCommon,
+      eps: keyStats?.trailingEps,
+      forwardEps: keyStats?.forwardEps,
+
+      // Profitability
+      profitMargin: financial?.profitMargins,
+      operatingMargin: financial?.operatingMargins,
+      returnOnAssets: financial?.returnOnAssets,
+      returnOnEquity: financial?.returnOnEquity,
+
+      // Balance sheet
+      totalCash: financial?.totalCash,
+      totalDebt: financial?.totalDebt,
+      debtToEquity: financial?.debtToEquity,
+      currentRatio: financial?.currentRatio,
+      bookValue: keyStats?.bookValue,
+
+      // Shares
+      sharesOutstanding: keyStats?.sharesOutstanding,
+      floatShares: keyStats?.floatShares,
+      sharesShort: keyStats?.sharesShort,
+      shortRatio: keyStats?.shortRatio,
+      shortPercentOfFloat: keyStats?.shortPercentOfFloat,
+
+      // Analyst
+      targetHighPrice: financial?.targetHighPrice,
+      targetLowPrice: financial?.targetLowPrice,
+      targetMeanPrice: financial?.targetMeanPrice,
+      recommendationMean: financial?.recommendationMean,
+      recommendationKey: financial?.recommendationKey,
+      numberOfAnalystOpinions: financial?.numberOfAnalystOpinions,
+
+      // Other
+      beta: keyStats?.beta,
+      earningsDate: calendar?.earnings?.earningsDate?.[0]
+        ? new Date(calendar.earnings.earningsDate[0]).toISOString().split("T")[0]
+        : undefined,
+      sector: profile?.sector,
+      industry: profile?.industry,
+      website: profile?.website,
+      description: profile?.longBusinessSummary,
+    };
+  } catch (error) {
+    console.error("Error fetching stock details:", error);
+    return null;
+  }
+}
+
 export async function getQuote(symbol: string): Promise<StockQuote | null> {
   try {
     const quote = await yahooFinance.quote(symbol);

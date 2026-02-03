@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { getQuote, getTimeSeries, getHistoricalChanges, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
+import { getQuote, getTimeSeries, getHistoricalChanges, getStockDetails, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -19,6 +19,50 @@ export async function GET(
   const interval = (url.searchParams.get("interval") || "1d") as TimeSeriesInterval;
 
   const includeChanges = url.searchParams.get("changes") === "true";
+  const includeDetails = url.searchParams.get("details") === "true";
+
+  // Handle details request separately (different data structure)
+  if (includeDetails) {
+    const detailsCacheKey = `${upperSymbol}_details`;
+
+    if (!skipCache) {
+      const cached = await db.query.stockCache.findFirst({
+        where: eq(schema.stockCache.symbol, detailsCacheKey),
+      });
+
+      if (cached) {
+        const age = Date.now() - cached.fetchedAt.getTime();
+        if (age < CACHE_TTL_MS) {
+          return NextResponse.json(JSON.parse(cached.data));
+        }
+      }
+    }
+
+    const details = await getStockDetails(upperSymbol);
+    if (!details) {
+      return NextResponse.json(
+        { error: "Failed to fetch stock details" },
+        { status: 500 }
+      );
+    }
+
+    await db
+      .insert(schema.stockCache)
+      .values({
+        symbol: detailsCacheKey,
+        data: JSON.stringify(details),
+        fetchedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: schema.stockCache.symbol,
+        set: {
+          data: JSON.stringify(details),
+          fetchedAt: new Date(),
+        },
+      });
+
+    return NextResponse.json(details);
+  }
 
   const isIntraday = interval !== "1d";
   const cacheKey = includeChanges ? `${upperSymbol}_changes` : `${upperSymbol}_${period}_${interval}`;

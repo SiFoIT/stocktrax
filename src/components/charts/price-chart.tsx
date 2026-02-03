@@ -214,49 +214,77 @@ export function PriceChart({ symbol, height = 300, storageKey }: PriceChartProps
   const ranges: TimeRange[] = ["1Y", "3M", "5D", "1D"];
 
   return (
-    <div>
-      <div className="flex gap-2 mb-4 justify-between">
-        <div className="flex gap-2">
+    <div className="space-y-4">
+      <div className="flex gap-3 justify-between items-center">
+        {/* Time Range Buttons */}
+        <div className="flex gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
           {ranges.map((range) => (
-            <Button
+            <button
               key={range}
-              variant={activeRange === range ? "default" : "outline"}
-              size="sm"
               onClick={() => handleRangeChange(range)}
               disabled={loading}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                activeRange === range
+                  ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg"
+                  : "text-white/60 hover:text-white hover:bg-white/10"
+              } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {range}
-            </Button>
+            </button>
           ))}
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant={chartType === "line" ? "default" : "outline"}
-            size="sm"
+
+        {/* Chart Type Toggle */}
+        <div className="flex gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
+          <button
             onClick={() => setChartType("line")}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
+              chartType === "line"
+                ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg"
+                : "text-white/60 hover:text-white hover:bg-white/10"
+            }`}
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16" />
+            </svg>
             Line
-          </Button>
-          <Button
-            variant={chartType === "candle" ? "default" : "outline"}
-            size="sm"
+          </button>
+          <button
             onClick={() => setChartType("candle")}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
+              chartType === "candle"
+                ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg"
+                : "text-white/60 hover:text-white hover:bg-white/10"
+            }`}
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
             Candle
-          </Button>
+          </button>
         </div>
       </div>
-      {loading ? (
-        <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-          Loading chart...
-        </div>
-      ) : data.length === 0 ? (
-        <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-          No price data available
-        </div>
-      ) : (
-        <div ref={chartContainerRef} />
-      )}
+
+      {/* Chart Container */}
+      <div className="rounded-xl bg-white/[0.02] border border-white/10 p-4 overflow-hidden">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-[300px] gap-3">
+            <div className="w-10 h-10 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+            <span className="text-white/50 text-sm">Loading chart data...</span>
+          </div>
+        ) : data.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[300px] gap-3">
+            <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center">
+              <svg className="w-6 h-6 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <span className="text-white/50 text-sm">No price data available</span>
+          </div>
+        ) : (
+          <div ref={chartContainerRef} />
+        )}
+      </div>
     </div>
   );
 }
