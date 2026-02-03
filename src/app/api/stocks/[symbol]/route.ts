@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { getQuote, getTimeSeries, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
+import { getQuote, getTimeSeries, getHistoricalChanges, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -18,8 +18,10 @@ export async function GET(
   const period = (url.searchParams.get("period") || "1y") as "1d" | "5d" | "1mo" | "3mo" | "1y";
   const interval = (url.searchParams.get("interval") || "1d") as TimeSeriesInterval;
 
+  const includeChanges = url.searchParams.get("changes") === "true";
+
   const isIntraday = interval !== "1d";
-  const cacheKey = `${upperSymbol}_${period}_${interval}`;
+  const cacheKey = includeChanges ? `${upperSymbol}_changes` : `${upperSymbol}_${period}_${interval}`;
   const cacheTTL = isIntraday ? INTRADAY_CACHE_TTL_MS : CACHE_TTL_MS;
 
   // Check cache (skip if refresh requested)
@@ -53,7 +55,16 @@ export async function GET(
     timeSeries = await getTimeSeries(upperSymbol, period, interval);
   }
 
-  const data = { quote, timeSeries: includeTimeSeries ? timeSeries : undefined };
+  let historicalChanges: Awaited<ReturnType<typeof getHistoricalChanges>> = {};
+  if (includeChanges) {
+    historicalChanges = await getHistoricalChanges(upperSymbol);
+  }
+
+  const data = {
+    quote,
+    timeSeries: includeTimeSeries ? timeSeries : undefined,
+    historicalChanges: includeChanges ? historicalChanges : undefined,
+  };
 
   // Update cache
   await db

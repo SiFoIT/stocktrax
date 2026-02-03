@@ -26,7 +26,7 @@ interface PriceChartProps {
 // Map time range to API parameters - daily ranges all fetch 1Y for zoom flexibility
 const rangeConfig: Record<TimeRange, { period: string; interval: string }> = {
   "1D": { period: "1d", interval: "5m" },
-  "5D": { period: "5d", interval: "15m" },
+  "5D": { period: "5d", interval: "1h" },  // Hourly candles
   "3M": { period: "1y", interval: "1d" },  // Fetch 1Y but show 3M
   "1Y": { period: "1y", interval: "1d" },
 };

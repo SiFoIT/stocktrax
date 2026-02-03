@@ -3,6 +3,71 @@ import { StockQuote, StockTimeSeries } from "@/types";
 
 const yahooFinance = new YahooFinance();
 
+export interface HistoricalChanges {
+  change5D?: number;
+  change1M?: number;
+  change3M?: number;
+  change1Y?: number;
+}
+
+export async function getHistoricalChanges(symbol: string): Promise<HistoricalChanges> {
+  try {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setFullYear(startDate.getFullYear() - 1);
+    startDate.setDate(startDate.getDate() - 7); // Extra buffer for weekends/holidays
+
+    const result = await yahooFinance.chart(symbol, {
+      period1: startDate,
+      period2: endDate,
+      interval: "1d",
+    });
+
+    if (!result || !result.quotes || result.quotes.length === 0) {
+      return {};
+    }
+
+    const quotes = result.quotes.filter((q) => q.date && q.close !== null);
+    if (quotes.length === 0) return {};
+
+    const currentPrice = quotes[quotes.length - 1].close!;
+    const now = new Date();
+
+    const findPriceAtDaysAgo = (daysAgo: number): number | undefined => {
+      const targetDate = new Date(now);
+      targetDate.setDate(targetDate.getDate() - daysAgo);
+
+      // Find the closest quote on or before target date
+      for (let i = quotes.length - 1; i >= 0; i--) {
+        if (quotes[i].date <= targetDate) {
+          return quotes[i].close!;
+        }
+      }
+      return undefined;
+    };
+
+    const price5D = findPriceAtDaysAgo(5);
+    const price1M = findPriceAtDaysAgo(30);
+    const price3M = findPriceAtDaysAgo(90);
+    const price1Y = findPriceAtDaysAgo(365);
+
+    const calcChange = (oldPrice: number | undefined): number | undefined => {
+      if (oldPrice === undefined || oldPrice === 0) return undefined;
+      return ((currentPrice - oldPrice) / oldPrice) * 100;
+    };
+
+    return {
+      change5D: calcChange(price5D),
+      change1M: calcChange(price1M),
+      change3M: calcChange(price3M),
+      change1Y: calcChange(price1Y),
+    };
+  } catch (error) {
+    console.error("Error fetching historical changes:", error);
+    return {};
+  }
+}
+
 export async function getQuote(symbol: string): Promise<StockQuote | null> {
   try {
     const quote = await yahooFinance.quote(symbol);
