@@ -49,29 +49,29 @@ export function AddHoldingForm({ portfolioId, onHoldingAdded }: AddHoldingFormPr
   };
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
+    <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
         <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
           <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
         </div>
-        <h2 className="font-semibold text-white">Add Holding</h2>
+        <h2 className="font-semibold text-black dark:text-white">Add Holding</h2>
       </div>
       <div className="p-6">
         <form onSubmit={handleSubmit} className="flex gap-4 items-end flex-wrap">
           <div className="flex-1 min-w-[120px]">
-            <label className="text-sm font-medium mb-2 block text-white/70">Symbol</label>
+            <label className="text-sm font-medium mb-2 block text-black/70 dark:text-white/70">Symbol</label>
             <Input
               placeholder="AAPL"
               value={symbol}
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               required
-              className="bg-white/5 border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
+              className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
             />
           </div>
           <div className="flex-1 min-w-[120px]">
-            <label className="text-sm font-medium mb-2 block text-white/70">Shares</label>
+            <label className="text-sm font-medium mb-2 block text-black/70 dark:text-white/70">Shares</label>
             <Input
               type="number"
               step="any"
@@ -79,11 +79,11 @@ export function AddHoldingForm({ portfolioId, onHoldingAdded }: AddHoldingFormPr
               value={shares}
               onChange={(e) => setShares(e.target.value)}
               required
-              className="bg-white/5 border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
+              className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
             />
           </div>
           <div className="flex-1 min-w-[120px]">
-            <label className="text-sm font-medium mb-2 block text-white/70">Price per Share</label>
+            <label className="text-sm font-medium mb-2 block text-black/70 dark:text-white/70">Price per Share</label>
             <Input
               type="number"
               step="any"
@@ -91,7 +91,7 @@ export function AddHoldingForm({ portfolioId, onHoldingAdded }: AddHoldingFormPr
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               required
-              className="bg-white/5 border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
+              className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
             />
           </div>
           <button
@@ -101,7 +101,7 @@ export function AddHoldingForm({ portfolioId, onHoldingAdded }: AddHoldingFormPr
           >
             {loading ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-black/30 dark:border-white/30 border-t-black dark:border-t-white rounded-full animate-spin" />
                 Adding...
               </>
             ) : (

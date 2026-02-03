@@ -111,8 +111,8 @@ export default function PortfolioPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-          <span className="text-white/50">Loading portfolio...</span>
+          <div className="w-12 h-12 border-3 border-blue-500/30 border-t-blue-500 dark:border-blue-500/30 dark:border-t-blue-500 rounded-full animate-spin" />
+          <span className="text-black/50 dark:text-white/50">Loading portfolio...</span>
         </div>
       </div>
     );
@@ -127,8 +127,8 @@ export default function PortfolioPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2">Portfolio Not Found</h3>
-          <p className="text-white/50 mb-4">The portfolio you&apos;re looking for doesn&apos;t exist.</p>
+          <h3 className="text-lg font-semibold text-black dark:text-white mb-2">Portfolio Not Found</h3>
+          <p className="text-black/50 dark:text-white/50 mb-4">The portfolio you&apos;re looking for doesn&apos;t exist.</p>
           <Link
             href="/"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium hover:from-blue-600 hover:to-purple-600 transition-all"
@@ -144,10 +144,10 @@ export default function PortfolioPage() {
   }
 
   const StatCard = ({ label, value, subValue, colorClass }: { label: string; value: string; subValue?: string; colorClass?: string }) => (
-    <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 p-5">
-      <p className="text-sm font-medium text-white/50 mb-1">{label}</p>
+    <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-5">
+      <p className="text-sm font-medium text-black/50 dark:text-white/50 mb-1">{label}</p>
       <p className={`text-2xl font-bold ${colorClass || "text-white"}`}>{value}</p>
-      {subValue && <p className={`text-sm mt-1 ${colorClass || "text-white/50"}`}>{subValue}</p>}
+      {subValue && <p className={`text-sm mt-1 ${colorClass || "text-black/50 dark:text-white/50"}`}>{subValue}</p>}
     </div>
   );
 
@@ -157,7 +157,7 @@ export default function PortfolioPage() {
       <div className="flex items-center gap-4 mb-8">
         <Link
           href="/"
-          className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
+          className="w-10 h-10 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-center text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-all"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -170,8 +170,8 @@ export default function PortfolioPage() {
             </svg>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">{portfolio.name}</h1>
-            <span className="text-white/50 text-sm">{portfolio.currency} Portfolio</span>
+            <h1 className="text-2xl font-bold text-black dark:text-white">{portfolio.name}</h1>
+            <span className="text-black/50 dark:text-white/50 text-sm">{portfolio.currency} Portfolio</span>
           </div>
         </div>
       </div>
@@ -204,13 +204,13 @@ export default function PortfolioPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 p-1 rounded-xl bg-white/5 border border-white/10 w-fit mb-6">
+      <div className="flex gap-2 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 w-fit mb-6">
         <button
           onClick={() => setActiveTab("holdings")}
           className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
             activeTab === "holdings"
               ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg"
-              : "text-white/60 hover:text-white hover:bg-white/10"
+              : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
           }`}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -223,7 +223,7 @@ export default function PortfolioPage() {
           className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
             activeTab === "allocation"
               ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg"
-              : "text-white/60 hover:text-white hover:bg-white/10"
+              : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
           }`}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -237,14 +237,14 @@ export default function PortfolioPage() {
       {/* Tab Content */}
       {activeTab === "holdings" && (
         <div className="space-y-6">
-          <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10 bg-gradient-to-r from-blue-500/10 to-transparent">
+          <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-blue-500/10 to-transparent">
               <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
                 <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
-              <h2 className="font-semibold text-white">Your Holdings</h2>
+              <h2 className="font-semibold text-black dark:text-white">Your Holdings</h2>
             </div>
             <div className="p-6">
               <HoldingsTable
@@ -257,14 +257,14 @@ export default function PortfolioPage() {
           </div>
 
           {selectedSymbol && (
-            <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
-              <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10 bg-gradient-to-r from-purple-500/10 to-transparent">
+            <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
+              <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-purple-500/10 to-transparent">
                 <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
                   <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16" />
                   </svg>
                 </div>
-                <h2 className="font-semibold text-white">{selectedSymbol} Price Chart</h2>
+                <h2 className="font-semibold text-black dark:text-white">{selectedSymbol} Price Chart</h2>
               </div>
               <div className="p-6">
                 <PriceChart symbol={selectedSymbol} storageKey={`portfolio_${portfolioId}`} />
@@ -275,15 +275,15 @@ export default function PortfolioPage() {
       )}
 
       {activeTab === "allocation" && (
-        <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
-          <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
+        <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
+          <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
               <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
               </svg>
             </div>
-            <h2 className="font-semibold text-white">Portfolio Allocation</h2>
+            <h2 className="font-semibold text-black dark:text-white">Portfolio Allocation</h2>
           </div>
           <div className="p-6">
             <AllocationChart holdings={holdings} />

@@ -9,6 +9,7 @@ import { WatchlistItemWithQuote } from "@/types";
 import { AddSymbolForm } from "@/components/watchlist/add-symbol-form";
 import { WatchlistTable } from "@/components/watchlist/watchlist-table";
 import { PriceChart } from "@/components/charts/price-chart";
+import { SettingsMenu } from "@/components/settings/settings-menu";
 
 export default function Dashboard() {
   // Tab state
@@ -305,24 +306,27 @@ export default function Dashboard() {
   return (
     <div className="container mx-auto py-8 px-4">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-            </svg>
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-black to-black/70 dark:from-white dark:to-white/70 bg-clip-text text-transparent">
+              StockTrax
+            </h1>
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">
-            StockTrax
-          </h1>
+          <p className="text-black/50 dark:text-black/50 dark:text-white/50 text-sm">Track your investments with real-time data</p>
         </div>
-        <p className="text-white/50 text-sm">Track your investments with real-time data</p>
+        <SettingsMenu />
       </div>
 
       {/* Tabs */}
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex gap-2 p-1 rounded-xl bg-white/5 border border-white/10">
+          <div className="flex gap-2 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
             {/* Watchlists Tab with Dropdown */}
             <div className="relative" ref={watchlistDropdownRef}>
               <button
@@ -333,8 +337,8 @@ export default function Dashboard() {
                 }}
                 className={`flex items-center gap-2 rounded-lg px-4 py-2 transition-all ${
                   activeTab === "watchlist"
-                    ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white"
-                    : "text-white/60 hover:text-white hover:bg-white/5"
+                    ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-black dark:text-white"
+                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-black/5 dark:hover:bg-white/5"
                 }`}
               >
                 <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -342,20 +346,20 @@ export default function Dashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
                 Watchlists
-                <svg className={`w-4 h-4 text-white/50 transition-transform ${showWatchlistDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`w-4 h-4 text-black/50 dark:text-black/50 dark:text-white/50 transition-transform ${showWatchlistDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
 
               {showWatchlistDropdown && (
-                <div className="absolute top-full left-0 mt-2 w-72 bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
-                  <div className="p-3 border-b border-white/10 bg-gradient-to-r from-blue-500/10 to-transparent">
+                <div className="absolute top-full left-0 mt-2 w-72 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
+                  <div className="p-3 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-blue-500/10 to-transparent">
                     <form onSubmit={handleCreateWatchlist} className="flex gap-2">
                       <Input
                         placeholder="New watchlist name"
                         value={newWatchlistName}
                         onChange={(e) => setNewWatchlistName(e.target.value)}
-                        className="h-9 text-sm bg-white/5 border-white/10 focus:border-blue-500/50"
+                        className="h-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:border-blue-500/50"
                       />
                       <Button type="submit" size="sm" disabled={creatingWatchlist} className="bg-blue-500 hover:bg-blue-600">
                         Add
@@ -364,7 +368,7 @@ export default function Dashboard() {
                   </div>
                   <div className="max-h-64 overflow-auto">
                     {watchlists.length === 0 ? (
-                      <p className="p-4 text-sm text-white/50 text-center">No watchlists yet</p>
+                      <p className="p-4 text-sm text-black/50 dark:text-white/50 text-center">No watchlists yet</p>
                     ) : (
                       watchlists.map((watchlist) => (
                         <div
@@ -372,7 +376,7 @@ export default function Dashboard() {
                           className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-all ${
                             watchlist.id === selectedWatchlistId
                               ? "bg-gradient-to-r from-blue-500/20 to-transparent border-l-2 border-blue-500"
-                              : "hover:bg-white/5"
+                              : "hover:bg-black/5 dark:hover:bg-white/5"
                           }`}
                           onClick={() => {
                             if (editingWatchlistId !== watchlist.id) {
@@ -393,7 +397,7 @@ export default function Dashboard() {
                               <Input
                                 value={editingWatchlistName}
                                 onChange={(e) => setEditingWatchlistName(e.target.value)}
-                                className="h-7 text-sm bg-white/5 border-white/10"
+                                className="h-7 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10"
                                 autoFocus
                                 onKeyDown={(e) => {
                                   if (e.key === "Escape") {
@@ -412,7 +416,7 @@ export default function Dashboard() {
                           {editingWatchlistId !== watchlist.id && (
                             <div className="flex gap-1">
                               <button
-                                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                                className="p-1.5 rounded-lg text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-all"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setEditingWatchlistId(watchlist.id);
@@ -424,7 +428,7 @@ export default function Dashboard() {
                                 </svg>
                               </button>
                               <button
-                                className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                                className="p-1.5 rounded-lg text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleDeleteWatchlist(watchlist.id);
@@ -454,32 +458,32 @@ export default function Dashboard() {
                 }}
                 className={`flex items-center gap-2 rounded-lg px-4 py-2 transition-all ${
                   activeTab === "portfolios"
-                    ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-white"
-                    : "text-white/60 hover:text-white hover:bg-white/5"
+                    ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-black dark:text-white"
+                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-black/5 dark:hover:bg-white/5"
                 }`}
               >
                 <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
                 Portfolios
-                <svg className={`w-4 h-4 text-white/50 transition-transform ${showPortfolioDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`w-4 h-4 text-black/50 dark:text-black/50 dark:text-white/50 transition-transform ${showPortfolioDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
 
               {showPortfolioDropdown && (
-                <div className="absolute top-full left-0 mt-2 w-80 bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
-                  <div className="p-3 border-b border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
+                <div className="absolute top-full left-0 mt-2 w-80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
+                  <div className="p-3 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
                     <form onSubmit={handleCreatePortfolio} className="space-y-2">
                       <div className="flex gap-2">
                         <Input
                           placeholder="New portfolio name"
                           value={newPortfolioName}
                           onChange={(e) => setNewPortfolioName(e.target.value)}
-                          className="h-9 text-sm bg-white/5 border-white/10 focus:border-emerald-500/50"
+                          className="h-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:border-emerald-500/50"
                         />
                         <select
-                          className="h-9 px-2 rounded-lg border border-white/10 bg-white/5 text-sm focus:border-emerald-500/50 focus:outline-none"
+                          className="h-9 px-2 rounded-lg border border-black/10 dark:border-white/10 bg-white/5 text-sm focus:border-emerald-500/50 focus:outline-none"
                           value={newPortfolioCurrency}
                           onChange={(e) => setNewPortfolioCurrency(e.target.value as "USD" | "CAD")}
                         >
@@ -494,7 +498,7 @@ export default function Dashboard() {
                   </div>
                   <div className="max-h-64 overflow-auto">
                     {portfolios.length === 0 ? (
-                      <p className="p-4 text-sm text-white/50 text-center">No portfolios yet</p>
+                      <p className="p-4 text-sm text-black/50 dark:text-white/50 text-center">No portfolios yet</p>
                     ) : (
                       portfolios.map((portfolio) => (
                         <div
@@ -502,7 +506,7 @@ export default function Dashboard() {
                           className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-all ${
                             portfolio.id === selectedPortfolioId
                               ? "bg-gradient-to-r from-emerald-500/20 to-transparent border-l-2 border-emerald-500"
-                              : "hover:bg-white/5"
+                              : "hover:bg-black/5 dark:hover:bg-white/5"
                           }`}
                           onClick={() => {
                             if (editingPortfolioId !== portfolio.id) {
@@ -523,7 +527,7 @@ export default function Dashboard() {
                               <Input
                                 value={editingPortfolioName}
                                 onChange={(e) => setEditingPortfolioName(e.target.value)}
-                                className="h-7 text-sm bg-white/5 border-white/10"
+                                className="h-7 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10"
                                 autoFocus
                                 onKeyDown={(e) => {
                                   if (e.key === "Escape") {
@@ -547,7 +551,7 @@ export default function Dashboard() {
                           {editingPortfolioId !== portfolio.id && (
                             <div className="flex gap-1">
                               <button
-                                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                                className="p-1.5 rounded-lg text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-all"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setEditingPortfolioId(portfolio.id);
@@ -559,7 +563,7 @@ export default function Dashboard() {
                                 </svg>
                               </button>
                               <button
-                                className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                                className="p-1.5 rounded-lg text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleDeletePortfolio(portfolio.id);
@@ -594,8 +598,8 @@ export default function Dashboard() {
           <div className="space-y-6">
             {selectedWatchlistId ? (
               <>
-                <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-blue-500/10 to-transparent">
+                <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-blue-500/10 to-transparent">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
                         <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -603,8 +607,8 @@ export default function Dashboard() {
                         </svg>
                       </div>
                       <div>
-                        <h2 className="font-semibold text-white">Watchlist: {selectedWatchlist?.name}</h2>
-                        <p className="text-xs text-white/50">{watchlistItems.length} symbols</p>
+                        <h2 className="font-semibold text-black dark:text-white">Watchlist: {selectedWatchlist?.name}</h2>
+                        <p className="text-xs text-black/50 dark:text-white/50">{watchlistItems.length} symbols</p>
                       </div>
                     </div>
                     <Button
@@ -612,11 +616,11 @@ export default function Dashboard() {
                       size="sm"
                       onClick={handleRefresh}
                       disabled={watchlistLoading}
-                      className="bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
+                      className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 hover:bg-black/10 dark:hover:bg-white/10 hover:border-black/20 dark:hover:border-white/20"
                     >
                       {watchlistLoading ? (
                         <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <div className="w-4 h-4 border-2 border-black/30 dark:border-white/30 border-t-black dark:border-t-white rounded-full animate-spin" />
                           Refreshing...
                         </div>
                       ) : (
@@ -634,7 +638,7 @@ export default function Dashboard() {
                       <div className="flex items-center justify-center py-12">
                         <div className="flex flex-col items-center gap-3">
                           <div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-                          <p className="text-white/50">Loading watchlist...</p>
+                          <p className="text-black/50 dark:text-white/50">Loading watchlist...</p>
                         </div>
                       </div>
                     ) : (
@@ -649,14 +653,14 @@ export default function Dashboard() {
                 </div>
 
                 {selectedSymbol && (
-                  <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
-                    <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10 bg-gradient-to-r from-purple-500/10 to-transparent">
+                  <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
+                    <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-purple-500/10 to-transparent">
                       <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
                         <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
                         </svg>
                       </div>
-                      <h2 className="font-semibold text-white">{selectedSymbol} Price Chart</h2>
+                      <h2 className="font-semibold text-black dark:text-white">{selectedSymbol} Price Chart</h2>
                     </div>
                     <div className="p-4">
                       <PriceChart symbol={selectedSymbol} storageKey={`watchlist_${selectedWatchlistId}`} />
@@ -665,15 +669,15 @@ export default function Dashboard() {
                 )}
               </>
             ) : (
-              <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 p-12">
+              <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-12">
                 <div className="text-center">
                   <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-blue-500/20 flex items-center justify-center">
                     <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">No Watchlist Selected</h3>
-                  <p className="text-white/50">Create your first watchlist using the dropdown above.</p>
+                  <h3 className="text-lg font-semibold text-black dark:text-white mb-2">No Watchlist Selected</h3>
+                  <p className="text-black/50 dark:text-white/50">Create your first watchlist using the dropdown above.</p>
                 </div>
               </div>
             )}
@@ -684,8 +688,8 @@ export default function Dashboard() {
         {activeTab === "portfolios" && (
           <div className="space-y-6">
             {selectedPortfolioId && selectedPortfolio ? (
-              <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
+              <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
                       <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -693,8 +697,8 @@ export default function Dashboard() {
                       </svg>
                     </div>
                     <div>
-                      <h2 className="font-semibold text-white">Portfolio: {selectedPortfolio.name}</h2>
-                      <p className="text-xs text-white/50">{selectedPortfolio.currency} • Created {new Date(selectedPortfolio.createdAt).toLocaleDateString()}</p>
+                      <h2 className="font-semibold text-black dark:text-white">Portfolio: {selectedPortfolio.name}</h2>
+                      <p className="text-xs text-black/50 dark:text-white/50">{selectedPortfolio.currency} • Created {new Date(selectedPortfolio.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <Button asChild className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600">
@@ -713,8 +717,8 @@ export default function Dashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-semibold text-white mb-2">{selectedPortfolio.name}</h3>
-                  <p className="text-white/50 mb-6">Click &quot;Open Portfolio&quot; to view holdings, add positions, and see detailed analytics.</p>
+                  <h3 className="text-xl font-semibold text-black dark:text-white mb-2">{selectedPortfolio.name}</h3>
+                  <p className="text-black/50 dark:text-white/50 mb-6">Click &quot;Open Portfolio&quot; to view holdings, add positions, and see detailed analytics.</p>
                   <Button asChild size="lg" className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600">
                     <Link href={`/portfolio/${selectedPortfolioId}`}>
                       View Full Portfolio
@@ -729,19 +733,19 @@ export default function Dashboard() {
               <div className="flex items-center justify-center py-12">
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-10 h-10 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-                  <p className="text-white/50">Loading portfolios...</p>
+                  <p className="text-black/50 dark:text-white/50">Loading portfolios...</p>
                 </div>
               </div>
             ) : (
-              <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 p-12">
+              <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-12">
                 <div className="text-center">
                   <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
                     <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">No Portfolio Selected</h3>
-                  <p className="text-white/50">Create your first portfolio using the dropdown above.</p>
+                  <h3 className="text-lg font-semibold text-black dark:text-white mb-2">No Portfolio Selected</h3>
+                  <p className="text-black/50 dark:text-white/50">Create your first portfolio using the dropdown above.</p>
                 </div>
               </div>
             )}

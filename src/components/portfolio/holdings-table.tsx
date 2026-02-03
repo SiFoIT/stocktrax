@@ -25,12 +25,12 @@ function formatPercent(value: number | undefined): string {
 }
 
 function getChangeColor(value: number | undefined): string {
-  if (value === undefined) return "text-white/50";
+  if (value === undefined) return "text-black/50 dark:text-black dark:text-white/50";
   return value >= 0 ? "text-emerald-400" : "text-red-400";
 }
 
 function getChangeBg(value: number | undefined): string {
-  if (value === undefined) return "bg-white/5";
+  if (value === undefined) return "bg-black/5 dark:bg-white/5";
   return value >= 0 ? "bg-emerald-500/10" : "bg-red-500/10";
 }
 
@@ -48,8 +48,8 @@ export function HoldingsTable({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
         </div>
-        <h3 className="text-lg font-semibold text-white mb-2">No Holdings Yet</h3>
-        <p className="text-white/50">Add your first holding using the form above.</p>
+        <h3 className="text-lg font-semibold text-black dark:text-white mb-2">No Holdings Yet</h3>
+        <p className="text-black/50 dark:text-black dark:text-white/50">Add your first holding using the form above.</p>
       </div>
     );
   }
@@ -58,25 +58,25 @@ export function HoldingsTable({
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-white/10">
-            <th className="px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider text-left">Symbol</th>
-            <th className="px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider text-right">Shares</th>
-            <th className="px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider text-right">Avg Cost</th>
-            <th className="px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider text-right">Price</th>
-            <th className="px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider text-right">Value</th>
-            <th className="px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider text-right">Gain/Loss</th>
-            <th className="px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider text-right">Actions</th>
+          <tr className="border-b border-black/10 dark:border-white/10">
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-left">Symbol</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Shares</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Avg Cost</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Price</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Value</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Gain/Loss</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
           {holdings.map((holding, index) => (
             <tr
               key={holding.id}
-              className={`border-b border-white/5 cursor-pointer transition-all hover:bg-white/5 ${
+              className={`border-b border-white/5 cursor-pointer transition-all hover:bg-black/5 dark:bg-white/5 ${
                 selectedSymbol === holding.symbol
                   ? "bg-gradient-to-r from-blue-500/10 to-transparent"
                   : ""
-              } ${index % 2 === 0 ? "bg-white/[0.02]" : ""}`}
+              } ${index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}`}
               onClick={() => onSelectHolding(holding.symbol)}
             >
               <td className="px-4 py-4">
@@ -84,20 +84,20 @@ export function HoldingsTable({
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center">
                     <span className="text-xs font-bold text-emerald-400">{holding.symbol.slice(0, 2)}</span>
                   </div>
-                  <span className="font-semibold text-white">{holding.symbol}</span>
+                  <span className="font-semibold text-black dark:text-white">{holding.symbol}</span>
                 </div>
               </td>
               <td className="px-4 py-4 text-right">
-                <span className="font-mono text-white">{holding.shares.toLocaleString()}</span>
+                <span className="font-mono text-black dark:text-white">{holding.shares.toLocaleString()}</span>
               </td>
               <td className="px-4 py-4 text-right">
-                <span className="font-mono text-white/70">{formatCurrency(holding.avgCost)}</span>
+                <span className="font-mono text-black dark:text-black/70 dark:text-white/70">{formatCurrency(holding.avgCost)}</span>
               </td>
               <td className="px-4 py-4 text-right">
-                <span className="font-mono font-semibold text-white">{formatCurrency(holding.currentPrice)}</span>
+                <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(holding.currentPrice)}</span>
               </td>
               <td className="px-4 py-4 text-right">
-                <span className="font-mono font-semibold text-white">{formatCurrency(holding.marketValue)}</span>
+                <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(holding.marketValue)}</span>
               </td>
               <td className="px-4 py-4 text-right">
                 {holding.gainLoss !== undefined && (
@@ -113,7 +113,7 @@ export function HoldingsTable({
               </td>
               <td className="px-4 py-4 text-right">
                 <button
-                  className="text-white/40 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all"
+                  className="text-black dark:text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteHolding(holding.id);
