@@ -134,7 +134,7 @@ export default function PortfolioPage() {
         <Button asChild variant="outline">
           <Link href="/">Back</Link>
         </Button>
-        <h1 className="text-3xl font-bold">{portfolio.name}</h1>
+        <h1 className="text-3xl font-bold">Portfolio: {portfolio.name}</h1>
         <span className="text-muted-foreground">({portfolio.currency})</span>
       </div>
 

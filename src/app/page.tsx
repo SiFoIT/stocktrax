@@ -323,7 +323,7 @@ export default function Dashboard() {
             <>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                  <CardTitle>{selectedWatchlist?.name}</CardTitle>
+                  <CardTitle>Watchlist: {selectedWatchlist?.name}</CardTitle>
                   <Button
                     variant="outline"
                     size="sm"
