@@ -226,7 +226,7 @@ export default function PortfolioPage() {
                   <CardTitle>{selectedSymbol} Price Chart</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <PriceChart symbol={selectedSymbol} />
+                  <PriceChart symbol={selectedSymbol} storageKey={`portfolio_${portfolioId}`} />
                 </CardContent>
               </Card>
             )}

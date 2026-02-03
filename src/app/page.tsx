@@ -353,7 +353,7 @@ export default function Dashboard() {
                     <CardTitle>{selectedSymbol} Price Chart</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <PriceChart symbol={selectedSymbol} />
+                    <PriceChart symbol={selectedSymbol} storageKey={`watchlist_${selectedWatchlistId}`} />
                   </CardContent>
                 </Card>
               )}

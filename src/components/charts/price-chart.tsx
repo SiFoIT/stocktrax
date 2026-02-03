@@ -20,6 +20,7 @@ type ChartType = "line" | "candle";
 interface PriceChartProps {
   symbol: string;
   height?: number;
+  storageKey?: string; // Key for persisting chart preferences (e.g., "watchlist_1")
 }
 
 // Map time range to API parameters - daily ranges all fetch 1Y for zoom flexibility
@@ -30,13 +31,45 @@ const rangeConfig: Record<TimeRange, { period: string; interval: string }> = {
   "1Y": { period: "1y", interval: "1d" },
 };
 
-export function PriceChart({ symbol, height = 300 }: PriceChartProps) {
+function loadChartPrefs(key: string | undefined): { range: TimeRange; type: ChartType } {
+  if (!key || typeof window === "undefined") return { range: "3M", type: "line" };
+  try {
+    const stored = localStorage.getItem(`chart_prefs_${key}`);
+    if (stored) {
+      const prefs = JSON.parse(stored);
+      return {
+        range: prefs.range || "3M",
+        type: prefs.type || "line",
+      };
+    }
+  } catch {
+    // Ignore errors
+  }
+  return { range: "3M", type: "line" };
+}
+
+function saveChartPrefs(key: string | undefined, range: TimeRange, type: ChartType) {
+  if (!key || typeof window === "undefined") return;
+  try {
+    localStorage.setItem(`chart_prefs_${key}`, JSON.stringify({ range, type }));
+  } catch {
+    // Ignore errors
+  }
+}
+
+export function PriceChart({ symbol, height = 300, storageKey }: PriceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const [activeRange, setActiveRange] = useState<TimeRange>("3M");
-  const [chartType, setChartType] = useState<ChartType>("line");
+  const initialPrefs = useRef(loadChartPrefs(storageKey));
+  const [activeRange, setActiveRange] = useState<TimeRange>(initialPrefs.current.range);
+  const [chartType, setChartType] = useState<ChartType>(initialPrefs.current.type);
   const [data, setData] = useState<StockTimeSeries[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Save preferences when they change
+  useEffect(() => {
+    saveChartPrefs(storageKey, activeRange, chartType);
+  }, [storageKey, activeRange, chartType]);
 
   const fetchData = useCallback(async (range: TimeRange) => {
     setLoading(true);
