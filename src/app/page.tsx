@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Portfolio, WatchlistItem } from "@/lib/db/schema";
+import { Portfolio, Watchlist, WatchlistItem } from "@/lib/db/schema";
 import { WatchlistItemWithQuote } from "@/types";
 import { AddSymbolForm } from "@/components/watchlist/add-symbol-form";
 import { WatchlistTable } from "@/components/watchlist/watchlist-table";
@@ -21,9 +21,28 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
 
   // Watchlist state
+  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
+  const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItemWithQuote[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(true);
   const [selectedSymbol, setSelectedSymbol] = useState<string | undefined>();
+
+  // Dropdown state
+  const [showWatchlistDropdown, setShowWatchlistDropdown] = useState(false);
+  const [newWatchlistName, setNewWatchlistName] = useState("");
+  const [creatingWatchlist, setCreatingWatchlist] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowWatchlistDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const fetchPortfolios = async () => {
     try {
@@ -37,10 +56,25 @@ export default function Dashboard() {
     }
   };
 
-  const fetchWatchlist = useCallback(async (refresh = false) => {
+  const fetchWatchlists = async () => {
+    try {
+      const response = await fetch("/api/watchlists");
+      const data: Watchlist[] = await response.json();
+      setWatchlists(data);
+
+      // Auto-select first watchlist if none selected
+      if (data.length > 0 && !selectedWatchlistId) {
+        setSelectedWatchlistId(data[0].id);
+      }
+    } catch (error) {
+      console.error("Error fetching watchlists:", error);
+    }
+  };
+
+  const fetchWatchlistItems = useCallback(async (watchlistId: number, refresh = false) => {
     setWatchlistLoading(true);
     try {
-      const response = await fetch("/api/watchlist");
+      const response = await fetch(`/api/watchlist?watchlistId=${watchlistId}`);
       const items: WatchlistItem[] = await response.json();
 
       // Fetch quotes for each item
@@ -70,20 +104,71 @@ export default function Dashboard() {
       setWatchlistItems(itemsWithQuotes);
 
       // Auto-select first symbol if none selected
-      if (!selectedSymbol && itemsWithQuotes.length > 0) {
+      if (itemsWithQuotes.length > 0) {
         setSelectedSymbol(itemsWithQuotes[0].symbol);
+      } else {
+        setSelectedSymbol(undefined);
       }
     } catch (error) {
-      console.error("Error fetching watchlist:", error);
+      console.error("Error fetching watchlist items:", error);
     } finally {
       setWatchlistLoading(false);
     }
-  }, [selectedSymbol]);
+  }, []);
 
   useEffect(() => {
     fetchPortfolios();
-    fetchWatchlist();
-  }, [fetchWatchlist]);
+    fetchWatchlists();
+  }, []);
+
+  useEffect(() => {
+    if (selectedWatchlistId) {
+      fetchWatchlistItems(selectedWatchlistId);
+    }
+  }, [selectedWatchlistId, fetchWatchlistItems]);
+
+  const handleCreateWatchlist = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newWatchlistName.trim()) return;
+
+    setCreatingWatchlist(true);
+    try {
+      const response = await fetch("/api/watchlists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newWatchlistName }),
+      });
+
+      if (response.ok) {
+        const newWatchlist = await response.json();
+        setNewWatchlistName("");
+        await fetchWatchlists();
+        setSelectedWatchlistId(newWatchlist.id);
+        setShowWatchlistDropdown(false);
+      }
+    } catch (error) {
+      console.error("Error creating watchlist:", error);
+    } finally {
+      setCreatingWatchlist(false);
+    }
+  };
+
+  const handleDeleteWatchlist = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this watchlist?")) return;
+
+    try {
+      await fetch(`/api/watchlists?id=${id}`, { method: "DELETE" });
+      await fetchWatchlists();
+
+      // Select another watchlist if we deleted the current one
+      if (selectedWatchlistId === id) {
+        const remaining = watchlists.filter((w) => w.id !== id);
+        setSelectedWatchlistId(remaining.length > 0 ? remaining[0].id : null);
+      }
+    } catch (error) {
+      console.error("Error deleting watchlist:", error);
+    }
+  };
 
   const handleCreatePortfolio = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +218,9 @@ export default function Dashboard() {
         setSelectedSymbol(remaining.length > 0 ? remaining[0].symbol : undefined);
       }
 
-      fetchWatchlist();
+      if (selectedWatchlistId) {
+        fetchWatchlistItems(selectedWatchlistId);
+      }
     } catch (error) {
       console.error("Error removing symbol:", error);
     }
@@ -144,55 +231,139 @@ export default function Dashboard() {
   };
 
   const handleRefresh = async () => {
-    await fetchWatchlist(true);
+    if (selectedWatchlistId) {
+      await fetchWatchlistItems(selectedWatchlistId, true);
+    }
   };
+
+  const selectedWatchlist = watchlists.find((w) => w.id === selectedWatchlistId);
 
   return (
     <div className="container mx-auto py-8 px-4">
       <h1 className="text-3xl font-bold mb-8">StockTrax</h1>
 
       <Tabs defaultValue="watchlist" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="watchlist">Watchlist</TabsTrigger>
-          <TabsTrigger value="portfolios">Portfolios</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-4">
+          <TabsList>
+            <div className="relative" ref={dropdownRef}>
+              <TabsTrigger
+                value="watchlist"
+                onClick={() => setShowWatchlistDropdown(!showWatchlistDropdown)}
+                className="flex items-center gap-1"
+              >
+                {selectedWatchlist?.name || "Watchlist"}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </TabsTrigger>
+
+              {showWatchlistDropdown && (
+                <div className="absolute top-full left-0 mt-1 w-64 bg-popover border border-border rounded-md shadow-lg z-50">
+                  <div className="p-2 border-b border-border">
+                    <form onSubmit={handleCreateWatchlist} className="flex gap-2">
+                      <Input
+                        placeholder="New watchlist name"
+                        value={newWatchlistName}
+                        onChange={(e) => setNewWatchlistName(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                      <Button type="submit" size="sm" disabled={creatingWatchlist}>
+                        Add
+                      </Button>
+                    </form>
+                  </div>
+                  <div className="max-h-48 overflow-auto">
+                    {watchlists.length === 0 ? (
+                      <p className="p-3 text-sm text-muted-foreground">No watchlists yet</p>
+                    ) : (
+                      watchlists.map((watchlist) => (
+                        <div
+                          key={watchlist.id}
+                          className={`flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-accent/50 ${
+                            watchlist.id === selectedWatchlistId ? "bg-accent" : ""
+                          }`}
+                          onClick={() => {
+                            setSelectedWatchlistId(watchlist.id);
+                            setShowWatchlistDropdown(false);
+                          }}
+                        >
+                          <span className="text-sm">{watchlist.name}</span>
+                          <button
+                            className="text-muted-foreground hover:text-destructive p-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteWatchlist(watchlist.id);
+                            }}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <TabsTrigger value="portfolios">Portfolios</TabsTrigger>
+          </TabsList>
+
+          {selectedWatchlistId && (
+            <AddSymbolForm
+              watchlistId={selectedWatchlistId}
+              onSymbolAdded={() => fetchWatchlistItems(selectedWatchlistId)}
+              compact
+            />
+          )}
+        </div>
 
         <TabsContent value="watchlist" className="space-y-6">
-          <AddSymbolForm onSymbolAdded={fetchWatchlist} />
+          {selectedWatchlistId ? (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <CardTitle>{selectedWatchlist?.name}</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefresh}
+                    disabled={watchlistLoading}
+                  >
+                    {watchlistLoading ? "Refreshing..." : "Refresh"}
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {watchlistLoading ? (
+                    <p className="text-muted-foreground">Loading watchlist...</p>
+                  ) : (
+                    <WatchlistTable
+                      items={watchlistItems}
+                      selectedSymbol={selectedSymbol}
+                      onSelectSymbol={handleSelectSymbol}
+                      onRemoveSymbol={handleRemoveSymbol}
+                    />
+                  )}
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle>Watchlist</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={watchlistLoading}
-              >
-                {watchlistLoading ? "Refreshing..." : "Refresh"}
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {watchlistLoading ? (
-                <p className="text-muted-foreground">Loading watchlist...</p>
-              ) : (
-                <WatchlistTable
-                  items={watchlistItems}
-                  selectedSymbol={selectedSymbol}
-                  onSelectSymbol={handleSelectSymbol}
-                  onRemoveSymbol={handleRemoveSymbol}
-                />
+              {selectedSymbol && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{selectedSymbol} Price Chart</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <PriceChart symbol={selectedSymbol} />
+                  </CardContent>
+                </Card>
               )}
-            </CardContent>
-          </Card>
-
-          {selectedSymbol && (
+            </>
+          ) : (
             <Card>
-              <CardHeader>
-                <CardTitle>{selectedSymbol} Price Chart</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PriceChart symbol={selectedSymbol} />
+              <CardContent className="py-8">
+                <p className="text-center text-muted-foreground">
+                  Create your first watchlist using the dropdown above.
+                </p>
               </CardContent>
             </Card>
           )}

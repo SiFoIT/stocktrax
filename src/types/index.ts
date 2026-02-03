@@ -31,6 +31,7 @@ export interface HoldingWithQuote {
 
 export interface WatchlistItemWithQuote {
   id: number;
+  watchlistId: number;
   symbol: string;
   addedAt: Date;
   price?: number;

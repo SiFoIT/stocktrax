@@ -45,13 +45,26 @@ export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
 export type StockCache = typeof stockCache.$inferSelect;
 
-export const watchlist = sqliteTable("watchlist", {
+export const watchlists = sqliteTable("watchlists", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  symbol: text("symbol").notNull().unique(),
+  name: text("name").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const watchlistItems = sqliteTable("watchlist_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  watchlistId: integer("watchlist_id")
+    .notNull()
+    .references(() => watchlists.id, { onDelete: "cascade" }),
+  symbol: text("symbol").notNull(),
   addedAt: integer("added_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
 });
 
-export type WatchlistItem = typeof watchlist.$inferSelect;
-export type NewWatchlistItem = typeof watchlist.$inferInsert;
+export type Watchlist = typeof watchlists.$inferSelect;
+export type NewWatchlist = typeof watchlists.$inferInsert;
+export type WatchlistItem = typeof watchlistItems.$inferSelect;
+export type NewWatchlistItem = typeof watchlistItems.$inferInsert;

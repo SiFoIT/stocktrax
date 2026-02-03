@@ -13,10 +13,12 @@ interface SearchResult {
 }
 
 interface AddSymbolFormProps {
+  watchlistId: number;
   onSymbolAdded: () => void;
+  compact?: boolean;
 }
 
-export function AddSymbolForm({ onSymbolAdded }: AddSymbolFormProps) {
+export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: AddSymbolFormProps) {
   const [symbol, setSymbol] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export function AddSymbolForm({ onSymbolAdded }: AddSymbolFormProps) {
       const response = await fetch("/api/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol: symbol.toUpperCase() }),
+        body: JSON.stringify({ watchlistId, symbol: symbol.toUpperCase() }),
       });
 
       if (!response.ok) {
@@ -123,6 +125,60 @@ export function AddSymbolForm({ onSymbolAdded }: AddSymbolFormProps) {
     }
   };
 
+  const suggestionsList = showSuggestions && suggestions.length > 0 && (
+    <div
+      ref={suggestionsRef}
+      className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-auto"
+    >
+      {suggestions.map((suggestion, index) => (
+        <div
+          key={suggestion.symbol}
+          className={`px-3 py-2 cursor-pointer flex justify-between items-center ${
+            index === selectedIndex ? "bg-accent" : "hover:bg-accent/50"
+          }`}
+          onClick={() => handleSelectSuggestion(suggestion)}
+        >
+          <div>
+            <span className="font-medium">{suggestion.symbol}</span>
+            <span className="text-muted-foreground text-sm ml-2 truncate">
+              {suggestion.name}
+            </span>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {suggestion.type === "CRYPTOCURRENCY" ? "Crypto" : suggestion.exchange}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (compact) {
+    return (
+      <form onSubmit={handleSubmit} className="flex gap-2 items-center">
+        <div className="relative w-96">
+          <Input
+            ref={inputRef}
+            placeholder="Add symbol..."
+            value={symbol}
+            onChange={(e) => {
+              setSymbol(e.target.value.toUpperCase());
+              setSelectedIndex(-1);
+            }}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            onKeyDown={handleKeyDown}
+            autoComplete="off"
+            className="h-8 text-sm"
+          />
+          {suggestionsList}
+        </div>
+        <Button type="submit" size="sm" disabled={loading}>
+          {loading ? "..." : "Add"}
+        </Button>
+        {error && <span className="text-red-500 text-xs">{error}</span>}
+      </form>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -145,32 +201,7 @@ export function AddSymbolForm({ onSymbolAdded }: AddSymbolFormProps) {
               autoComplete="off"
               required
             />
-            {showSuggestions && suggestions.length > 0 && (
-              <div
-                ref={suggestionsRef}
-                className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-auto"
-              >
-                {suggestions.map((suggestion, index) => (
-                  <div
-                    key={suggestion.symbol}
-                    className={`px-3 py-2 cursor-pointer flex justify-between items-center ${
-                      index === selectedIndex ? "bg-accent" : "hover:bg-accent/50"
-                    }`}
-                    onClick={() => handleSelectSuggestion(suggestion)}
-                  >
-                    <div>
-                      <span className="font-medium">{suggestion.symbol}</span>
-                      <span className="text-muted-foreground text-sm ml-2 truncate">
-                        {suggestion.name}
-                      </span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {suggestion.type === "CRYPTOCURRENCY" ? "Crypto" : suggestion.exchange}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+            {suggestionsList}
           </div>
           <Button type="submit" disabled={loading}>
             {loading ? "Adding..." : "Add"}
