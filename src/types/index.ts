@@ -1,0 +1,39 @@
+export interface StockQuote {
+  symbol: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  volume: number;
+  latestTradingDay: string;
+}
+
+export interface StockTimeSeries {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface HoldingWithQuote {
+  id: number;
+  portfolioId: number;
+  symbol: string;
+  shares: number;
+  avgCost: number;
+  currency: string;
+  currentPrice?: number;
+  marketValue?: number;
+  gainLoss?: number;
+  gainLossPercent?: number;
+}
+
+export interface WatchlistItemWithQuote {
+  id: number;
+  symbol: string;
+  addedAt: Date;
+  price?: number;
+  change?: number;
+  changePercent?: number;
+}
