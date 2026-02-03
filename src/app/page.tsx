@@ -3,9 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Portfolio, Watchlist, WatchlistItem } from "@/lib/db/schema";
 import { WatchlistItemWithQuote } from "@/types";
 import { AddSymbolForm } from "@/components/watchlist/add-symbol-form";
@@ -13,12 +11,16 @@ import { WatchlistTable } from "@/components/watchlist/watchlist-table";
 import { PriceChart } from "@/components/charts/price-chart";
 
 export default function Dashboard() {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"watchlist" | "portfolios">("watchlist");
+
   // Portfolio state
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
   const [newPortfolioName, setNewPortfolioName] = useState("");
   const [newPortfolioCurrency, setNewPortfolioCurrency] = useState<"USD" | "CAD">("USD");
   const [portfoliosLoading, setPortfoliosLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
+  const [creatingPortfolio, setCreatingPortfolio] = useState(false);
   const [editingPortfolioId, setEditingPortfolioId] = useState<number | null>(null);
   const [editingPortfolioName, setEditingPortfolioName] = useState("");
 
@@ -31,17 +33,22 @@ export default function Dashboard() {
 
   // Dropdown state
   const [showWatchlistDropdown, setShowWatchlistDropdown] = useState(false);
+  const [showPortfolioDropdown, setShowPortfolioDropdown] = useState(false);
   const [newWatchlistName, setNewWatchlistName] = useState("");
   const [creatingWatchlist, setCreatingWatchlist] = useState(false);
   const [editingWatchlistId, setEditingWatchlistId] = useState<number | null>(null);
   const [editingWatchlistName, setEditingWatchlistName] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const watchlistDropdownRef = useRef<HTMLDivElement>(null);
+  const portfolioDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (watchlistDropdownRef.current && !watchlistDropdownRef.current.contains(e.target as Node)) {
         setShowWatchlistDropdown(false);
+      }
+      if (portfolioDropdownRef.current && !portfolioDropdownRef.current.contains(e.target as Node)) {
+        setShowPortfolioDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -53,6 +60,11 @@ export default function Dashboard() {
       const response = await fetch("/api/portfolios");
       const data = await response.json();
       setPortfolios(data);
+
+      // Auto-select first portfolio if none selected
+      if (data.length > 0 && !selectedPortfolioId) {
+        setSelectedPortfolioId(data[0].id);
+      }
     } catch (error) {
       console.error("Error fetching portfolios:", error);
     } finally {
@@ -199,7 +211,7 @@ export default function Dashboard() {
     e.preventDefault();
     if (!newPortfolioName.trim()) return;
 
-    setCreating(true);
+    setCreatingPortfolio(true);
     try {
       const response = await fetch("/api/portfolios", {
         method: "POST",
@@ -211,13 +223,16 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
+        const newPortfolio = await response.json();
         setNewPortfolioName("");
-        fetchPortfolios();
+        await fetchPortfolios();
+        setSelectedPortfolioId(newPortfolio.id);
+        setShowPortfolioDropdown(false);
       }
     } catch (error) {
       console.error("Error creating portfolio:", error);
     } finally {
-      setCreating(false);
+      setCreatingPortfolio(false);
     }
   };
 
@@ -226,7 +241,13 @@ export default function Dashboard() {
 
     try {
       await fetch(`/api/portfolios?id=${id}`, { method: "DELETE" });
-      fetchPortfolios();
+      await fetchPortfolios();
+
+      // Select another portfolio if we deleted the current one
+      if (selectedPortfolioId === id) {
+        const remaining = portfolios.filter((p) => p.id !== id);
+        setSelectedPortfolioId(remaining.length > 0 ? remaining[0].id : null);
+      }
     } catch (error) {
       console.error("Error deleting portfolio:", error);
     }
@@ -241,7 +262,7 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: editingPortfolioName }),
       });
-      fetchPortfolios();
+      await fetchPortfolios();
       setEditingPortfolioId(null);
       setEditingPortfolioName("");
     } catch (error) {
@@ -279,6 +300,7 @@ export default function Dashboard() {
   };
 
   const selectedWatchlist = watchlists.find((w) => w.id === selectedWatchlistId);
+  const selectedPortfolio = portfolios.find((p) => p.id === selectedPortfolioId);
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -297,24 +319,33 @@ export default function Dashboard() {
         <p className="text-white/50 text-sm">Track your investments with real-time data</p>
       </div>
 
-      <Tabs defaultValue="watchlist" className="space-y-6">
+      {/* Tabs */}
+      <div className="space-y-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <TabsList className="bg-white/5 border border-white/10 p-1 rounded-xl">
-            <div className="relative" ref={dropdownRef}>
-              <TabsTrigger
-                value="watchlist"
-                onClick={() => setShowWatchlistDropdown(!showWatchlistDropdown)}
-                className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500/20 data-[state=active]:to-purple-500/20 data-[state=active]:border-blue-500/30 rounded-lg px-4 py-2 transition-all"
+          <div className="flex gap-2 p-1 rounded-xl bg-white/5 border border-white/10">
+            {/* Watchlists Tab with Dropdown */}
+            <div className="relative" ref={watchlistDropdownRef}>
+              <button
+                onClick={() => {
+                  setActiveTab("watchlist");
+                  setShowWatchlistDropdown(!showWatchlistDropdown);
+                  setShowPortfolioDropdown(false);
+                }}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 transition-all ${
+                  activeTab === "watchlist"
+                    ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white"
+                    : "text-white/60 hover:text-white hover:bg-white/5"
+                }`}
               >
                 <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                {selectedWatchlist?.name || "Watchlist"}
-                <svg className="w-4 h-4 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                Watchlists
+                <svg className={`w-4 h-4 text-white/50 transition-transform ${showWatchlistDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-              </TabsTrigger>
+              </button>
 
               {showWatchlistDropdown && (
                 <div className="absolute top-full left-0 mt-2 w-72 bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
@@ -412,15 +443,144 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            <TabsTrigger value="portfolios" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500/20 data-[state=active]:to-teal-500/20 data-[state=active]:border-emerald-500/30 rounded-lg px-4 py-2 transition-all">
-              <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Portfolios
-            </TabsTrigger>
-          </TabsList>
 
-          {selectedWatchlistId && (
+            {/* Portfolios Tab with Dropdown */}
+            <div className="relative" ref={portfolioDropdownRef}>
+              <button
+                onClick={() => {
+                  setActiveTab("portfolios");
+                  setShowPortfolioDropdown(!showPortfolioDropdown);
+                  setShowWatchlistDropdown(false);
+                }}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 transition-all ${
+                  activeTab === "portfolios"
+                    ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-white"
+                    : "text-white/60 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                Portfolios
+                <svg className={`w-4 h-4 text-white/50 transition-transform ${showPortfolioDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showPortfolioDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-80 bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
+                  <div className="p-3 border-b border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
+                    <form onSubmit={handleCreatePortfolio} className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="New portfolio name"
+                          value={newPortfolioName}
+                          onChange={(e) => setNewPortfolioName(e.target.value)}
+                          className="h-9 text-sm bg-white/5 border-white/10 focus:border-emerald-500/50"
+                        />
+                        <select
+                          className="h-9 px-2 rounded-lg border border-white/10 bg-white/5 text-sm focus:border-emerald-500/50 focus:outline-none"
+                          value={newPortfolioCurrency}
+                          onChange={(e) => setNewPortfolioCurrency(e.target.value as "USD" | "CAD")}
+                        >
+                          <option value="USD" className="bg-gray-900">USD</option>
+                          <option value="CAD" className="bg-gray-900">CAD</option>
+                        </select>
+                      </div>
+                      <Button type="submit" size="sm" disabled={creatingPortfolio} className="w-full bg-emerald-500 hover:bg-emerald-600">
+                        {creatingPortfolio ? "Creating..." : "Create Portfolio"}
+                      </Button>
+                    </form>
+                  </div>
+                  <div className="max-h-64 overflow-auto">
+                    {portfolios.length === 0 ? (
+                      <p className="p-4 text-sm text-white/50 text-center">No portfolios yet</p>
+                    ) : (
+                      portfolios.map((portfolio) => (
+                        <div
+                          key={portfolio.id}
+                          className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-all ${
+                            portfolio.id === selectedPortfolioId
+                              ? "bg-gradient-to-r from-emerald-500/20 to-transparent border-l-2 border-emerald-500"
+                              : "hover:bg-white/5"
+                          }`}
+                          onClick={() => {
+                            if (editingPortfolioId !== portfolio.id) {
+                              setSelectedPortfolioId(portfolio.id);
+                              setShowPortfolioDropdown(false);
+                            }
+                          }}
+                        >
+                          {editingPortfolioId === portfolio.id ? (
+                            <form
+                              className="flex gap-2 flex-1 mr-2"
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                handleRenamePortfolio(portfolio.id);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Input
+                                value={editingPortfolioName}
+                                onChange={(e) => setEditingPortfolioName(e.target.value)}
+                                className="h-7 text-sm bg-white/5 border-white/10"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape") {
+                                    setEditingPortfolioId(null);
+                                    setEditingPortfolioName("");
+                                  }
+                                }}
+                              />
+                              <Button type="submit" size="sm" className="h-7 px-2 bg-emerald-500 hover:bg-emerald-600">
+                                Save
+                              </Button>
+                            </form>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">{portfolio.name}</span>
+                              <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-xs">
+                                {portfolio.currency}
+                              </span>
+                            </div>
+                          )}
+                          {editingPortfolioId !== portfolio.id && (
+                            <div className="flex gap-1">
+                              <button
+                                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingPortfolioId(portfolio.id);
+                                  setEditingPortfolioName(portfolio.name);
+                                }}
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePortfolio(portfolio.id);
+                                }}
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {activeTab === "watchlist" && selectedWatchlistId && (
             <AddSymbolForm
               watchlistId={selectedWatchlistId}
               onSymbolAdded={() => fetchWatchlistItems(selectedWatchlistId)}
@@ -429,264 +589,165 @@ export default function Dashboard() {
           )}
         </div>
 
-        <TabsContent value="watchlist" className="space-y-6">
-          {selectedWatchlistId ? (
-            <>
+        {/* Watchlist Content */}
+        {activeTab === "watchlist" && (
+          <div className="space-y-6">
+            {selectedWatchlistId ? (
+              <>
+                <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-blue-500/10 to-transparent">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 className="font-semibold text-white">Watchlist: {selectedWatchlist?.name}</h2>
+                        <p className="text-xs text-white/50">{watchlistItems.length} symbols</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRefresh}
+                      disabled={watchlistLoading}
+                      className="bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
+                    >
+                      {watchlistLoading ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Refreshing...
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Refresh
+                        </div>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="p-4">
+                    {watchlistLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                          <p className="text-white/50">Loading watchlist...</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <WatchlistTable
+                        items={watchlistItems}
+                        selectedSymbol={selectedSymbol}
+                        onSelectSymbol={handleSelectSymbol}
+                        onRemoveSymbol={handleRemoveSymbol}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {selectedSymbol && (
+                  <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
+                    <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10 bg-gradient-to-r from-purple-500/10 to-transparent">
+                      <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                        </svg>
+                      </div>
+                      <h2 className="font-semibold text-white">{selectedSymbol} Price Chart</h2>
+                    </div>
+                    <div className="p-4">
+                      <PriceChart symbol={selectedSymbol} storageKey={`watchlist_${selectedWatchlistId}`} />
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 p-12">
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-blue-500/20 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">No Watchlist Selected</h3>
+                  <p className="text-white/50">Create your first watchlist using the dropdown above.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Portfolios Content */}
+        {activeTab === "portfolios" && (
+          <div className="space-y-6">
+            {selectedPortfolioId && selectedPortfolio ? (
               <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-blue-500/10 to-transparent">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     </div>
                     <div>
-                      <h2 className="font-semibold text-white">Watchlist: {selectedWatchlist?.name}</h2>
-                      <p className="text-xs text-white/50">{watchlistItems.length} symbols</p>
+                      <h2 className="font-semibold text-white">Portfolio: {selectedPortfolio.name}</h2>
+                      <p className="text-xs text-white/50">{selectedPortfolio.currency} • Created {new Date(selectedPortfolio.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRefresh}
-                    disabled={watchlistLoading}
-                    className="bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
-                  >
-                    {watchlistLoading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Refreshing...
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Refresh
-                      </div>
-                    )}
+                  <Button asChild className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600">
+                    <Link href={`/portfolio/${selectedPortfolioId}`}>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      Open Portfolio
+                    </Link>
                   </Button>
                 </div>
-                <div className="p-4">
-                  {watchlistLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-                        <p className="text-white/50">Loading watchlist...</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <WatchlistTable
-                      items={watchlistItems}
-                      selectedSymbol={selectedSymbol}
-                      onSelectSymbol={handleSelectSymbol}
-                      onRemoveSymbol={handleRemoveSymbol}
-                    />
-                  )}
-                </div>
-              </div>
-
-              {selectedSymbol && (
-                <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
-                  <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10 bg-gradient-to-r from-purple-500/10 to-transparent">
-                    <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                <div className="p-8 text-center">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center">
+                    <svg className="w-10 h-10 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">{selectedPortfolio.name}</h3>
+                  <p className="text-white/50 mb-6">Click &quot;Open Portfolio&quot; to view holdings, add positions, and see detailed analytics.</p>
+                  <Button asChild size="lg" className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600">
+                    <Link href={`/portfolio/${selectedPortfolioId}`}>
+                      View Full Portfolio
+                      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                       </svg>
-                    </div>
-                    <h2 className="font-semibold text-white">{selectedSymbol} Price Chart</h2>
-                  </div>
-                  <div className="p-4">
-                    <PriceChart symbol={selectedSymbol} storageKey={`watchlist_${selectedWatchlistId}`} />
-                  </div>
+                    </Link>
+                  </Button>
                 </div>
-              )}
-            </>
-          ) : (
-            <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 p-12">
-              <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-blue-500/20 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">No Watchlist Selected</h3>
-                <p className="text-white/50">Create your first watchlist using the dropdown above.</p>
               </div>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="portfolios" className="space-y-6">
-          {/* Create Portfolio Card */}
-          <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
+            ) : portfoliosLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-10 h-10 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+                  <p className="text-white/50">Loading portfolios...</p>
+                </div>
               </div>
-              <h2 className="font-semibold text-white">Create New Portfolio</h2>
-            </div>
-            <div className="p-6">
-              <form onSubmit={handleCreatePortfolio} className="flex gap-4 items-end flex-wrap">
-                <div className="flex-1 min-w-[200px]">
-                  <label className="text-sm font-medium mb-2 block text-white/70">Portfolio Name</label>
-                  <Input
-                    placeholder="My Portfolio"
-                    value={newPortfolioName}
-                    onChange={(e) => setNewPortfolioName(e.target.value)}
-                    required
-                    className="bg-white/5 border-white/10 focus:border-emerald-500/50"
-                  />
+            ) : (
+              <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 p-12">
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">No Portfolio Selected</h3>
+                  <p className="text-white/50">Create your first portfolio using the dropdown above.</p>
                 </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block text-white/70">Currency</label>
-                  <select
-                    className="flex h-10 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm transition-colors focus:border-emerald-500/50 focus:outline-none"
-                    value={newPortfolioCurrency}
-                    onChange={(e) => setNewPortfolioCurrency(e.target.value as "USD" | "CAD")}
-                  >
-                    <option value="USD" className="bg-gray-900">USD</option>
-                    <option value="CAD" className="bg-gray-900">CAD</option>
-                  </select>
-                </div>
-                <Button type="submit" disabled={creating} className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600">
-                  {creating ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Creating...
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      Create Portfolio
-                    </div>
-                  )}
-                </Button>
-              </form>
-            </div>
+              </div>
+            )}
           </div>
-
-          {/* Portfolios Header */}
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-              <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold text-white">Your Portfolios</h2>
-            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-medium">
-              {portfolios.length}
-            </span>
-          </div>
-
-          {portfoliosLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-10 h-10 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-                <p className="text-white/50">Loading portfolios...</p>
-              </div>
-            </div>
-          ) : portfolios.length === 0 ? (
-            <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 p-12">
-              <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">No Portfolios Yet</h3>
-                <p className="text-white/50">Create your first portfolio using the form above.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {portfolios.map((portfolio) => (
-                <div key={portfolio.id} className="group rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden hover:border-emerald-500/30 transition-all">
-                  <div className="p-5">
-                    <div className="flex items-start justify-between mb-4">
-                      {editingPortfolioId === portfolio.id ? (
-                        <form
-                          className="flex gap-2 flex-1 mr-2"
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            handleRenamePortfolio(portfolio.id);
-                          }}
-                        >
-                          <Input
-                            value={editingPortfolioName}
-                            onChange={(e) => setEditingPortfolioName(e.target.value)}
-                            className="h-9 bg-white/5 border-white/10"
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === "Escape") {
-                                setEditingPortfolioId(null);
-                                setEditingPortfolioName("");
-                              }
-                            }}
-                          />
-                          <Button type="submit" size="sm" className="bg-emerald-500 hover:bg-emerald-600">
-                            Save
-                          </Button>
-                        </form>
-                      ) : (
-                        <>
-                          <div>
-                            <h3 className="font-semibold text-white text-lg">{portfolio.name}</h3>
-                            <p className="text-xs text-white/50">
-                              Created {new Date(portfolio.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm font-medium">
-                            {portfolio.currency}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button asChild className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600">
-                        <Link href={`/portfolio/${portfolio.id}`}>
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                          View
-                        </Link>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          setEditingPortfolioId(portfolio.id);
-                          setEditingPortfolioName(portfolio.name);
-                        }}
-                        className="bg-white/5 border-white/10 hover:bg-white/10"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleDeletePortfolio(portfolio.id)}
-                        className="bg-white/5 border-white/10 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
     </div>
   );
 }
