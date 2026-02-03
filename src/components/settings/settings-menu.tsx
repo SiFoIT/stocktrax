@@ -3,10 +3,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/contexts/theme-context";
 import { GeneralSettingsModal } from "./general-settings-modal";
+import { DataSettingsModal } from "./data-settings-modal";
 
 export function SettingsMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [showGeneralSettings, setShowGeneralSettings] = useState(false);
+  const [showDataSettings, setShowDataSettings] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -80,6 +82,27 @@ export function SettingsMenu() {
                 </div>
               </button>
 
+              {/* Data Settings */}
+              <button
+                onClick={() => {
+                  setShowDataSettings(true);
+                  setIsOpen(false);
+                }}
+                className="w-full px-3 py-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-teal-500/20 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                    </svg>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-black dark:text-white">Data</p>
+                    <p className="text-xs text-black/50 dark:text-white/50">Export & import backup</p>
+                  </div>
+                </div>
+              </button>
+
               {/* Divider */}
               <div className="my-2 border-t border-black/10 dark:border-white/10" />
 
@@ -105,6 +128,11 @@ export function SettingsMenu() {
       {/* General Settings Modal */}
       {showGeneralSettings && (
         <GeneralSettingsModal onClose={() => setShowGeneralSettings(false)} />
+      )}
+
+      {/* Data Settings Modal */}
+      {showDataSettings && (
+        <DataSettingsModal onClose={() => setShowDataSettings(false)} />
       )}
     </div>
   );
