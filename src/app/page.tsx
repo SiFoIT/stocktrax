@@ -19,6 +19,8 @@ export default function Dashboard() {
   const [newPortfolioCurrency, setNewPortfolioCurrency] = useState<"USD" | "CAD">("USD");
   const [portfoliosLoading, setPortfoliosLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [editingPortfolioId, setEditingPortfolioId] = useState<number | null>(null);
+  const [editingPortfolioName, setEditingPortfolioName] = useState("");
 
   // Watchlist state
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
@@ -31,6 +33,8 @@ export default function Dashboard() {
   const [showWatchlistDropdown, setShowWatchlistDropdown] = useState(false);
   const [newWatchlistName, setNewWatchlistName] = useState("");
   const [creatingWatchlist, setCreatingWatchlist] = useState(false);
+  const [editingWatchlistId, setEditingWatchlistId] = useState<number | null>(null);
+  const [editingWatchlistName, setEditingWatchlistName] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -174,6 +178,23 @@ export default function Dashboard() {
     }
   };
 
+  const handleRenameWatchlist = async (id: number) => {
+    if (!editingWatchlistName.trim()) return;
+
+    try {
+      await fetch(`/api/watchlists?id=${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editingWatchlistName }),
+      });
+      await fetchWatchlists();
+      setEditingWatchlistId(null);
+      setEditingWatchlistName("");
+    } catch (error) {
+      console.error("Error renaming watchlist:", error);
+    }
+  };
+
   const handleCreatePortfolio = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPortfolioName.trim()) return;
@@ -208,6 +229,23 @@ export default function Dashboard() {
       fetchPortfolios();
     } catch (error) {
       console.error("Error deleting portfolio:", error);
+    }
+  };
+
+  const handleRenamePortfolio = async (id: number) => {
+    if (!editingPortfolioName.trim()) return;
+
+    try {
+      await fetch(`/api/portfolios?id=${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editingPortfolioName }),
+      });
+      fetchPortfolios();
+      setEditingPortfolioId(null);
+      setEditingPortfolioName("");
+    } catch (error) {
+      console.error("Error renaming portfolio:", error);
     }
   };
 
@@ -287,22 +325,67 @@ export default function Dashboard() {
                             watchlist.id === selectedWatchlistId ? "bg-accent" : ""
                           }`}
                           onClick={() => {
-                            setSelectedWatchlistId(watchlist.id);
-                            setShowWatchlistDropdown(false);
+                            if (editingWatchlistId !== watchlist.id) {
+                              setSelectedWatchlistId(watchlist.id);
+                              setShowWatchlistDropdown(false);
+                            }
                           }}
                         >
-                          <span className="text-sm">{watchlist.name}</span>
-                          <button
-                            className="text-muted-foreground hover:text-destructive p-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteWatchlist(watchlist.id);
-                            }}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                          {editingWatchlistId === watchlist.id ? (
+                            <form
+                              className="flex gap-1 flex-1 mr-2"
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                handleRenameWatchlist(watchlist.id);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Input
+                                value={editingWatchlistName}
+                                onChange={(e) => setEditingWatchlistName(e.target.value)}
+                                className="h-6 text-sm"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape") {
+                                    setEditingWatchlistId(null);
+                                    setEditingWatchlistName("");
+                                  }
+                                }}
+                              />
+                              <Button type="submit" size="sm" className="h-6 px-2">
+                                Save
+                              </Button>
+                            </form>
+                          ) : (
+                            <span className="text-sm">{watchlist.name}</span>
+                          )}
+                          {editingWatchlistId !== watchlist.id && (
+                            <div className="flex gap-1">
+                              <button
+                                className="text-muted-foreground hover:text-foreground p-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingWatchlistId(watchlist.id);
+                                  setEditingWatchlistName(watchlist.name);
+                                }}
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                className="text-muted-foreground hover:text-destructive p-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteWatchlist(watchlist.id);
+                                }}
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ))
                     )}
@@ -420,7 +503,33 @@ export default function Dashboard() {
               {portfolios.map((portfolio) => (
                 <Card key={portfolio.id}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-lg">{portfolio.name}</CardTitle>
+                    {editingPortfolioId === portfolio.id ? (
+                      <form
+                        className="flex gap-2 flex-1 mr-2"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleRenamePortfolio(portfolio.id);
+                        }}
+                      >
+                        <Input
+                          value={editingPortfolioName}
+                          onChange={(e) => setEditingPortfolioName(e.target.value)}
+                          className="h-8"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") {
+                              setEditingPortfolioId(null);
+                              setEditingPortfolioName("");
+                            }
+                          }}
+                        />
+                        <Button type="submit" size="sm">
+                          Save
+                        </Button>
+                      </form>
+                    ) : (
+                      <CardTitle className="text-lg">{portfolio.name}</CardTitle>
+                    )}
                     <span className="text-sm text-muted-foreground">
                       {portfolio.currency}
                     </span>
@@ -433,6 +542,15 @@ export default function Dashboard() {
                     <div className="flex gap-2">
                       <Button asChild className="flex-1">
                         <Link href={`/portfolio/${portfolio.id}`}>View</Link>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setEditingPortfolioId(portfolio.id);
+                          setEditingPortfolioName(portfolio.name);
+                        }}
+                      >
+                        Rename
                       </Button>
                       <Button
                         variant="outline"
