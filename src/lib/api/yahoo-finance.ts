@@ -28,23 +28,29 @@ export async function getQuote(symbol: string): Promise<StockQuote | null> {
   }
 }
 
+export type TimeSeriesInterval = "5m" | "15m" | "1h" | "1d";
+
 export async function getTimeSeries(
   symbol: string,
-  period: "1mo" | "3mo" | "6mo" | "1y" = "3mo"
+  period: "1d" | "5d" | "1mo" | "3mo" | "1y" = "3mo",
+  interval: TimeSeriesInterval = "1d"
 ): Promise<StockTimeSeries[]> {
   try {
     const endDate = new Date();
     const startDate = new Date();
 
     switch (period) {
+      case "1d":
+        startDate.setDate(startDate.getDate() - 1);
+        break;
+      case "5d":
+        startDate.setDate(startDate.getDate() - 5);
+        break;
       case "1mo":
         startDate.setMonth(startDate.getMonth() - 1);
         break;
       case "3mo":
         startDate.setMonth(startDate.getMonth() - 3);
-        break;
-      case "6mo":
-        startDate.setMonth(startDate.getMonth() - 6);
         break;
       case "1y":
         startDate.setFullYear(startDate.getFullYear() - 1);
@@ -54,6 +60,7 @@ export async function getTimeSeries(
     const result = await yahooFinance.chart(symbol, {
       period1: startDate,
       period2: endDate,
+      interval: interval,
     });
 
     if (!result || !result.quotes) {
@@ -64,7 +71,10 @@ export async function getTimeSeries(
     return result.quotes
       .filter((q) => q.date && q.close !== null)
       .map((q) => ({
-        date: q.date.toISOString().split("T")[0],
+        // For intraday, include full ISO timestamp; for daily, just the date
+        date: interval === "1d"
+          ? q.date.toISOString().split("T")[0]
+          : q.date.toISOString(),
         open: q.open ?? 0,
         high: q.high ?? 0,
         low: q.low ?? 0,

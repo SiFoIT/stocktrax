@@ -11,7 +11,7 @@ import { AddHoldingForm } from "@/components/portfolio/add-holding-form";
 import { PriceChart } from "@/components/charts/price-chart";
 import { AllocationChart } from "@/components/charts/allocation-chart";
 import { Portfolio, Holding } from "@/lib/db/schema";
-import { HoldingWithQuote, StockTimeSeries } from "@/types";
+import { HoldingWithQuote } from "@/types";
 
 export default function PortfolioPage() {
   const params = useParams();
@@ -20,9 +20,7 @@ export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [holdings, setHoldings] = useState<HoldingWithQuote[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
-  const [timeSeries, setTimeSeries] = useState<StockTimeSeries[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingChart, setLoadingChart] = useState(false);
 
   const fetchHoldings = useCallback(async () => {
     try {
@@ -85,20 +83,8 @@ export default function PortfolioPage() {
     loadData();
   }, [fetchPortfolio, fetchHoldings]);
 
-  const handleSelectHolding = async (symbol: string) => {
+  const handleSelectHolding = (symbol: string) => {
     setSelectedSymbol(symbol);
-    setLoadingChart(true);
-
-    try {
-      const response = await fetch(`/api/stocks/${symbol}?timeseries=true`);
-      const data = await response.json();
-      setTimeSeries(data.timeSeries || []);
-    } catch (error) {
-      console.error("Error fetching time series:", error);
-      setTimeSeries([]);
-    } finally {
-      setLoadingChart(false);
-    }
   };
 
   const handleDeleteHolding = async (id: number) => {
@@ -111,7 +97,6 @@ export default function PortfolioPage() {
         const deleted = holdings.find((h) => h.id === id);
         if (deleted?.symbol === selectedSymbol) {
           setSelectedSymbol(null);
-          setTimeSeries([]);
         }
       }
     } catch (error) {
@@ -241,13 +226,7 @@ export default function PortfolioPage() {
                   <CardTitle>{selectedSymbol} Price Chart</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {loadingChart ? (
-                    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                      Loading chart...
-                    </div>
-                  ) : (
-                    <PriceChart data={timeSeries} />
-                  )}
+                  <PriceChart symbol={selectedSymbol} />
                 </CardContent>
               </Card>
             )}

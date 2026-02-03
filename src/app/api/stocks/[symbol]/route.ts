@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { getQuote, getTimeSeries } from "@/lib/api/yahoo-finance";
+import { getQuote, getTimeSeries, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const INTRADAY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes for intraday
 
 export async function GET(
   request: NextRequest,
@@ -14,16 +15,22 @@ export async function GET(
   const url = new URL(request.url);
   const includeTimeSeries = url.searchParams.get("timeseries") === "true";
   const skipCache = url.searchParams.get("refresh") === "true";
+  const period = (url.searchParams.get("period") || "1y") as "1d" | "5d" | "1mo" | "3mo" | "1y";
+  const interval = (url.searchParams.get("interval") || "1d") as TimeSeriesInterval;
+
+  const isIntraday = interval !== "1d";
+  const cacheKey = `${upperSymbol}_${period}_${interval}`;
+  const cacheTTL = isIntraday ? INTRADAY_CACHE_TTL_MS : CACHE_TTL_MS;
 
   // Check cache (skip if refresh requested)
   if (!skipCache) {
     const cached = await db.query.stockCache.findFirst({
-      where: eq(schema.stockCache.symbol, upperSymbol),
+      where: eq(schema.stockCache.symbol, cacheKey),
     });
 
     if (cached) {
       const age = Date.now() - cached.fetchedAt.getTime();
-      if (age < CACHE_TTL_MS) {
+      if (age < cacheTTL) {
         const data = JSON.parse(cached.data);
         if (!includeTimeSeries || data.timeSeries) {
           return NextResponse.json(data);
@@ -43,7 +50,7 @@ export async function GET(
 
   let timeSeries: Awaited<ReturnType<typeof getTimeSeries>> = [];
   if (includeTimeSeries) {
-    timeSeries = await getTimeSeries(upperSymbol);
+    timeSeries = await getTimeSeries(upperSymbol, period, interval);
   }
 
   const data = { quote, timeSeries: includeTimeSeries ? timeSeries : undefined };
@@ -52,7 +59,7 @@ export async function GET(
   await db
     .insert(schema.stockCache)
     .values({
-      symbol: upperSymbol,
+      symbol: cacheKey,
       data: JSON.stringify(data),
       fetchedAt: new Date(),
     })

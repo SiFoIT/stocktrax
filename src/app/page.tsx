@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Portfolio, WatchlistItem } from "@/lib/db/schema";
-import { WatchlistItemWithQuote, StockTimeSeries } from "@/types";
+import { WatchlistItemWithQuote } from "@/types";
 import { AddSymbolForm } from "@/components/watchlist/add-symbol-form";
 import { WatchlistTable } from "@/components/watchlist/watchlist-table";
 import { PriceChart } from "@/components/charts/price-chart";
@@ -24,8 +24,6 @@ export default function Dashboard() {
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItemWithQuote[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(true);
   const [selectedSymbol, setSelectedSymbol] = useState<string | undefined>();
-  const [chartData, setChartData] = useState<StockTimeSeries[]>([]);
-  const [chartLoading, setChartLoading] = useState(false);
 
   const fetchPortfolios = async () => {
     try {
@@ -82,32 +80,10 @@ export default function Dashboard() {
     }
   }, [selectedSymbol]);
 
-  const fetchChartData = useCallback(async (symbol: string) => {
-    setChartLoading(true);
-    try {
-      const response = await fetch(`/api/stocks/${symbol}?timeseries=true`);
-      if (response.ok) {
-        const data = await response.json();
-        setChartData(data.timeSeries || []);
-      }
-    } catch (error) {
-      console.error("Error fetching chart data:", error);
-      setChartData([]);
-    } finally {
-      setChartLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     fetchPortfolios();
     fetchWatchlist();
   }, [fetchWatchlist]);
-
-  useEffect(() => {
-    if (selectedSymbol) {
-      fetchChartData(selectedSymbol);
-    }
-  }, [selectedSymbol, fetchChartData]);
 
   const handleCreatePortfolio = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,6 +143,10 @@ export default function Dashboard() {
     setSelectedSymbol(symbol);
   };
 
+  const handleRefresh = async () => {
+    await fetchWatchlist(true);
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
       <h1 className="text-3xl font-bold mb-8">StockTrax</h1>
@@ -186,7 +166,7 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => fetchWatchlist(true)}
+                onClick={handleRefresh}
                 disabled={watchlistLoading}
               >
                 {watchlistLoading ? "Refreshing..." : "Refresh"}
@@ -212,13 +192,7 @@ export default function Dashboard() {
                 <CardTitle>{selectedSymbol} Price Chart</CardTitle>
               </CardHeader>
               <CardContent>
-                {chartLoading ? (
-                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                    Loading chart...
-                  </div>
-                ) : (
-                  <PriceChart data={chartData} />
-                )}
+                <PriceChart symbol={selectedSymbol} />
               </CardContent>
             </Card>
           )}
