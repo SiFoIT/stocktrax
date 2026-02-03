@@ -11,6 +11,7 @@ import { WatchlistTable } from "@/components/watchlist/watchlist-table";
 import { PriceChart } from "@/components/charts/price-chart";
 import { SettingsMenu } from "@/components/settings/settings-menu";
 import { MarketOverview } from "@/components/markets/market-overview";
+import { getDefaultTab, type DefaultTab } from "@/components/settings/general-settings-modal";
 
 function formatUpdatedTime(date: Date): string {
   const now = new Date();
@@ -27,8 +28,13 @@ function formatUpdatedTime(date: Date): string {
 }
 
 export default function Dashboard() {
-  // Tab state
-  const [activeTab, setActiveTab] = useState<"general" | "watchlist" | "portfolios">("general");
+  // Tab state - initialized from localStorage preference
+  const [activeTab, setActiveTab] = useState<DefaultTab>("general");
+
+  // Initialize tab from localStorage after mount
+  useEffect(() => {
+    setActiveTab(getDefaultTab());
+  }, []);
 
   // Portfolio state
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
