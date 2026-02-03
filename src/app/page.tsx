@@ -10,10 +10,11 @@ import { AddSymbolForm } from "@/components/watchlist/add-symbol-form";
 import { WatchlistTable } from "@/components/watchlist/watchlist-table";
 import { PriceChart } from "@/components/charts/price-chart";
 import { SettingsMenu } from "@/components/settings/settings-menu";
+import { MarketOverview } from "@/components/markets/market-overview";
 
 export default function Dashboard() {
   // Tab state
-  const [activeTab, setActiveTab] = useState<"watchlist" | "portfolios">("watchlist");
+  const [activeTab, setActiveTab] = useState<"general" | "watchlist" | "portfolios">("general");
 
   // Portfolio state
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -327,6 +328,25 @@ export default function Dashboard() {
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex gap-2 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+            {/* General Tab */}
+            <button
+              onClick={() => {
+                setActiveTab("general");
+                setShowWatchlistDropdown(false);
+                setShowPortfolioDropdown(false);
+              }}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 transition-all ${
+                activeTab === "general"
+                  ? "bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-black dark:text-white"
+                  : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+              }`}
+            >
+              <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              General
+            </button>
+
             {/* Watchlists Tab with Dropdown */}
             <div className="relative" ref={watchlistDropdownRef}>
               <button
@@ -592,6 +612,9 @@ export default function Dashboard() {
             />
           )}
         </div>
+
+        {/* General Content */}
+        {activeTab === "general" && <MarketOverview />}
 
         {/* Watchlist Content */}
         {activeTab === "watchlist" && (

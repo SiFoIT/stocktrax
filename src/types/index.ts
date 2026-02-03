@@ -42,3 +42,12 @@ export interface WatchlistItemWithQuote {
   change3M?: number;
   change1Y?: number;
 }
+
+export interface MarketData {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  sparklineData: number[];
+}
