@@ -12,6 +12,20 @@ import { PriceChart } from "@/components/charts/price-chart";
 import { SettingsMenu } from "@/components/settings/settings-menu";
 import { MarketOverview } from "@/components/markets/market-overview";
 
+function formatUpdatedTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) {
+    return "Updated just now";
+  } else if (diffMins < 60) {
+    return `Updated ${diffMins} min ago`;
+  } else {
+    return `Updated ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  }
+}
+
 export default function Dashboard() {
   // Tab state
   const [activeTab, setActiveTab] = useState<"general" | "watchlist" | "portfolios">("general");
@@ -32,6 +46,7 @@ export default function Dashboard() {
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItemWithQuote[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(true);
   const [selectedSymbol, setSelectedSymbol] = useState<string | undefined>();
+  const [watchlistUpdatedAt, setWatchlistUpdatedAt] = useState<Date | null>(null);
 
   // Dropdown state
   const [showWatchlistDropdown, setShowWatchlistDropdown] = useState(false);
@@ -124,6 +139,7 @@ export default function Dashboard() {
       );
 
       setWatchlistItems(itemsWithQuotes);
+      setWatchlistUpdatedAt(new Date());
 
       // Auto-select first symbol if none selected
       if (itemsWithQuotes.length > 0) {
@@ -634,27 +650,34 @@ export default function Dashboard() {
                         <p className="text-xs text-black/50 dark:text-white/50">{watchlistItems.length} symbols</p>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRefresh}
-                      disabled={watchlistLoading}
-                      className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 hover:bg-black/10 dark:hover:bg-white/10 hover:border-black/20 dark:hover:border-white/20"
-                    >
-                      {watchlistLoading ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 border-2 border-black/30 dark:border-white/30 border-t-black dark:border-t-white rounded-full animate-spin" />
-                          Refreshing...
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          Refresh
-                        </div>
+                    <div className="flex items-center gap-4">
+                      {watchlistUpdatedAt && (
+                        <span className="text-xs text-black/50 dark:text-white/50">
+                          {formatUpdatedTime(watchlistUpdatedAt)}
+                        </span>
                       )}
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRefresh}
+                        disabled={watchlistLoading}
+                        className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 hover:bg-black/10 dark:hover:bg-white/10 hover:border-black/20 dark:hover:border-white/20"
+                      >
+                        {watchlistLoading ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-black/30 dark:border-white/30 border-t-black dark:border-t-white rounded-full animate-spin" />
+                            Refreshing...
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Refresh
+                          </div>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   <div className="p-4">
                     {watchlistLoading ? (

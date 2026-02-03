@@ -5,6 +5,21 @@ import { Button } from "@/components/ui/button";
 interface MarketStatusProps {
   onRefresh: () => void;
   isLoading: boolean;
+  updatedAt?: Date | null;
+}
+
+function formatUpdatedTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) {
+    return "Updated just now";
+  } else if (diffMins < 60) {
+    return `Updated ${diffMins} min ago`;
+  } else {
+    return `Updated ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  }
 }
 
 function isMarketOpen(): boolean {
@@ -27,21 +42,31 @@ function isMarketOpen(): boolean {
   return time >= marketOpen && time < marketClose;
 }
 
-export function MarketStatus({ onRefresh, isLoading }: MarketStatusProps) {
+export function MarketStatusIndicator() {
   const open = isMarketOpen();
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <div
-          className={`w-2 h-2 rounded-full ${
-            open ? "bg-green-500 animate-pulse" : "bg-red-500"
-          }`}
-        />
-        <span className="text-sm text-black/70 dark:text-white/70">
-          Markets {open ? "open" : "closed"}
+    <div className="flex items-center gap-2">
+      <div
+        className={`w-2 h-2 rounded-full ${
+          open ? "bg-green-500 animate-pulse" : "bg-red-500"
+        }`}
+      />
+      <span className="text-sm text-black/70 dark:text-white/70">
+        Markets {open ? "open" : "closed"}
+      </span>
+    </div>
+  );
+}
+
+export function MarketStatus({ onRefresh, isLoading, updatedAt }: MarketStatusProps) {
+  return (
+    <div className="flex items-center gap-4">
+      {updatedAt && (
+        <span className="text-xs text-black/50 dark:text-white/50">
+          {formatUpdatedTime(updatedAt)}
         </span>
-      </div>
+      )}
       <Button
         variant="outline"
         size="sm"
