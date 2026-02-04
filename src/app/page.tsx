@@ -715,7 +715,20 @@ export default function Dashboard() {
                       <h2 className="font-semibold text-black dark:text-white">{selectedSymbol} Price Chart</h2>
                     </div>
                     <div className="p-4">
-                      <PriceChart symbol={selectedSymbol} storageKey={`watchlist_${selectedWatchlistId}`} />
+                      <PriceChart
+                        symbol={selectedSymbol}
+                        storageKey={`watchlist_${selectedWatchlistId}`}
+                        timeframeChanges={(() => {
+                          const item = watchlistItems.find(i => i.symbol === selectedSymbol);
+                          if (!item) return undefined;
+                          return {
+                            "1D": item.changePercent,
+                            "5D": item.change5D,
+                            "3M": item.change3M,
+                            "1Y": item.change1Y,
+                          };
+                        })()}
+                      />
                     </div>
                   </div>
                 )}

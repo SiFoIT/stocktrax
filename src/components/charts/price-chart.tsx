@@ -17,10 +17,18 @@ import { Button } from "@/components/ui/button";
 type TimeRange = "1D" | "5D" | "3M" | "1Y";
 type ChartType = "line" | "candle";
 
+interface TimeframeChanges {
+  "1D"?: number;
+  "5D"?: number;
+  "3M"?: number;
+  "1Y"?: number;
+}
+
 interface PriceChartProps {
   symbol: string;
   height?: number;
   storageKey?: string; // Key for persisting chart preferences (e.g., "watchlist_1")
+  timeframeChanges?: TimeframeChanges; // Percentage changes for each timeframe
 }
 
 // Map time range to API parameters - daily ranges all fetch 1Y for zoom flexibility
@@ -57,7 +65,18 @@ function saveChartPrefs(key: string | undefined, range: TimeRange, type: ChartTy
   }
 }
 
-export function PriceChart({ symbol, height = 300, storageKey }: PriceChartProps) {
+function formatPercent(value: number | undefined): string {
+  if (value === undefined) return "";
+  const sign = value >= 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}%`;
+}
+
+function getChangeColor(value: number | undefined): string {
+  if (value === undefined) return "text-white/50";
+  return value >= 0 ? "text-emerald-400" : "text-red-400";
+}
+
+export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges }: PriceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const initialPrefs = useRef(loadChartPrefs(storageKey));
@@ -211,27 +230,34 @@ export function PriceChart({ symbol, height = 300, storageKey }: PriceChartProps
     setActiveRange(range);
   };
 
-  const ranges: TimeRange[] = ["1Y", "3M", "5D", "1D"];
+  const ranges: TimeRange[] = ["1D", "5D", "3M", "1Y"];
 
   return (
     <div className="space-y-4">
       <div className="flex gap-3 justify-between items-center">
         {/* Time Range Buttons */}
-        <div className="flex gap-1 p-1 rounded-xl bg-black/5 dark:bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
-          {ranges.map((range) => (
-            <button
-              key={range}
-              onClick={() => handleRangeChange(range)}
-              disabled={loading}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-                activeRange === range
-                  ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg text-black dark:text-white"
-                  : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
-              } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              {range}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1 p-1 rounded-xl bg-black/5 dark:bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+            {ranges.map((range) => (
+              <button
+                key={range}
+                onClick={() => handleRangeChange(range)}
+                disabled={loading}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                  activeRange === range
+                    ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg"
+                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+          {timeframeChanges?.[activeRange] !== undefined && (
+            <span className={`text-sm font-semibold ${getChangeColor(timeframeChanges[activeRange])}`}>
+              {formatPercent(timeframeChanges[activeRange])}
+            </span>
+          )}
         </div>
 
         {/* Chart Type Toggle */}
