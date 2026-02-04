@@ -2,25 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getQuote, getTimeSeries } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
-import { MARKET_SYMBOLS, Region } from "@/lib/markets/symbols";
+import { MARKET_SYMBOLS, Category, CATEGORIES } from "@/lib/markets/symbols";
 import { MarketData } from "@/types";
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const region = url.searchParams.get("region") as Region | null;
-  const skipCache = url.searchParams.get("refresh") === "true";
-
-  if (!region || !MARKET_SYMBOLS[region]) {
-    return NextResponse.json(
-      { error: "Invalid region. Valid regions: canada, us, europe, asia, crypto" },
-      { status: 400 }
-    );
-  }
-
-  const symbols = MARKET_SYMBOLS[region];
-  const cacheKey = `markets_${region}`;
+async function fetchCategoryData(category: Category, skipCache: boolean): Promise<MarketData[]> {
+  const symbols = MARKET_SYMBOLS[category];
+  const cacheKey = `markets_${category}`;
 
   // Check cache (skip if refresh requested)
   if (!skipCache) {
@@ -31,7 +20,7 @@ export async function GET(request: NextRequest) {
     if (cached) {
       const age = Date.now() - cached.fetchedAt.getTime();
       if (age < CACHE_TTL_MS) {
-        return NextResponse.json(JSON.parse(cached.data));
+        return JSON.parse(cached.data);
       }
     }
   }
@@ -88,5 +77,26 @@ export async function GET(request: NextRequest) {
       },
     });
 
-  return NextResponse.json(marketData);
+  return marketData;
+}
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const skipCache = url.searchParams.get("refresh") === "true";
+
+  // Fetch all categories in parallel
+  const results = await Promise.all(
+    CATEGORIES.map(async (category) => ({
+      category,
+      data: await fetchCategoryData(category, skipCache),
+    }))
+  );
+
+  // Return as a record keyed by category
+  const response: Record<Category, MarketData[]> = {} as Record<Category, MarketData[]>;
+  for (const { category, data } of results) {
+    response[category] = data;
+  }
+
+  return NextResponse.json(response);
 }

@@ -1,25 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Region, REGION_LABELS } from "@/lib/markets/symbols";
+import { Category, CATEGORIES, CATEGORY_LABELS } from "@/lib/markets/symbols";
 import { MarketData } from "@/types";
 import { MarketCard } from "./market-card";
 import { MarketStatus, MarketStatusIndicator } from "./market-status";
 
-const REGIONS: Region[] = ["canada", "us", "europe", "asia", "crypto"];
+type MarketDataByCategory = Record<Category, MarketData[]>;
 
 export function MarketOverview() {
-  const [activeRegion, setActiveRegion] = useState<Region>("canada");
-  const [marketData, setMarketData] = useState<MarketData[]>([]);
+  const [marketData, setMarketData] = useState<MarketDataByCategory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
-  const fetchMarketData = useCallback(async (region: Region, refresh = false) => {
+  const fetchMarketData = useCallback(async (refresh = false) => {
     setIsLoading(true);
     try {
-      const url = refresh
-        ? `/api/markets?region=${region}&refresh=true`
-        : `/api/markets?region=${region}`;
+      const url = refresh ? `/api/markets?refresh=true` : `/api/markets`;
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
@@ -34,15 +31,11 @@ export function MarketOverview() {
   }, []);
 
   useEffect(() => {
-    fetchMarketData(activeRegion);
-  }, [activeRegion, fetchMarketData]);
+    fetchMarketData();
+  }, [fetchMarketData]);
 
   const handleRefresh = () => {
-    fetchMarketData(activeRegion, true);
-  };
-
-  const handleRegionChange = (region: Region) => {
-    setActiveRegion(region);
+    fetchMarketData(true);
   };
 
   return (
@@ -59,7 +52,7 @@ export function MarketOverview() {
               </div>
               <div>
                 <h2 className="font-semibold text-black dark:text-white">Market Overview</h2>
-                <p className="text-xs text-black/50 dark:text-white/50">Global indices & crypto</p>
+                <p className="text-xs text-black/50 dark:text-white/50">Global indices, currency & crypto</p>
               </div>
             </div>
             <MarketStatusIndicator />
@@ -67,44 +60,33 @@ export function MarketOverview() {
           <MarketStatus onRefresh={handleRefresh} isLoading={isLoading} updatedAt={updatedAt} />
         </div>
 
-        {/* Region Tabs */}
-        <div className="px-6 pt-4">
-          <div className="flex gap-2 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 w-fit">
-            {REGIONS.map((region) => (
-              <button
-                key={region}
-                onClick={() => handleRegionChange(region)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  activeRegion === region
-                    ? "bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-black dark:text-white"
-                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
-                }`}
-              >
-                {REGION_LABELS[region]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Market Cards Grid */}
-        <div className="p-6">
-          {isLoading ? (
+        {/* Market Data Sections */}
+        <div className="p-6 space-y-8">
+          {isLoading && !marketData ? (
             <div className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-3">
                 <div className="w-10 h-10 border-4 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
                 <p className="text-black/50 dark:text-white/50">Loading market data...</p>
               </div>
             </div>
-          ) : marketData.length === 0 ? (
+          ) : !marketData ? (
             <div className="text-center py-12">
               <p className="text-black/50 dark:text-white/50">No market data available</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {marketData.map((data) => (
-                <MarketCard key={data.symbol} data={data} />
-              ))}
-            </div>
+            CATEGORIES.map((category) => (
+              <section key={category}>
+                <h3 className="text-sm font-semibold text-black/70 dark:text-white/70 mb-4 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  {CATEGORY_LABELS[category]}
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {marketData[category]?.map((data) => (
+                    <MarketCard key={data.symbol} data={data} />
+                  ))}
+                </div>
+              </section>
+            ))
           )}
         </div>
       </div>
