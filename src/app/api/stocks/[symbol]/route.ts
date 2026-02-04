@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { getQuote, getTimeSeries, getHistoricalChanges, getStockDetails, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
+import { getQuote, getTimeSeries, getHistoricalChanges, getStockDetails, getDividendInfo, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -20,6 +20,7 @@ export async function GET(
 
   const includeChanges = url.searchParams.get("changes") === "true";
   const includeDetails = url.searchParams.get("details") === "true";
+  const includeDividends = url.searchParams.get("dividends") === "true";
 
   // Handle details request separately (different data structure)
   if (includeDetails) {
@@ -104,10 +105,16 @@ export async function GET(
     historicalChanges = await getHistoricalChanges(upperSymbol);
   }
 
+  let dividendInfo: Awaited<ReturnType<typeof getDividendInfo>> = {};
+  if (includeDividends) {
+    dividendInfo = await getDividendInfo(upperSymbol);
+  }
+
   const data = {
     quote,
     timeSeries: includeTimeSeries ? timeSeries : undefined,
     historicalChanges: includeChanges ? historicalChanges : undefined,
+    dividendInfo: includeDividends ? dividendInfo : undefined,
   };
 
   // Update cache

@@ -8,6 +8,7 @@ import { Portfolio, Watchlist, WatchlistItem } from "@/lib/db/schema";
 import { WatchlistItemWithQuote } from "@/types";
 import { AddSymbolForm } from "@/components/watchlist/add-symbol-form";
 import { WatchlistTable } from "@/components/watchlist/watchlist-table";
+import { DividendTable } from "@/components/watchlist/dividend-table";
 import { PriceChart } from "@/components/charts/price-chart";
 import { SettingsMenu } from "@/components/settings/settings-menu";
 import { MarketOverview } from "@/components/markets/market-overview";
@@ -53,6 +54,7 @@ export default function Dashboard() {
   const [watchlistLoading, setWatchlistLoading] = useState(true);
   const [selectedSymbol, setSelectedSymbol] = useState<string | undefined>();
   const [watchlistUpdatedAt, setWatchlistUpdatedAt] = useState<Date | null>(null);
+  const [watchlistView, setWatchlistView] = useState<"performance" | "dividend">("performance");
 
   // Dropdown state
   const [showWatchlistDropdown, setShowWatchlistDropdown] = useState(false);
@@ -116,13 +118,13 @@ export default function Dashboard() {
       const response = await fetch(`/api/watchlist?watchlistId=${watchlistId}`);
       const items: WatchlistItem[] = await response.json();
 
-      // Fetch quotes and historical changes for each item
+      // Fetch quotes, historical changes, and dividend info for each item
       const itemsWithQuotes: WatchlistItemWithQuote[] = await Promise.all(
         items.map(async (item) => {
           try {
             const url = refresh
-              ? `/api/stocks/${item.symbol}?changes=true&refresh=true`
-              : `/api/stocks/${item.symbol}?changes=true`;
+              ? `/api/stocks/${item.symbol}?changes=true&dividends=true&refresh=true`
+              : `/api/stocks/${item.symbol}?changes=true&dividends=true`;
             const quoteResponse = await fetch(url);
             if (quoteResponse.ok) {
               const quoteData = await quoteResponse.json();
@@ -135,6 +137,13 @@ export default function Dashboard() {
                 change1M: quoteData.historicalChanges?.change1M,
                 change3M: quoteData.historicalChanges?.change3M,
                 change1Y: quoteData.historicalChanges?.change1Y,
+                dividendRate: quoteData.dividendInfo?.dividendRate,
+                dividendYield: quoteData.dividendInfo?.dividendYield,
+                exDividendDate: quoteData.dividendInfo?.exDividendDate,
+                dividendDate: quoteData.dividendInfo?.dividendDate,
+                payoutRatio: quoteData.dividendInfo?.payoutRatio,
+                trailingAnnualDividendYield: quoteData.dividendInfo?.trailingAnnualDividendYield,
+                fiveYearAvgDividendYield: quoteData.dividendInfo?.fiveYearAvgDividendYield,
               };
             }
           } catch {
@@ -645,15 +654,40 @@ export default function Dashboard() {
               <>
                 <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
                   <div className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-blue-500/10 to-transparent">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h2 className="font-semibold text-black dark:text-white">Watchlist: {selectedWatchlist?.name}</h2>
+                          <p className="text-xs text-black/50 dark:text-white/50">{watchlistItems.length} symbols</p>
+                        </div>
                       </div>
-                      <div>
-                        <h2 className="font-semibold text-black dark:text-white">Watchlist: {selectedWatchlist?.name}</h2>
-                        <p className="text-xs text-black/50 dark:text-white/50">{watchlistItems.length} symbols</p>
+                      {/* View tabs */}
+                      <div className="flex gap-1 p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+                        <button
+                          onClick={() => setWatchlistView("performance")}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                            watchlistView === "performance"
+                              ? "bg-blue-500 text-white"
+                              : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                          }`}
+                        >
+                          Performance
+                        </button>
+                        <button
+                          onClick={() => setWatchlistView("dividend")}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                            watchlistView === "dividend"
+                              ? "bg-blue-500 text-white"
+                              : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                          }`}
+                        >
+                          Dividend
+                        </button>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -693,8 +727,15 @@ export default function Dashboard() {
                           <p className="text-black/50 dark:text-white/50">Loading watchlist...</p>
                         </div>
                       </div>
-                    ) : (
+                    ) : watchlistView === "performance" ? (
                       <WatchlistTable
+                        items={watchlistItems}
+                        selectedSymbol={selectedSymbol}
+                        onSelectSymbol={handleSelectSymbol}
+                        onRemoveSymbol={handleRemoveSymbol}
+                      />
+                    ) : (
+                      <DividendTable
                         items={watchlistItems}
                         selectedSymbol={selectedSymbol}
                         onSelectSymbol={handleSelectSymbol}

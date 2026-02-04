@@ -41,6 +41,14 @@ export interface WatchlistItemWithQuote {
   change1M?: number;
   change3M?: number;
   change1Y?: number;
+  // Dividend fields
+  dividendRate?: number;
+  dividendYield?: number;
+  exDividendDate?: string;
+  dividendDate?: string;
+  payoutRatio?: number;
+  trailingAnnualDividendYield?: number;
+  fiveYearAvgDividendYield?: number;
 }
 
 export interface MarketData {

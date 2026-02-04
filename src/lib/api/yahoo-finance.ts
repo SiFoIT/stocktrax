@@ -280,6 +280,44 @@ export async function getStockDetails(symbol: string): Promise<StockDetails | nu
   }
 }
 
+export interface DividendInfo {
+  dividendRate?: number;
+  dividendYield?: number;
+  exDividendDate?: string;
+  dividendDate?: string;
+  payoutRatio?: number;
+  trailingAnnualDividendYield?: number;
+  fiveYearAvgDividendYield?: number;
+}
+
+export async function getDividendInfo(symbol: string): Promise<DividendInfo> {
+  try {
+    const summary = await yahooFinance.quoteSummary(symbol, {
+      modules: ["summaryDetail", "calendarEvents"],
+    });
+
+    const detail = summary?.summaryDetail;
+    const calendar = summary?.calendarEvents;
+
+    return {
+      dividendRate: detail?.dividendRate,
+      dividendYield: detail?.dividendYield,
+      exDividendDate: detail?.exDividendDate
+        ? new Date(detail.exDividendDate).toISOString().split("T")[0]
+        : undefined,
+      dividendDate: calendar?.dividendDate
+        ? new Date(calendar.dividendDate).toISOString().split("T")[0]
+        : undefined,
+      payoutRatio: detail?.payoutRatio,
+      trailingAnnualDividendYield: detail?.trailingAnnualDividendYield,
+      fiveYearAvgDividendYield: detail?.fiveYearAvgDividendYield,
+    };
+  } catch (error) {
+    console.error("Error fetching dividend info:", error);
+    return {};
+  }
+}
+
 export async function getQuote(symbol: string): Promise<StockQuote | null> {
   try {
     const quote = await yahooFinance.quote(symbol);
