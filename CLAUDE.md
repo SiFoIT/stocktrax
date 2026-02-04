@@ -70,6 +70,21 @@ npm run lint     # Run ESLint
 
 Database file: `data/stocktrax.db`
 
+## Docker Deployment
+
+For containerized deployment, use an entrypoint script to initialize the database:
+
+```bash
+# entrypoint.sh
+#!/bin/sh
+npx drizzle-kit push
+exec node server.js
+```
+
+- Mount a persistent volume for `/app/data` to preserve the SQLite database
+- `drizzle-kit push` is idempotent: creates tables on first run, no-op on subsequent runs
+- Safe to run on every container start
+
 ## API Patterns
 
 - All API routes use Next.js Route Handlers in `src/app/api/`
