@@ -41,6 +41,11 @@ export interface WatchlistItemWithQuote {
   change1M?: number;
   change3M?: number;
   change1Y?: number;
+  // Price range fields
+  dayHigh?: number;
+  dayLow?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
   // Dividend fields
   dividendRate?: number;
   dividendYield?: number;

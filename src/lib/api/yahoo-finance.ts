@@ -318,7 +318,14 @@ export async function getDividendInfo(symbol: string): Promise<DividendInfo> {
   }
 }
 
-export async function getQuote(symbol: string): Promise<StockQuote | null> {
+export interface QuoteWithRange extends StockQuote {
+  dayHigh?: number;
+  dayLow?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+}
+
+export async function getQuote(symbol: string, includeRange = false): Promise<StockQuote | QuoteWithRange | null> {
   try {
     const quote = await yahooFinance.quote(symbol);
 
@@ -327,7 +334,7 @@ export async function getQuote(symbol: string): Promise<StockQuote | null> {
       return null;
     }
 
-    return {
+    const baseQuote: StockQuote = {
       symbol: quote.symbol,
       price: quote.regularMarketPrice,
       change: quote.regularMarketChange ?? 0,
@@ -337,6 +344,18 @@ export async function getQuote(symbol: string): Promise<StockQuote | null> {
         ? new Date(quote.regularMarketTime).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0],
     };
+
+    if (includeRange) {
+      return {
+        ...baseQuote,
+        dayHigh: quote.regularMarketDayHigh,
+        dayLow: quote.regularMarketDayLow,
+        fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh,
+        fiftyTwoWeekLow: quote.fiftyTwoWeekLow,
+      };
+    }
+
+    return baseQuote;
   } catch (error) {
     console.error("Error fetching quote:", error);
     return null;

@@ -2,10 +2,11 @@
 
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { PriceRangeBar } from "@/components/ui/price-range-bar";
 import { WatchlistItemWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 
-type SortColumn = "symbol" | "price" | "1D" | "5D" | "1M" | "3M" | "1Y";
+type SortColumn = "symbol" | "price" | "dayRange" | "52wRange" | "1D" | "5D" | "1M" | "3M" | "1Y";
 type SortDirection = "asc" | "desc";
 
 interface WatchlistTableProps {
@@ -84,6 +85,22 @@ export function WatchlistTable({
           aVal = a.price;
           bVal = b.price;
           break;
+        case "dayRange": {
+          // Sort by position in day range (0-100%)
+          const aRange = a.dayHigh && a.dayLow && a.price ? ((a.price - a.dayLow) / (a.dayHigh - a.dayLow)) * 100 : undefined;
+          const bRange = b.dayHigh && b.dayLow && b.price ? ((b.price - b.dayLow) / (b.dayHigh - b.dayLow)) * 100 : undefined;
+          aVal = aRange;
+          bVal = bRange;
+          break;
+        }
+        case "52wRange": {
+          // Sort by position in 52-week range (0-100%)
+          const aRange = a.fiftyTwoWeekHigh && a.fiftyTwoWeekLow && a.price ? ((a.price - a.fiftyTwoWeekLow) / (a.fiftyTwoWeekHigh - a.fiftyTwoWeekLow)) * 100 : undefined;
+          const bRange = b.fiftyTwoWeekHigh && b.fiftyTwoWeekLow && b.price ? ((b.price - b.fiftyTwoWeekLow) / (b.fiftyTwoWeekHigh - b.fiftyTwoWeekLow)) * 100 : undefined;
+          aVal = aRange;
+          bVal = bRange;
+          break;
+        }
         case "1D":
           aVal = a.changePercent;
           bVal = b.changePercent;
@@ -154,11 +171,19 @@ export function WatchlistTable({
               <HeaderCell column="symbol" label="Symbol" align="left" />
               <HeaderCell column="price" label="Price" />
               <HeaderCell column="1D" label="Chg %" />
+              <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-center cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none" onClick={() => handleSort("dayRange")}>
+                Day Range
+                <SortIcon direction={sortColumn === "dayRange" ? sortDirection : null} />
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-center cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none" onClick={() => handleSort("52wRange")}>
+                52W Range
+                <SortIcon direction={sortColumn === "52wRange" ? sortDirection : null} />
+              </th>
               <HeaderCell column="5D" label="5D" />
               <HeaderCell column="1M" label="1M" />
               <HeaderCell column="3M" label="3M" />
               <HeaderCell column="1Y" label="1Y" />
-              <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
+              <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -193,6 +218,20 @@ export function WatchlistTable({
                   <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(item.changePercent)} ${getChangeColor(item.changePercent)}`}>
                     {formatPercent(item.changePercent)}
                   </span>
+                </td>
+                <td className="px-4 py-4 text-center">
+                  {item.dayLow && item.dayHigh && item.price ? (
+                    <PriceRangeBar low={item.dayLow} current={item.price} high={item.dayHigh} compact />
+                  ) : (
+                    <span className="text-black/30 dark:text-white/30">-</span>
+                  )}
+                </td>
+                <td className="px-4 py-4 text-center">
+                  {item.fiftyTwoWeekLow && item.fiftyTwoWeekHigh && item.price ? (
+                    <PriceRangeBar low={item.fiftyTwoWeekLow} current={item.price} high={item.fiftyTwoWeekHigh} compact />
+                  ) : (
+                    <span className="text-black/30 dark:text-white/30">-</span>
+                  )}
                 </td>
                 <td className="px-4 py-4 text-right">
                   <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(item.change5D)} ${getChangeColor(item.change5D)}`}>

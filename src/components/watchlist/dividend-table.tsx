@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { WatchlistItemWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 
-type SortColumn = "symbol" | "price" | "dividendRate" | "dividendYield" | "exDividendDate" | "dividendDate" | "payoutRatio" | "fiveYearAvgYield";
+type SortColumn = "symbol" | "price" | "dividendRate" | "dividendYield" | "exDividendDate" | "daysToExDiv" | "dividendDate" | "payoutRatio" | "fiveYearAvgYield";
 type SortDirection = "asc" | "desc";
 
 interface DividendTableProps {
@@ -42,6 +42,32 @@ function formatDate(value: string | undefined): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function getDaysToExDiv(exDividendDate: string | undefined): number | undefined {
+  if (!exDividendDate) return undefined;
+  const exDate = new Date(exDividendDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  exDate.setHours(0, 0, 0, 0);
+  const diffTime = exDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
+function formatDaysToExDiv(days: number | undefined): string {
+  if (days === undefined) return "-";
+  if (days < 0) return `${Math.abs(days)}d ago`;
+  if (days === 0) return "Today";
+  return `${days}d`;
+}
+
+function getDaysToExDivColor(days: number | undefined): string {
+  if (days === undefined) return "text-black/50 dark:text-white/50";
+  if (days < 0) return "text-black/40 dark:text-white/40"; // Past
+  if (days <= 7) return "text-amber-400"; // Soon - buy now!
+  if (days <= 30) return "text-emerald-400"; // Upcoming
+  return "text-black/70 dark:text-white/70"; // Far out
 }
 
 function SortIcon({ direction }: { direction: SortDirection | null }) {
@@ -98,6 +124,10 @@ export function DividendTable({
         case "exDividendDate":
           aVal = a.exDividendDate;
           bVal = b.exDividendDate;
+          break;
+        case "daysToExDiv":
+          aVal = getDaysToExDiv(a.exDividendDate);
+          bVal = getDaysToExDiv(b.exDividendDate);
           break;
         case "dividendDate":
           aVal = a.dividendDate;
@@ -162,7 +192,8 @@ export function DividendTable({
               <HeaderCell column="price" label="Price" />
               <HeaderCell column="dividendRate" label="Div Rate" />
               <HeaderCell column="dividendYield" label="Yield" />
-              <HeaderCell column="exDividendDate" label="Ex-Div Date" />
+              <HeaderCell column="exDividendDate" label="Ex-Div" />
+              <HeaderCell column="daysToExDiv" label="Days" />
               <HeaderCell column="dividendDate" label="Pay Date" />
               <th
                 className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none whitespace-nowrap text-right"
@@ -172,7 +203,7 @@ export function DividendTable({
                 Payout %
                 <SortIcon direction={sortColumn === "payoutRatio" ? sortDirection : null} />
               </th>
-              <HeaderCell column="fiveYearAvgYield" label="5Y Avg Yield" />
+              <HeaderCell column="fiveYearAvgYield" label="5Y Avg" />
               <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
             </tr>
           </thead>
@@ -218,6 +249,11 @@ export function DividendTable({
                 </td>
                 <td className="px-4 py-4 text-right">
                   <span className="text-black/70 dark:text-white/70">{formatDate(item.exDividendDate)}</span>
+                </td>
+                <td className="px-4 py-4 text-right">
+                  <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getDaysToExDivColor(getDaysToExDiv(item.exDividendDate))}`}>
+                    {formatDaysToExDiv(getDaysToExDiv(item.exDividendDate))}
+                  </span>
                 </td>
                 <td className="px-4 py-4 text-right">
                   <span className="text-black/70 dark:text-white/70">{formatDate(item.dividendDate)}</span>

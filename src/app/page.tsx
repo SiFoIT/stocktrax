@@ -118,13 +118,13 @@ export default function Dashboard() {
       const response = await fetch(`/api/watchlist?watchlistId=${watchlistId}`);
       const items: WatchlistItem[] = await response.json();
 
-      // Fetch quotes, historical changes, and dividend info for each item
+      // Fetch quotes, historical changes, dividend info, and price ranges for each item
       const itemsWithQuotes: WatchlistItemWithQuote[] = await Promise.all(
         items.map(async (item) => {
           try {
             const url = refresh
-              ? `/api/stocks/${item.symbol}?changes=true&dividends=true&refresh=true`
-              : `/api/stocks/${item.symbol}?changes=true&dividends=true`;
+              ? `/api/stocks/${item.symbol}?changes=true&dividends=true&range=true&refresh=true`
+              : `/api/stocks/${item.symbol}?changes=true&dividends=true&range=true`;
             const quoteResponse = await fetch(url);
             if (quoteResponse.ok) {
               const quoteData = await quoteResponse.json();
@@ -133,6 +133,10 @@ export default function Dashboard() {
                 price: quoteData.quote?.price,
                 change: quoteData.quote?.change,
                 changePercent: quoteData.quote?.changePercent,
+                dayHigh: quoteData.quote?.dayHigh,
+                dayLow: quoteData.quote?.dayLow,
+                fiftyTwoWeekHigh: quoteData.quote?.fiftyTwoWeekHigh,
+                fiftyTwoWeekLow: quoteData.quote?.fiftyTwoWeekLow,
                 change5D: quoteData.historicalChanges?.change5D,
                 change1M: quoteData.historicalChanges?.change1M,
                 change3M: quoteData.historicalChanges?.change3M,

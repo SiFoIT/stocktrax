@@ -21,6 +21,7 @@ export async function GET(
   const includeChanges = url.searchParams.get("changes") === "true";
   const includeDetails = url.searchParams.get("details") === "true";
   const includeDividends = url.searchParams.get("dividends") === "true";
+  const includeRange = url.searchParams.get("range") === "true";
 
   // Handle details request separately (different data structure)
   if (includeDetails) {
@@ -87,7 +88,7 @@ export async function GET(
   }
 
   // Fetch fresh data
-  const quote = await getQuote(upperSymbol);
+  const quote = await getQuote(upperSymbol, includeRange);
   if (!quote) {
     return NextResponse.json(
       { error: "Failed to fetch stock data" },
