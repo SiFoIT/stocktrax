@@ -20,6 +20,16 @@ interface AddTransactionFormProps {
 }
 
 export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, prefillSymbol }: AddTransactionFormProps) {
+  const [isOpen, setIsOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("addTransactionOpen") === "true";
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("addTransactionOpen", String(isOpen));
+  }, [isOpen]);
   const [symbol, setSymbol] = useState("");
   const [transactionType, setTransactionType] = useState<"buy" | "sell" | "dividend">("buy");
   const [shares, setShares] = useState("");
@@ -38,6 +48,7 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
   useEffect(() => {
     if (prefillSymbol) {
       setSymbol(prefillSymbol);
+      setIsOpen(true);
       fetchCurrentPrice(prefillSymbol);
     }
   }, [prefillSymbol]);
@@ -197,15 +208,19 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
 
   return (
     <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10">
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-emerald-500/10 to-transparent hover:from-emerald-500/15 transition-all cursor-pointer ${isOpen ? "border-b border-black/10 dark:border-white/10" : ""}`}
+      >
         <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
           <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isOpen ? "M6 12h12" : "M12 6v6m0 0v6m0-6h6m-6 0H6"} />
           </svg>
         </div>
         <h2 className="font-semibold text-black dark:text-white">Add Transaction</h2>
-      </div>
-      <div className="p-6">
+      </button>
+      {isOpen && <div className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Row 1: Symbol + Type toggle */}
           <div className="flex gap-4 items-end flex-wrap">
@@ -366,7 +381,7 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
         {error && (
           <p className="text-red-400 text-sm mt-3 bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
