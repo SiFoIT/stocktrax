@@ -927,11 +927,6 @@ export default function Dashboard() {
             ) : (
               <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-12">
                 <div className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
                   <h3 className="text-lg font-semibold text-black dark:text-white mb-2">No Portfolio Selected</h3>
                   <p className="text-black/50 dark:text-white/50">Create your first portfolio using the dropdown above.</p>
                 </div>
