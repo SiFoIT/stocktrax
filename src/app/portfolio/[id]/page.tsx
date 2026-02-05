@@ -102,6 +102,19 @@ export default function PortfolioPage() {
     }
   };
 
+  const handleEditHolding = async (id: number, shares: number, avgCost: number) => {
+    try {
+      await fetch(`/api/holdings?id=${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shares, avgCost }),
+      });
+      fetchHoldings();
+    } catch (error) {
+      console.error("Error editing holding:", error);
+    }
+  };
+
   const totalValue = holdings.reduce((sum, h) => sum + (h.marketValue || 0), 0);
   const totalCost = holdings.reduce((sum, h) => sum + h.shares * h.avgCost, 0);
   const totalGainLoss = totalValue - totalCost;
@@ -252,6 +265,7 @@ export default function PortfolioPage() {
                 selectedSymbol={selectedSymbol || undefined}
                 onSelectHolding={handleSelectHolding}
                 onDeleteHolding={handleDeleteHolding}
+                onEditHolding={handleEditHolding}
               />
             </div>
           </div>
