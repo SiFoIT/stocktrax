@@ -6,6 +6,7 @@ import { HoldingWithQuote } from "@/types";
 
 interface HoldingsTableProps {
   holdings: HoldingWithQuote[];
+  totalPortfolioValue: number;
   selectedSymbol?: string;
   onSelectHolding: (symbol: string) => void;
   onDeleteHolding: (id: number) => void;
@@ -27,7 +28,7 @@ function formatPercent(value: number | undefined): string {
 }
 
 function getChangeColor(value: number | undefined): string {
-  if (value === undefined) return "text-black/50 dark:text-black dark:text-white/50";
+  if (value === undefined) return "text-black/50 dark:text-white/50";
   return value >= 0 ? "text-emerald-400" : "text-red-400";
 }
 
@@ -44,6 +45,7 @@ interface ContextMenu {
 
 export function HoldingsTable({
   holdings,
+  totalPortfolioValue,
   selectedSymbol,
   onSelectHolding,
   onDeleteHolding,
@@ -137,7 +139,7 @@ export function HoldingsTable({
           </svg>
         </div>
         <h3 className="text-lg font-semibold text-black dark:text-white mb-2">No Holdings Yet</h3>
-        <p className="text-black/50 dark:text-black dark:text-white/50">Add your first holding using the form above.</p>
+        <p className="text-black/50 dark:text-white/50">Add your first holding using the form above.</p>
       </div>
     );
   }
@@ -147,13 +149,15 @@ export function HoldingsTable({
       <table className="w-full">
         <thead>
           <tr className="border-b border-black/10 dark:border-white/10">
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-left">Symbol</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Shares</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Avg Cost</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Price</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Value</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Gain/Loss</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-left">Symbol</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Shares</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Avg Cost</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Price</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Today</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Value</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">% Port</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Gain/Loss</th>
+            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -204,14 +208,33 @@ export function HoldingsTable({
                     step="any"
                   />
                 ) : (
-                  <span className="font-mono text-black dark:text-black/70 dark:text-white/70">{formatCurrency(holding.avgCost, holding.currency)}</span>
+                  <span className="font-mono text-black/70 dark:text-white/70">{formatCurrency(holding.avgCost, holding.currency)}</span>
                 )}
               </td>
               <td className="px-4 py-4 text-right">
                 <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(holding.currentPrice, holding.currency)}</span>
               </td>
               <td className="px-4 py-4 text-right">
+                {holding.change !== undefined && (
+                  <div className="flex flex-col items-end gap-0.5">
+                    <span className={`inline-block px-2 py-0.5 rounded-md text-sm font-medium ${getChangeBg(holding.change)} ${getChangeColor(holding.change)}`}>
+                      {formatCurrency(holding.change * holding.shares, holding.currency)}
+                    </span>
+                    <span className={`text-xs ${getChangeColor(holding.changePercent)}`}>
+                      {formatPercent(holding.changePercent)}
+                    </span>
+                  </div>
+                )}
+              </td>
+              <td className="px-4 py-4 text-right">
                 <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(holding.marketValue, holding.currency)}</span>
+              </td>
+              <td className="px-4 py-4 text-right">
+                {holding.marketValue !== undefined && totalPortfolioValue > 0 && (
+                  <span className="font-mono text-black/70 dark:text-white/70">
+                    {((holding.marketValue / totalPortfolioValue) * 100).toFixed(1)}%
+                  </span>
+                )}
               </td>
               <td className="px-4 py-4 text-right">
                 {holding.gainLoss !== undefined && (

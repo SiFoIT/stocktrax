@@ -247,7 +247,7 @@ export default function PortfolioPage() {
   );
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
+    <div className="container mx-auto py-8 px-4">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
         <Link
@@ -423,6 +423,7 @@ export default function PortfolioPage() {
               {holdingsView === "holdings" ? (
                 <HoldingsTable
                   holdings={holdings}
+                  totalPortfolioValue={totalValue}
                   selectedSymbol={selectedSymbol || undefined}
                   onSelectHolding={handleSelectHolding}
                   onDeleteHolding={handleDeleteHolding}
