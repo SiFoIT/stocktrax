@@ -382,7 +382,7 @@ export type TimeSeriesInterval = "5m" | "15m" | "1h" | "1d" | "1wk";
 
 export async function getTimeSeries(
   symbol: string,
-  period: "1d" | "5d" | "1mo" | "3mo" | "1y" | "5y" = "3mo",
+  period: "1d" | "5d" | "1mo" | "3mo" | "1y" | "2y" | "3y" | "5y" | "10y" = "3mo",
   interval: TimeSeriesInterval = "1d"
 ): Promise<StockTimeSeries[]> {
   try {
@@ -405,8 +405,17 @@ export async function getTimeSeries(
       case "1y":
         startDate.setFullYear(startDate.getFullYear() - 1);
         break;
+      case "2y":
+        startDate.setFullYear(startDate.getFullYear() - 2);
+        break;
+      case "3y":
+        startDate.setFullYear(startDate.getFullYear() - 3);
+        break;
       case "5y":
         startDate.setFullYear(startDate.getFullYear() - 5);
+        break;
+      case "10y":
+        startDate.setFullYear(startDate.getFullYear() - 10);
         break;
     }
 

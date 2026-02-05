@@ -15,7 +15,7 @@ export async function GET(
   const url = new URL(request.url);
   const includeTimeSeries = url.searchParams.get("timeseries") === "true";
   const skipCache = url.searchParams.get("refresh") === "true";
-  const period = (url.searchParams.get("period") || "1y") as "1d" | "5d" | "1mo" | "3mo" | "1y" | "5y";
+  const period = (url.searchParams.get("period") || "1y") as "1d" | "5d" | "1mo" | "3mo" | "1y" | "2y" | "3y" | "5y" | "10y";
   const interval = (url.searchParams.get("interval") || "1d") as TimeSeriesInterval;
 
   const includeChanges = url.searchParams.get("changes") === "true";

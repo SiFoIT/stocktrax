@@ -34,13 +34,13 @@ interface PriceChartProps {
   timeframeChanges?: TimeframeChanges; // Percentage changes for each timeframe
 }
 
-// Map time range to API parameters - daily ranges all fetch 1Y for zoom flexibility
-const rangeConfig: Record<TimeRange, { period: string; interval: string }> = {
-  "1D": { period: "1d", interval: "5m" },
-  "5D": { period: "5d", interval: "15m" }, // 15-minute candles
-  "3M": { period: "1y", interval: "1d" },  // Fetch 1Y but show 3M
-  "1Y": { period: "1y", interval: "1d" },
-  "5Y": { period: "5y", interval: "1wk" }, // Weekly interval for 5Y
+// Map time range to API parameters - fetch extra data for zoom/scroll flexibility
+const rangeConfig: Record<TimeRange, { period: string; interval: string; showDays: number }> = {
+  "1D": { period: "5d", interval: "5m", showDays: 1 },      // Fetch 5 days, show 1 day
+  "5D": { period: "1mo", interval: "15m", showDays: 5 },    // Fetch 1 month, show 5 days
+  "3M": { period: "2y", interval: "1d", showDays: 90 },     // Fetch 2 years, show 3 months
+  "1Y": { period: "3y", interval: "1d", showDays: 365 },    // Fetch 3 years, show 1 year
+  "5Y": { period: "10y", interval: "1wk", showDays: 1825 }, // Fetch 10 years, show 5 years
 };
 
 function loadChartPrefs(key: string | undefined): { range: TimeRange; type: ChartType } {
@@ -241,16 +241,25 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
     volumeSeries.setData(volumeData);
 
     // Set visible range based on selected time range
-    if (activeRange === "3M" && finalData.length > 0) {
+    if (finalData.length > 0) {
+      const config = rangeConfig[activeRange];
       const now = new Date();
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(now.getMonth() - 3);
-      chart.timeScale().setVisibleRange({
-        from: threeMonthsAgo.toISOString().split("T")[0] as Time,
-        to: now.toISOString().split("T")[0] as Time,
-      });
-    } else {
-      chart.timeScale().fitContent();
+      const fromDate = new Date();
+      fromDate.setDate(now.getDate() - config.showDays);
+
+      if (isIntraday) {
+        // For intraday, use Unix timestamps
+        chart.timeScale().setVisibleRange({
+          from: Math.floor(fromDate.getTime() / 1000) as Time,
+          to: Math.floor(now.getTime() / 1000) as Time,
+        });
+      } else {
+        // For daily/weekly, use date strings
+        chart.timeScale().setVisibleRange({
+          from: fromDate.toISOString().split("T")[0] as Time,
+          to: now.toISOString().split("T")[0] as Time,
+        });
+      }
     }
 
     const handleResize = () => {
