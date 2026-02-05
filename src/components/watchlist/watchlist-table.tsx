@@ -153,7 +153,7 @@ export function WatchlistTable({
             <tr className="border-b border-black/10 dark:border-white/10">
               <HeaderCell column="symbol" label="Symbol" align="left" />
               <HeaderCell column="price" label="Price" />
-              <HeaderCell column="1D" label="1D" />
+              <HeaderCell column="1D" label="Chg %" />
               <HeaderCell column="5D" label="5D" />
               <HeaderCell column="1M" label="1M" />
               <HeaderCell column="3M" label="3M" />
