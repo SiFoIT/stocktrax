@@ -146,6 +146,7 @@ export default function Dashboard() {
                 change1M: quoteData.historicalChanges?.change1M,
                 change3M: quoteData.historicalChanges?.change3M,
                 change1Y: quoteData.historicalChanges?.change1Y,
+                change5Y: quoteData.historicalChanges?.change5Y,
                 dividendRate: quoteData.dividendInfo?.dividendRate,
                 dividendYield: quoteData.dividendInfo?.dividendYield,
                 exDividendDate: quoteData.dividendInfo?.exDividendDate,
@@ -847,6 +848,7 @@ export default function Dashboard() {
                             "5D": item.change5D,
                             "3M": item.change3M,
                             "1Y": item.change1Y,
+                            "5Y": item.change5Y,
                           };
                         })()}
                       />

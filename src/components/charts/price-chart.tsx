@@ -16,7 +16,7 @@ import {
 import { StockTimeSeries } from "@/types";
 import { Button } from "@/components/ui/button";
 
-type TimeRange = "1D" | "5D" | "3M" | "1Y";
+type TimeRange = "1D" | "5D" | "3M" | "1Y" | "5Y";
 type ChartType = "line" | "candle";
 
 interface TimeframeChanges {
@@ -24,6 +24,7 @@ interface TimeframeChanges {
   "5D"?: number;
   "3M"?: number;
   "1Y"?: number;
+  "5Y"?: number;
 }
 
 interface PriceChartProps {
@@ -39,6 +40,7 @@ const rangeConfig: Record<TimeRange, { period: string; interval: string }> = {
   "5D": { period: "5d", interval: "1h" },  // Hourly candles
   "3M": { period: "1y", interval: "1d" },  // Fetch 1Y but show 3M
   "1Y": { period: "1y", interval: "1d" },
+  "5Y": { period: "5y", interval: "1wk" }, // Weekly interval for 5Y
 };
 
 function loadChartPrefs(key: string | undefined): { range: TimeRange; type: ChartType } {
@@ -270,7 +272,7 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
     setActiveRange(range);
   };
 
-  const ranges: TimeRange[] = ["1D", "5D", "3M", "1Y"];
+  const ranges: TimeRange[] = ["1D", "5D", "3M", "1Y", "5Y"];
 
   return (
     <div className="space-y-4">

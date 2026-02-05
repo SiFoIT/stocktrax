@@ -6,7 +6,7 @@ import { PriceRangeBar } from "@/components/ui/price-range-bar";
 import { WatchlistItemWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 
-type SortColumn = "symbol" | "price" | "dayRange" | "52wRange" | "1D" | "5D" | "1M" | "3M" | "1Y" | "volume";
+type SortColumn = "symbol" | "price" | "dayRange" | "52wRange" | "1D" | "5D" | "1M" | "3M" | "1Y" | "5Y" | "volume";
 type SortDirection = "asc" | "desc";
 
 interface WatchlistTableProps {
@@ -134,6 +134,10 @@ export function WatchlistTable({
           aVal = a.change1Y;
           bVal = b.change1Y;
           break;
+        case "5Y":
+          aVal = a.change5Y;
+          bVal = b.change5Y;
+          break;
         case "volume":
           aVal = a.volume;
           bVal = b.volume;
@@ -201,6 +205,7 @@ export function WatchlistTable({
               <HeaderCell column="1M" label="1M" />
               <HeaderCell column="3M" label="3M" />
               <HeaderCell column="1Y" label="1Y" />
+              <HeaderCell column="5Y" label="5Y" />
               <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
             </tr>
           </thead>
@@ -279,6 +284,11 @@ export function WatchlistTable({
                 <td className="px-4 py-4 text-right">
                   <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(item.change1Y)} ${getChangeColor(item.change1Y)}`}>
                     {formatPercent(item.change1Y)}
+                  </span>
+                </td>
+                <td className="px-4 py-4 text-right">
+                  <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(item.change5Y)} ${getChangeColor(item.change5Y)}`}>
+                    {formatPercent(item.change5Y)}
                   </span>
                 </td>
                 <td className="px-4 py-4 text-right">

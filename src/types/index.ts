@@ -43,6 +43,7 @@ export interface WatchlistItemWithQuote {
   change1M?: number;
   change3M?: number;
   change1Y?: number;
+  change5Y?: number;
   // Price range fields
   dayHigh?: number;
   dayLow?: number;

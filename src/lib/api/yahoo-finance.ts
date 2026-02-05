@@ -8,13 +8,14 @@ export interface HistoricalChanges {
   change1M?: number;
   change3M?: number;
   change1Y?: number;
+  change5Y?: number;
 }
 
 export async function getHistoricalChanges(symbol: string): Promise<HistoricalChanges> {
   try {
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setFullYear(startDate.getFullYear() - 1);
+    startDate.setFullYear(startDate.getFullYear() - 5);
     startDate.setDate(startDate.getDate() - 7); // Extra buffer for weekends/holidays
 
     const result = await yahooFinance.chart(symbol, {
@@ -50,6 +51,7 @@ export async function getHistoricalChanges(symbol: string): Promise<HistoricalCh
     const price1M = findPriceAtDaysAgo(30);
     const price3M = findPriceAtDaysAgo(90);
     const price1Y = findPriceAtDaysAgo(365);
+    const price5Y = findPriceAtDaysAgo(1825);
 
     const calcChange = (oldPrice: number | undefined): number | undefined => {
       if (oldPrice === undefined || oldPrice === 0) return undefined;
@@ -61,6 +63,7 @@ export async function getHistoricalChanges(symbol: string): Promise<HistoricalCh
       change1M: calcChange(price1M),
       change3M: calcChange(price3M),
       change1Y: calcChange(price1Y),
+      change5Y: calcChange(price5Y),
     };
   } catch (error) {
     console.error("Error fetching historical changes:", error);
@@ -375,11 +378,11 @@ export async function getQuote(symbol: string, includeRange = false): Promise<St
   }
 }
 
-export type TimeSeriesInterval = "5m" | "15m" | "1h" | "1d";
+export type TimeSeriesInterval = "5m" | "15m" | "1h" | "1d" | "1wk";
 
 export async function getTimeSeries(
   symbol: string,
-  period: "1d" | "5d" | "1mo" | "3mo" | "1y" = "3mo",
+  period: "1d" | "5d" | "1mo" | "3mo" | "1y" | "5y" = "3mo",
   interval: TimeSeriesInterval = "1d"
 ): Promise<StockTimeSeries[]> {
   try {
@@ -402,6 +405,9 @@ export async function getTimeSeries(
       case "1y":
         startDate.setFullYear(startDate.getFullYear() - 1);
         break;
+      case "5y":
+        startDate.setFullYear(startDate.getFullYear() - 5);
+        break;
     }
 
     const result = await yahooFinance.chart(symbol, {
@@ -418,8 +424,8 @@ export async function getTimeSeries(
     return result.quotes
       .filter((q) => q.date && q.close !== null)
       .map((q) => ({
-        // For intraday, include full ISO timestamp; for daily, just the date
-        date: interval === "1d"
+        // For intraday, include full ISO timestamp; for daily/weekly, just the date
+        date: interval === "1d" || interval === "1wk"
           ? q.date.toISOString().split("T")[0]
           : q.date.toISOString(),
         open: q.open ?? 0,
