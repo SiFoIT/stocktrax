@@ -15,14 +15,13 @@ interface DividendTableProps {
   onRemoveSymbol: (id: number) => void;
 }
 
-function formatCurrency(value: number | undefined): string {
+function formatCurrency(value: number | undefined, currency = "USD"): string {
   if (value === undefined) return "-";
-  return value.toLocaleString(undefined, {
-    style: "currency",
-    currency: "USD",
+  const symbol = currency === "CAD" ? "C$" : currency === "USD" ? "US$" : "$";
+  return `${symbol}${value.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  });
+  })}`;
 }
 
 function formatPercent(value: number | undefined): string {
@@ -267,10 +266,10 @@ export function DividendTable({
                   <span className="text-xs text-black/60 dark:text-white/60">{getSectorAbbrev(item.sector)}</span>
                 </td>
                 <td className="px-4 py-4 text-right">
-                  <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(item.price)}</span>
+                  <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(item.price, item.currency)}</span>
                 </td>
                 <td className="px-4 py-4 text-right">
-                  <span className="font-mono text-black dark:text-white">{formatCurrency(item.dividendRate)}</span>
+                  <span className="font-mono text-black dark:text-white">{formatCurrency(item.dividendRate, item.currency)}</span>
                 </td>
                 <td className="px-4 py-4 text-right">
                   <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${

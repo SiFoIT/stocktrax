@@ -37,6 +37,7 @@ export interface WatchlistItemWithQuote {
   price?: number;
   change?: number;
   changePercent?: number;
+  currency?: string;
   lastTradeTime?: string;
   change5D?: number;
   change1M?: number;

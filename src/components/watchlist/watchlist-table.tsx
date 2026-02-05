@@ -16,14 +16,13 @@ interface WatchlistTableProps {
   onRemoveSymbol: (id: number) => void;
 }
 
-function formatCurrency(value: number | undefined): string {
+function formatCurrency(value: number | undefined, currency = "USD"): string {
   if (value === undefined) return "-";
-  return value.toLocaleString(undefined, {
-    style: "currency",
-    currency: "USD",
+  const symbol = currency === "CAD" ? "C$" : currency === "USD" ? "US$" : "$";
+  return `${symbol}${value.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  });
+  })}`;
 }
 
 function formatPercent(value: number | undefined): string {
@@ -219,7 +218,7 @@ export function WatchlistTable({
                 </td>
                 <td className="px-4 py-4 text-right">
                   <div>
-                    <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(item.price)}</span>
+                    <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(item.price, item.currency)}</span>
                     {item.lastTradeTime && (
                       <div className="text-[10px] text-black/40 dark:text-white/40">{formatTradeTime(item.lastTradeTime)}</div>
                     )}

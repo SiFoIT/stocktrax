@@ -331,6 +331,7 @@ export interface QuoteWithRange extends StockQuote {
   fiftyTwoWeekHigh?: number;
   fiftyTwoWeekLow?: number;
   lastTradeTime?: string;
+  currency?: string;
 }
 
 export async function getQuote(symbol: string, includeRange = false): Promise<StockQuote | QuoteWithRange | null> {
@@ -363,6 +364,7 @@ export async function getQuote(symbol: string, includeRange = false): Promise<St
         lastTradeTime: quote.regularMarketTime
           ? new Date(quote.regularMarketTime).toISOString()
           : undefined,
+        currency: quote.currency,
       };
     }
 
