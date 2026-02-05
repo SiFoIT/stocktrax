@@ -27,6 +27,33 @@ export interface HoldingWithQuote {
   marketValue?: number;
   gainLoss?: number;
   gainLossPercent?: number;
+  // Price change fields (same as WatchlistItemWithQuote)
+  change?: number;
+  changePercent?: number;
+  lastTradeTime?: string;
+  change5D?: number;
+  change1M?: number;
+  change3M?: number;
+  change1Y?: number;
+  change5Y?: number;
+  // Price range fields
+  dayHigh?: number;
+  dayLow?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+  // Dividend fields
+  dividendRate?: number;
+  dividendYield?: number;
+  exDividendDate?: string;
+  dividendDate?: string;
+  payoutRatio?: number;
+  trailingAnnualDividendYield?: number;
+  fiveYearAvgDividendYield?: number;
+  // Company info
+  sector?: string;
+  // Volume fields
+  volume?: number;
+  avgVolume?: number;
 }
 
 export interface WatchlistItemWithQuote {

@@ -4,11 +4,29 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { HoldingsTable } from "@/components/portfolio/holdings-table";
+import { PortfolioPerformanceTable } from "@/components/portfolio/portfolio-performance-table";
+import { PortfolioDividendTable } from "@/components/portfolio/portfolio-dividend-table";
+import { PortfolioNewsTable } from "@/components/portfolio/portfolio-news-table";
 import { AddHoldingForm } from "@/components/portfolio/add-holding-form";
 import { PriceChart } from "@/components/charts/price-chart";
 import { AllocationChart } from "@/components/charts/allocation-chart";
+import { Button } from "@/components/ui/button";
 import { Portfolio, Holding } from "@/lib/db/schema";
-import { HoldingWithQuote } from "@/types";
+import { HoldingWithQuote, NewsArticle } from "@/types";
+
+function formatUpdatedTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) {
+    return "Updated just now";
+  } else if (diffMins < 60) {
+    return `Updated ${diffMins} min ago`;
+  } else {
+    return `Updated ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  }
+}
 
 export default function PortfolioPage() {
   const params = useParams();
@@ -19,17 +37,24 @@ export default function PortfolioPage() {
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"holdings" | "allocation">("holdings");
+  const [holdingsView, setHoldingsView] = useState<"holdings" | "performance" | "dividend" | "news">("holdings");
+  const [holdingsUpdatedAt, setHoldingsUpdatedAt] = useState<Date | null>(null);
+  const [portfolioNews, setPortfolioNews] = useState<NewsArticle[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
 
-  const fetchHoldings = useCallback(async () => {
+  const fetchHoldings = useCallback(async (refresh = false) => {
     try {
       const response = await fetch(`/api/holdings?portfolioId=${portfolioId}`);
       const holdingsData: Holding[] = await response.json();
 
-      // Fetch current prices for each holding
+      // Fetch current prices, historical changes, and dividend info for each holding
       const holdingsWithQuotes: HoldingWithQuote[] = await Promise.all(
         holdingsData.map(async (holding) => {
           try {
-            const quoteResponse = await fetch(`/api/stocks/${holding.symbol}`);
+            const url = refresh
+              ? `/api/stocks/${holding.symbol}?changes=true&dividends=true&range=true&refresh=true`
+              : `/api/stocks/${holding.symbol}?changes=true&dividends=true&range=true`;
+            const quoteResponse = await fetch(url);
             const quoteData = await quoteResponse.json();
 
             if (quoteData.quote) {
@@ -41,10 +66,33 @@ export default function PortfolioPage() {
 
               return {
                 ...holding,
+                currency: quoteData.quote?.currency || holding.currency,
                 currentPrice,
                 marketValue,
                 gainLoss,
                 gainLossPercent,
+                change: quoteData.quote?.change,
+                changePercent: quoteData.quote?.changePercent,
+                lastTradeTime: quoteData.quote?.lastTradeTime,
+                dayHigh: quoteData.quote?.dayHigh,
+                dayLow: quoteData.quote?.dayLow,
+                fiftyTwoWeekHigh: quoteData.quote?.fiftyTwoWeekHigh,
+                fiftyTwoWeekLow: quoteData.quote?.fiftyTwoWeekLow,
+                change5D: quoteData.historicalChanges?.change5D,
+                change1M: quoteData.historicalChanges?.change1M,
+                change3M: quoteData.historicalChanges?.change3M,
+                change1Y: quoteData.historicalChanges?.change1Y,
+                change5Y: quoteData.historicalChanges?.change5Y,
+                dividendRate: quoteData.dividendInfo?.dividendRate,
+                dividendYield: quoteData.dividendInfo?.dividendYield,
+                exDividendDate: quoteData.dividendInfo?.exDividendDate,
+                dividendDate: quoteData.dividendInfo?.dividendDate,
+                payoutRatio: quoteData.dividendInfo?.payoutRatio,
+                trailingAnnualDividendYield: quoteData.dividendInfo?.trailingAnnualDividendYield,
+                fiveYearAvgDividendYield: quoteData.dividendInfo?.fiveYearAvgDividendYield,
+                sector: quoteData.dividendInfo?.sector,
+                volume: quoteData.quote?.volume,
+                avgVolume: quoteData.quote?.avgVolume,
               };
             }
           } catch (error) {
@@ -56,6 +104,7 @@ export default function PortfolioPage() {
       );
 
       setHoldings(holdingsWithQuotes);
+      setHoldingsUpdatedAt(new Date());
     } catch (error) {
       console.error("Error fetching holdings:", error);
     }
@@ -72,6 +121,27 @@ export default function PortfolioPage() {
     }
   }, [portfolioId]);
 
+  const fetchPortfolioNews = useCallback(async () => {
+    if (holdings.length === 0) {
+      setPortfolioNews([]);
+      return;
+    }
+
+    setNewsLoading(true);
+    try {
+      const symbols = holdings.map((h) => h.symbol).join(",");
+      const response = await fetch(`/api/news?symbols=${symbols}&limit=20`);
+      if (response.ok) {
+        const data = await response.json();
+        setPortfolioNews(data);
+      }
+    } catch (error) {
+      console.error("Error fetching portfolio news:", error);
+    } finally {
+      setNewsLoading(false);
+    }
+  }, [holdings]);
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -80,6 +150,12 @@ export default function PortfolioPage() {
     };
     loadData();
   }, [fetchPortfolio, fetchHoldings]);
+
+  useEffect(() => {
+    if (holdingsView === "news" && holdings.length > 0) {
+      fetchPortfolioNews();
+    }
+  }, [holdingsView, holdings.length, fetchPortfolioNews]);
 
   const handleSelectHolding = (symbol: string) => {
     setSelectedSymbol(symbol);
@@ -115,12 +191,18 @@ export default function PortfolioPage() {
     }
   };
 
+  const handleRefresh = async () => {
+    setLoading(true);
+    await fetchHoldings(true);
+    setLoading(false);
+  };
+
   const totalValue = holdings.reduce((sum, h) => sum + (h.marketValue || 0), 0);
   const totalCost = holdings.reduce((sum, h) => sum + h.shares * h.avgCost, 0);
   const totalGainLoss = totalValue - totalCost;
   const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
 
-  if (loading) {
+  if (loading && holdings.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -251,26 +333,123 @@ export default function PortfolioPage() {
       {activeTab === "holdings" && (
         <div className="space-y-6">
           <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-blue-500/10 to-transparent">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-blue-500/10 to-transparent">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-black dark:text-white">Your Holdings</h2>
+                    <p className="text-xs text-black/50 dark:text-white/50">{holdings.length} positions</p>
+                  </div>
+                </div>
+                {/* View tabs */}
+                <div className="flex gap-1 p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+                  <button
+                    onClick={() => setHoldingsView("holdings")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      holdingsView === "holdings"
+                        ? "bg-blue-500 text-white"
+                        : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    Holdings
+                  </button>
+                  <button
+                    onClick={() => setHoldingsView("performance")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      holdingsView === "performance"
+                        ? "bg-blue-500 text-white"
+                        : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    Performance
+                  </button>
+                  <button
+                    onClick={() => setHoldingsView("dividend")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      holdingsView === "dividend"
+                        ? "bg-blue-500 text-white"
+                        : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    Dividend
+                  </button>
+                  <button
+                    onClick={() => setHoldingsView("news")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      holdingsView === "news"
+                        ? "bg-blue-500 text-white"
+                        : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    News
+                  </button>
+                </div>
               </div>
-              <h2 className="font-semibold text-black dark:text-white">Your Holdings</h2>
+              <div className="flex items-center gap-4">
+                {holdingsUpdatedAt && (
+                  <span className="text-xs text-black/50 dark:text-white/50">
+                    {formatUpdatedTime(holdingsUpdatedAt)}
+                  </span>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                  className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 hover:bg-black/10 dark:hover:bg-white/10 hover:border-black/20 dark:hover:border-white/20"
+                >
+                  {loading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-black/30 dark:border-white/30 border-t-black dark:border-t-white rounded-full animate-spin" />
+                      Refreshing...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Refresh
+                    </div>
+                  )}
+                </Button>
+              </div>
             </div>
             <div className="p-6">
-              <HoldingsTable
-                holdings={holdings}
-                selectedSymbol={selectedSymbol || undefined}
-                onSelectHolding={handleSelectHolding}
-                onDeleteHolding={handleDeleteHolding}
-                onEditHolding={handleEditHolding}
-              />
+              {holdingsView === "holdings" ? (
+                <HoldingsTable
+                  holdings={holdings}
+                  selectedSymbol={selectedSymbol || undefined}
+                  onSelectHolding={handleSelectHolding}
+                  onDeleteHolding={handleDeleteHolding}
+                  onEditHolding={handleEditHolding}
+                />
+              ) : holdingsView === "performance" ? (
+                <PortfolioPerformanceTable
+                  holdings={holdings}
+                  selectedSymbol={selectedSymbol || undefined}
+                  onSelectSymbol={handleSelectHolding}
+                />
+              ) : holdingsView === "dividend" ? (
+                <PortfolioDividendTable
+                  holdings={holdings}
+                  selectedSymbol={selectedSymbol || undefined}
+                  onSelectSymbol={handleSelectHolding}
+                />
+              ) : (
+                <PortfolioNewsTable
+                  articles={portfolioNews}
+                  loading={newsLoading}
+                />
+              )}
             </div>
           </div>
 
-          {selectedSymbol && (
+          {selectedSymbol && holdingsView !== "news" && (
             <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
               <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-purple-500/10 to-transparent">
                 <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
@@ -281,7 +460,21 @@ export default function PortfolioPage() {
                 <h2 className="font-semibold text-black dark:text-white">{selectedSymbol} Price Chart</h2>
               </div>
               <div className="p-6">
-                <PriceChart symbol={selectedSymbol} storageKey={`portfolio_${portfolioId}`} />
+                <PriceChart
+                  symbol={selectedSymbol}
+                  storageKey={`portfolio_${portfolioId}`}
+                  timeframeChanges={(() => {
+                    const holding = holdings.find(h => h.symbol === selectedSymbol);
+                    if (!holding) return undefined;
+                    return {
+                      "1D": holding.changePercent,
+                      "5D": holding.change5D,
+                      "3M": holding.change3M,
+                      "1Y": holding.change1Y,
+                      "5Y": holding.change5Y,
+                    };
+                  })()}
+                />
               </div>
             </div>
           )}

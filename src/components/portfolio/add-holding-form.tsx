@@ -231,7 +231,6 @@ export function AddHoldingForm({ portfolioId, onHoldingAdded }: AddHoldingFormPr
             <Input
               type="number"
               step="any"
-              placeholder="10"
               value={shares}
               onChange={(e) => setShares(e.target.value)}
               required

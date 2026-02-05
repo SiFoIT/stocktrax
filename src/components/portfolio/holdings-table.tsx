@@ -12,14 +12,13 @@ interface HoldingsTableProps {
   onEditHolding: (id: number, shares: number, avgCost: number) => void;
 }
 
-function formatCurrency(value: number | undefined): string {
+function formatCurrency(value: number | undefined, currency = "USD"): string {
   if (value === undefined) return "-";
-  return value.toLocaleString(undefined, {
-    style: "currency",
-    currency: "USD",
+  const symbol = currency === "CAD" ? "C$" : currency === "USD" ? "US$" : "$";
+  return `${symbol}${value.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  });
+  })}`;
 }
 
 function formatPercent(value: number | undefined): string {
@@ -205,20 +204,20 @@ export function HoldingsTable({
                     step="any"
                   />
                 ) : (
-                  <span className="font-mono text-black dark:text-black/70 dark:text-white/70">{formatCurrency(holding.avgCost)}</span>
+                  <span className="font-mono text-black dark:text-black/70 dark:text-white/70">{formatCurrency(holding.avgCost, holding.currency)}</span>
                 )}
               </td>
               <td className="px-4 py-4 text-right">
-                <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(holding.currentPrice)}</span>
+                <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(holding.currentPrice, holding.currency)}</span>
               </td>
               <td className="px-4 py-4 text-right">
-                <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(holding.marketValue)}</span>
+                <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(holding.marketValue, holding.currency)}</span>
               </td>
               <td className="px-4 py-4 text-right">
                 {holding.gainLoss !== undefined && (
                   <div className="flex flex-col items-end gap-1">
                     <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(holding.gainLoss)} ${getChangeColor(holding.gainLoss)}`}>
-                      {formatCurrency(holding.gainLoss)}
+                      {formatCurrency(holding.gainLoss, holding.currency)}
                     </span>
                     <span className={`text-xs ${getChangeColor(holding.gainLossPercent)}`}>
                       {formatPercent(holding.gainLossPercent)}
