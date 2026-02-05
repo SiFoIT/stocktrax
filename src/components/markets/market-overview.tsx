@@ -52,7 +52,7 @@ export function MarketOverview() {
               </div>
               <div>
                 <h2 className="font-semibold text-black dark:text-white">Market Overview</h2>
-                <p className="text-xs text-black/50 dark:text-white/50">Global indices, currency & crypto</p>
+                <p className="text-xs text-black/50 dark:text-white/50">Global indices, commodities, currency & crypto</p>
               </div>
             </div>
             <MarketStatusIndicator />

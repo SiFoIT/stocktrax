@@ -1,4 +1,4 @@
-export type Category = "markets" | "currency" | "crypto";
+export type Category = "markets" | "commodities" | "currency" | "crypto";
 
 export interface MarketSymbol {
   symbol: string;
@@ -23,6 +23,11 @@ export const MARKET_SYMBOLS: Record<Category, MarketSymbol[]> = {
     { symbol: "^HSI", name: "Hang Seng" },
     { symbol: "000001.SS", name: "Shanghai Composite" },
   ],
+  commodities: [
+    { symbol: "GC=F", name: "Gold" },
+    { symbol: "SI=F", name: "Silver" },
+    { symbol: "CL=F", name: "Crude Oil" },
+  ],
   currency: [
     { symbol: "CAD=X", name: "USD/CAD" },
     { symbol: "CADUSD=X", name: "CAD/USD" },
@@ -40,8 +45,9 @@ export const MARKET_SYMBOLS: Record<Category, MarketSymbol[]> = {
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   markets: "Markets",
+  commodities: "Commodities",
   currency: "Currency",
   crypto: "Crypto",
 };
 
-export const CATEGORIES: Category[] = ["markets", "currency", "crypto"];
+export const CATEGORIES: Category[] = ["markets", "commodities", "currency", "crypto"];
