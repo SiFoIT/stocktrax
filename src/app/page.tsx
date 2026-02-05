@@ -34,10 +34,21 @@ export default function Dashboard() {
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
   const [portfoliosLoading, setPortfoliosLoading] = useState(true);
 
-  // Initialize from sessionStorage after mount
+  // Initialize from URL params or sessionStorage after mount
   useEffect(() => {
-    const initialTab = getInitialTab();
-    setActiveTab(initialTab);
+    // Check URL params first (most reliable for navigation)
+    const params = new URLSearchParams(window.location.search);
+    const tabFromUrl = params.get("tab") as Tab | null;
+
+    if (tabFromUrl && ["general", "watchlist", "portfolios"].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+      // Clean up URL
+      window.history.replaceState({}, "", window.location.pathname);
+    } else {
+      // Fall back to sessionStorage or default
+      const initialTab = getInitialTab();
+      setActiveTab(initialTab);
+    }
 
     const initialWatchlistId = getInitialWatchlistId();
     if (initialWatchlistId) {

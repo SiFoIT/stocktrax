@@ -130,8 +130,7 @@ export function MainNavTabs({
         setWatchlists((prev) => [...prev, newWatchlist]);
         if (isSubPage) {
           sessionStorage.setItem("selectedWatchlistId", newWatchlist.id.toString());
-          sessionStorage.setItem("navigateToTab", "watchlist");
-          window.location.href = "/";
+          window.location.href = "/?tab=watchlist";
         } else {
           onSelectWatchlist(newWatchlist.id);
           onTabChange("watchlist");
@@ -230,8 +229,7 @@ export function MainNavTabs({
       }
       // If on a portfolio page that was deleted, go home
       if (isSubPage && pathname === `/portfolio/${id}`) {
-        sessionStorage.setItem("navigateToTab", "portfolios");
-        window.location.href = "/";
+        window.location.href = "/?tab=portfolios";
       }
     } catch (error) {
       console.error("Error deleting portfolio:", error);
@@ -260,9 +258,7 @@ export function MainNavTabs({
   const handleSelectWatchlistItem = (id: number) => {
     if (isSubPage) {
       sessionStorage.setItem("selectedWatchlistId", id.toString());
-      sessionStorage.setItem("navigateToTab", "watchlist");
-      // Use full navigation to ensure the page re-reads sessionStorage
-      window.location.href = "/";
+      window.location.href = "/?tab=watchlist";
     } else {
       onSelectWatchlist(id);
       onTabChange("watchlist");
@@ -277,9 +273,8 @@ export function MainNavTabs({
 
   const handleTabClick = (tab: Tab) => {
     if (isSubPage) {
-      sessionStorage.setItem("navigateToTab", tab);
-      // Use full navigation to ensure the page re-reads sessionStorage
-      window.location.href = "/";
+      // Use URL params for reliable navigation
+      window.location.href = `/?tab=${tab}`;
     } else {
       onTabChange(tab);
     }
