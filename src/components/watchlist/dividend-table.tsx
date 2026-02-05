@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { WatchlistItemWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 
-type SortColumn = "symbol" | "price" | "dividendRate" | "dividendYield" | "exDividendDate" | "daysToExDiv" | "dividendDate" | "payoutRatio" | "fiveYearAvgYield";
+type SortColumn = "symbol" | "price" | "dividendRate" | "dividendYield" | "exDividendDate" | "daysToExDiv" | "dividendDate" | "payoutRatio" | "sector" | "fiveYearAvgYield";
 type SortDirection = "asc" | "desc";
 
 interface DividendTableProps {
@@ -68,6 +68,39 @@ function getDaysToExDivColor(days: number | undefined): string {
   if (days <= 7) return "text-amber-400"; // Soon - buy now!
   if (days <= 30) return "text-emerald-400"; // Upcoming
   return "text-black/70 dark:text-white/70"; // Far out
+}
+
+function getSafetyScore(payoutRatio: number | undefined): number {
+  // Returns 1-3 for sorting (1=safe, 2=moderate, 3=at risk, 4=unknown)
+  if (payoutRatio === undefined) return 4;
+  if (payoutRatio < 0.5) return 1;
+  if (payoutRatio < 0.8) return 2;
+  return 3;
+}
+
+function getSafetyLabel(payoutRatio: number | undefined): { text: string; color: string; bg: string } {
+  if (payoutRatio === undefined) return { text: "-", color: "text-black/50 dark:text-white/50", bg: "" };
+  if (payoutRatio < 0.5) return { text: "Safe", color: "text-emerald-400", bg: "bg-emerald-500/10" };
+  if (payoutRatio < 0.8) return { text: "Moderate", color: "text-amber-400", bg: "bg-amber-500/10" };
+  return { text: "At Risk", color: "text-red-400", bg: "bg-red-500/10" };
+}
+
+function getSectorAbbrev(sector: string | undefined): string {
+  if (!sector) return "-";
+  const abbrevMap: Record<string, string> = {
+    "Technology": "Tech",
+    "Financial Services": "Finance",
+    "Healthcare": "Health",
+    "Consumer Cyclical": "Cons Cyc",
+    "Consumer Defensive": "Cons Def",
+    "Communication Services": "Comms",
+    "Industrials": "Indust",
+    "Real Estate": "REIT",
+    "Basic Materials": "Materials",
+    "Energy": "Energy",
+    "Utilities": "Utilities",
+  };
+  return abbrevMap[sector] || sector.slice(0, 8);
 }
 
 function SortIcon({ direction }: { direction: SortDirection | null }) {
@@ -137,6 +170,10 @@ export function DividendTable({
           aVal = a.payoutRatio;
           bVal = b.payoutRatio;
           break;
+        case "sector":
+          aVal = a.sector || "";
+          bVal = b.sector || "";
+          break;
         case "fiveYearAvgYield":
           aVal = a.fiveYearAvgDividendYield;
           bVal = b.fiveYearAvgDividendYield;
@@ -189,20 +226,14 @@ export function DividendTable({
           <thead>
             <tr className="border-b border-black/10 dark:border-white/10">
               <HeaderCell column="symbol" label="Symbol" align="left" />
+              <HeaderCell column="sector" label="Sector" align="left" />
               <HeaderCell column="price" label="Price" />
               <HeaderCell column="dividendRate" label="Div Rate" />
               <HeaderCell column="dividendYield" label="Yield" />
+              <HeaderCell column="payoutRatio" label="Payout" />
               <HeaderCell column="exDividendDate" label="Ex-Div" />
               <HeaderCell column="daysToExDiv" label="Days" />
               <HeaderCell column="dividendDate" label="Pay Date" />
-              <th
-                className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none whitespace-nowrap text-right"
-                onClick={() => handleSort("payoutRatio")}
-                title="Percentage of earnings paid as dividends"
-              >
-                Payout %
-                <SortIcon direction={sortColumn === "payoutRatio" ? sortDirection : null} />
-              </th>
               <HeaderCell column="fiveYearAvgYield" label="5Y Avg" />
               <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
             </tr>
@@ -232,6 +263,9 @@ export function DividendTable({
                     <span className="font-semibold text-black dark:text-white">{item.symbol}</span>
                   </button>
                 </td>
+                <td className="px-4 py-4">
+                  <span className="text-xs text-black/60 dark:text-white/60">{getSectorAbbrev(item.sector)}</span>
+                </td>
                 <td className="px-4 py-4 text-right">
                   <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(item.price)}</span>
                 </td>
@@ -248,6 +282,16 @@ export function DividendTable({
                   </span>
                 </td>
                 <td className="px-4 py-4 text-right">
+                  {(() => {
+                    const safety = getSafetyLabel(item.payoutRatio);
+                    return (
+                      <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${safety.bg} ${safety.color}`}>
+                        {formatPercent(item.payoutRatio)}
+                      </span>
+                    );
+                  })()}
+                </td>
+                <td className="px-4 py-4 text-right">
                   <span className="text-black/70 dark:text-white/70">{formatDate(item.exDividendDate)}</span>
                 </td>
                 <td className="px-4 py-4 text-right">
@@ -257,9 +301,6 @@ export function DividendTable({
                 </td>
                 <td className="px-4 py-4 text-right">
                   <span className="text-black/70 dark:text-white/70">{formatDate(item.dividendDate)}</span>
-                </td>
-                <td className="px-4 py-4 text-right">
-                  <span className="text-black/70 dark:text-white/70">{formatPercent(item.payoutRatio)}</span>
                 </td>
                 <td className="px-4 py-4 text-right">
                   <span className="text-black/70 dark:text-white/70">{formatPercentRaw(item.fiveYearAvgDividendYield)}</span>

@@ -54,6 +54,8 @@ export interface WatchlistItemWithQuote {
   payoutRatio?: number;
   trailingAnnualDividendYield?: number;
   fiveYearAvgDividendYield?: number;
+  // Company info
+  sector?: string;
 }
 
 export interface MarketData {

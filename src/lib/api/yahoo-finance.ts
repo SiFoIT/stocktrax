@@ -288,16 +288,18 @@ export interface DividendInfo {
   payoutRatio?: number;
   trailingAnnualDividendYield?: number;
   fiveYearAvgDividendYield?: number;
+  sector?: string;
 }
 
 export async function getDividendInfo(symbol: string): Promise<DividendInfo> {
   try {
     const summary = await yahooFinance.quoteSummary(symbol, {
-      modules: ["summaryDetail", "calendarEvents"],
+      modules: ["summaryDetail", "calendarEvents", "summaryProfile"],
     });
 
     const detail = summary?.summaryDetail;
     const calendar = summary?.calendarEvents;
+    const profile = summary?.summaryProfile;
 
     return {
       dividendRate: detail?.dividendRate,
@@ -311,6 +313,7 @@ export async function getDividendInfo(symbol: string): Promise<DividendInfo> {
       payoutRatio: detail?.payoutRatio,
       trailingAnnualDividendYield: detail?.trailingAnnualDividendYield,
       fiveYearAvgDividendYield: detail?.fiveYearAvgDividendYield,
+      sector: profile?.sector,
     };
   } catch (error) {
     console.error("Error fetching dividend info:", error);
