@@ -154,6 +154,8 @@ export default function Dashboard() {
                 trailingAnnualDividendYield: quoteData.dividendInfo?.trailingAnnualDividendYield,
                 fiveYearAvgDividendYield: quoteData.dividendInfo?.fiveYearAvgDividendYield,
                 sector: quoteData.dividendInfo?.sector,
+                volume: quoteData.quote?.volume,
+                avgVolume: quoteData.quote?.avgVolume,
               };
             }
           } catch {

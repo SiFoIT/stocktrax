@@ -58,6 +58,9 @@ export interface WatchlistItemWithQuote {
   fiveYearAvgDividendYield?: number;
   // Company info
   sector?: string;
+  // Volume fields
+  volume?: number;
+  avgVolume?: number;
 }
 
 export interface MarketData {

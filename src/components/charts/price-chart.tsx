@@ -7,9 +7,11 @@ import {
   IChartApi,
   LineData,
   CandlestickData,
+  HistogramData,
   Time,
   LineSeries,
   CandlestickSeries,
+  HistogramSeries,
 } from "lightweight-charts";
 import { StockTimeSeries } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -128,7 +130,7 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
         horzLines: { color: "#374151" },
       },
       width: chartContainerRef.current.clientWidth,
-      height,
+      height: height + 80, // Extra height for volume pane
       timeScale: {
         borderColor: "#374151",
         timeVisible: activeRange === "1D" || activeRange === "5D",
@@ -136,6 +138,10 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
       },
       rightPriceScale: {
         borderColor: "#374151",
+        scaleMargins: {
+          top: 0.05,
+          bottom: 0.25, // Reserve space for volume
+        },
       },
     });
 
@@ -197,6 +203,40 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
       }));
       lineSeries.setData(lineData);
     }
+
+    // Add volume histogram series
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: {
+        type: "volume",
+      },
+      priceScaleId: "volume",
+    });
+
+    // Configure volume price scale
+    chart.priceScale("volume").applyOptions({
+      scaleMargins: {
+        top: 0.85, // Volume bars at bottom 15% of chart
+        bottom: 0,
+      },
+    });
+
+    // Map volume data with colors based on price direction
+    const volumeData: HistogramData<Time>[] = finalData.map((d, i) => {
+      const prevClose = i > 0 ? finalData[i - 1].close : d.open;
+      const isUp = d.close >= prevClose;
+      const originalData = data.find(
+        (orig) =>
+          (isIntraday
+            ? Math.floor(new Date(orig.date).getTime() / 1000)
+            : orig.date.split("T")[0]) === d.time
+      );
+      return {
+        time: d.time,
+        value: originalData?.volume ?? 0,
+        color: isUp ? "rgba(34, 197, 94, 0.5)" : "rgba(239, 68, 68, 0.5)",
+      };
+    });
+    volumeSeries.setData(volumeData);
 
     // Set visible range based on selected time range
     if (activeRange === "3M" && finalData.length > 0) {

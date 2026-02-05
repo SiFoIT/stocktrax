@@ -6,7 +6,7 @@ import { PriceRangeBar } from "@/components/ui/price-range-bar";
 import { WatchlistItemWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 
-type SortColumn = "symbol" | "price" | "dayRange" | "52wRange" | "1D" | "5D" | "1M" | "3M" | "1Y";
+type SortColumn = "symbol" | "price" | "dayRange" | "52wRange" | "1D" | "5D" | "1M" | "3M" | "1Y" | "volume";
 type SortDirection = "asc" | "desc";
 
 interface WatchlistTableProps {
@@ -45,6 +45,14 @@ function formatTradeTime(isoString: string | undefined): string {
   if (!isoString) return "";
   const date = new Date(isoString);
   return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function formatVolume(value: number | undefined): string {
+  if (value === undefined) return "-";
+  if (value >= 1e9) return `${(value / 1e9).toFixed(1)}B`;
+  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
+  if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
+  return value.toFixed(0);
 }
 
 function SortIcon({ direction }: { direction: SortDirection | null }) {
@@ -126,6 +134,10 @@ export function WatchlistTable({
           aVal = a.change1Y;
           bVal = b.change1Y;
           break;
+        case "volume":
+          aVal = a.volume;
+          bVal = b.volume;
+          break;
       }
 
       if (aVal === undefined && bVal === undefined) return 0;
@@ -176,6 +188,7 @@ export function WatchlistTable({
               <HeaderCell column="symbol" label="Symbol" align="left" />
               <HeaderCell column="price" label="Price" />
               <HeaderCell column="1D" label="Chg %" />
+              <HeaderCell column="volume" label="Volume" />
               <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-center cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none" onClick={() => handleSort("dayRange")}>
                 Day Range
                 <SortIcon direction={sortColumn === "dayRange" ? sortDirection : null} />
@@ -227,6 +240,11 @@ export function WatchlistTable({
                 <td className="px-4 py-4 text-right">
                   <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(item.changePercent)} ${getChangeColor(item.changePercent)}`}>
                     {formatPercent(item.changePercent)}
+                  </span>
+                </td>
+                <td className="px-4 py-4 text-right">
+                  <span className="font-mono text-sm text-black/70 dark:text-white/70">
+                    {formatVolume(item.volume)}
                   </span>
                 </td>
                 <td className="px-4 py-4 text-center">
