@@ -27,27 +27,30 @@ function formatUpdatedTime(date: Date): string {
   }
 }
 
+// Helper to get tab from URL on initial load
+function getTabFromUrl(): Tab {
+  if (typeof window === "undefined") return "general";
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("tab");
+  if (tab && ["general", "watchlist", "portfolios"].includes(tab)) {
+    return tab as Tab;
+  }
+  return getInitialTab();
+}
+
 export default function Dashboard() {
-  // Tab state
-  const [activeTab, setActiveTab] = useState<Tab>("general");
+  // Tab state - read from URL immediately
+  const [activeTab, setActiveTab] = useState<Tab>(getTabFromUrl);
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
   const [portfoliosLoading, setPortfoliosLoading] = useState(true);
 
-  // Initialize from URL params or sessionStorage after mount
+  // Clean up URL and get watchlist ID after mount
   useEffect(() => {
-    // Check URL params first (most reliable for navigation)
+    // Clean up URL params after reading
     const params = new URLSearchParams(window.location.search);
-    const tabFromUrl = params.get("tab") as Tab | null;
-
-    if (tabFromUrl && ["general", "watchlist", "portfolios"].includes(tabFromUrl)) {
-      setActiveTab(tabFromUrl);
-      // Clean up URL
+    if (params.has("tab")) {
       window.history.replaceState({}, "", window.location.pathname);
-    } else {
-      // Fall back to sessionStorage or default
-      const initialTab = getInitialTab();
-      setActiveTab(initialTab);
     }
 
     const initialWatchlistId = getInitialWatchlistId();
