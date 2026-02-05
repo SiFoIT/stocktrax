@@ -99,6 +99,15 @@ exec node server.js
 - **Price Charts**: Line and candlestick, time ranges (1Y/3M/5D/1D), preferences persisted per list
 - **Symbol Search**: Autocomplete powered by Yahoo Finance search API
 
+## Charts
+
+- **Library**: lightweight-charts (TradingView)
+- **Docs**: https://tradingview.github.io/lightweight-charts/
+- **Key patterns**:
+  - Timezone conversion uses offset-based approach (see `toEasternTime` in `src/lib/utils.ts`)
+  - Visible range derived from actual data timestamps, not current time
+  - Use `subscribeCrosshairMove()` for interactive legend/tooltips
+
 ## Conventions
 
 - Use `"use client"` directive for components with hooks/interactivity

@@ -5,6 +5,7 @@ import {
   createChart,
   ColorType,
   IChartApi,
+  ISeriesApi,
   LineData,
   CandlestickData,
   HistogramData,
@@ -12,6 +13,7 @@ import {
   LineSeries,
   CandlestickSeries,
   HistogramSeries,
+  SeriesType,
 } from "lightweight-charts";
 import { StockTimeSeries } from "@/types";
 import { toEasternTime } from "@/lib/utils";
@@ -81,6 +83,35 @@ function getChangeColor(value: number | undefined): string {
   return value >= 0 ? "text-emerald-400" : "text-red-400";
 }
 
+function formatVolume(value: number): string {
+  if (value >= 1_000_000_000) return (value / 1_000_000_000).toFixed(2) + "B";
+  if (value >= 1_000_000) return (value / 1_000_000).toFixed(2) + "M";
+  if (value >= 1_000) return (value / 1_000).toFixed(2) + "K";
+  return value.toFixed(0);
+}
+
+function formatLegendTime(time: Time, isIntraday: boolean): string {
+  if (isIntraday && typeof time === "number") {
+    const date = new Date(time * 1000);
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+  return time as string;
+}
+
+interface LegendData {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  time: string;
+}
+
 export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges }: PriceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -89,6 +120,7 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
   const [chartType, setChartType] = useState<ChartType>(initialPrefs.current.type);
   const [data, setData] = useState<StockTimeSeries[]>([]);
   const [loading, setLoading] = useState(true);
+  const [legendData, setLegendData] = useState<LegendData | null>(null);
 
   // Save preferences when they change
   useEffect(() => {
@@ -183,6 +215,8 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
       finalData = Array.from(seen.values());
     }
 
+    let priceSeries: ISeriesApi<SeriesType>;
+
     if (chartType === "candle") {
       const candleSeries = chart.addSeries(CandlestickSeries, {
         upColor: "#22c55e",
@@ -200,6 +234,7 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
         close: d.close,
       }));
       candleSeries.setData(candleData);
+      priceSeries = candleSeries;
     } else {
       const lineSeries = chart.addSeries(LineSeries, {
         color: "#3b82f6",
@@ -210,6 +245,7 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
         value: d.close,
       }));
       lineSeries.setData(lineData);
+      priceSeries = lineSeries;
     }
 
     // Add volume histogram series
@@ -240,6 +276,63 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
       };
     });
     volumeSeries.setData(volumeData);
+
+    // Create a map for fast lookup of bar data by time
+    const barDataMap = new Map<string | number, { open: number; high: number; low: number; close: number; volume: number }>();
+    finalData.forEach((d) => {
+      const originalData = data[d.originalIndex];
+      barDataMap.set(d.time as string | number, {
+        open: d.open,
+        high: d.high,
+        low: d.low,
+        close: d.close,
+        volume: originalData?.volume ?? 0,
+      });
+    });
+
+    // Set initial legend to last bar
+    const lastBar = finalData[finalData.length - 1];
+    const lastOriginalData = data[lastBar.originalIndex];
+    setLegendData({
+      open: lastBar.open,
+      high: lastBar.high,
+      low: lastBar.low,
+      close: lastBar.close,
+      volume: lastOriginalData?.volume ?? 0,
+      time: formatLegendTime(lastBar.time, isIntraday),
+    });
+
+    // Subscribe to crosshair move for legend updates
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || !param.seriesData.size) {
+        // Cursor left chart - show last bar
+        setLegendData({
+          open: lastBar.open,
+          high: lastBar.high,
+          low: lastBar.low,
+          close: lastBar.close,
+          volume: lastOriginalData?.volume ?? 0,
+          time: formatLegendTime(lastBar.time, isIntraday),
+        });
+        return;
+      }
+
+      // Get data at crosshair position
+      const priceData = param.seriesData.get(priceSeries);
+      if (priceData) {
+        const barInfo = barDataMap.get(param.time as string | number);
+        if (barInfo) {
+          setLegendData({
+            open: barInfo.open,
+            high: barInfo.high,
+            low: barInfo.low,
+            close: barInfo.close,
+            volume: barInfo.volume,
+            time: formatLegendTime(param.time, isIntraday),
+          });
+        }
+      }
+    });
 
     // Set visible range based on selected time range
     if (finalData.length > 0) {
@@ -365,7 +458,40 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
             <span className="text-black/50 dark:text-white/50 text-sm">No price data available</span>
           </div>
         ) : (
-          <div ref={chartContainerRef} />
+          <>
+            {/* OHLCV Legend */}
+            {legendData && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-2 font-mono">
+                <span className="text-black/50 dark:text-white/50">{legendData.time}</span>
+                {chartType === "candle" ? (
+                  <>
+                    <span className="text-black/50 dark:text-white/50">
+                      O: <span className="text-black dark:text-white">{legendData.open.toFixed(2)}</span>
+                    </span>
+                    <span className="text-black/50 dark:text-white/50">
+                      H: <span className="text-black dark:text-white">{legendData.high.toFixed(2)}</span>
+                    </span>
+                    <span className="text-black/50 dark:text-white/50">
+                      L: <span className="text-black dark:text-white">{legendData.low.toFixed(2)}</span>
+                    </span>
+                    <span className="text-black/50 dark:text-white/50">
+                      C: <span className={legendData.close >= legendData.open ? "text-emerald-500" : "text-red-500"}>
+                        {legendData.close.toFixed(2)}
+                      </span>
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-black/50 dark:text-white/50">
+                    Close: <span className="text-black dark:text-white">{legendData.close.toFixed(2)}</span>
+                  </span>
+                )}
+                <span className="text-black/50 dark:text-white/50">
+                  Vol: <span className="text-black dark:text-white">{formatVolume(legendData.volume)}</span>
+                </span>
+              </div>
+            )}
+            <div ref={chartContainerRef} />
+          </>
         )}
       </div>
     </div>
