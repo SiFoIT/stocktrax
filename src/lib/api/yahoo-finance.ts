@@ -452,52 +452,39 @@ export async function getTimeSeries(
 export async function getNews(symbol: string, limit = 5): Promise<NewsArticle[]> {
   try {
     const upperSymbol = symbol.toUpperCase();
-    const articles: NewsArticle[] = [];
 
-    // Use insights API which provides reports and significant developments
-    const insights = await yahooFinance.insights(upperSymbol);
+    // Use search API which provides news with thumbnails
+    const result = await yahooFinance.search(symbol, {
+      newsCount: limit * 3,
+      quotesCount: 0,
+    });
 
-    // Add analyst reports
-    if (insights.reports && insights.reports.length > 0) {
-      for (const report of insights.reports) {
-        articles.push({
-          uuid: report.id || `report_${upperSymbol}_${Date.now()}_${Math.random()}`,
-          title: report.title || report.headHtml || "Analyst Report",
-          publisher: report.provider || "Unknown",
-          link: `https://finance.yahoo.com/quote/${upperSymbol}`,
-          publishedAt: report.reportDate
-            ? new Date(report.reportDate).toISOString()
-            : new Date().toISOString(),
-          type: "REPORT",
-          relatedSymbols: report.tickers || [upperSymbol],
-        });
-      }
+    if (!result || !result.news || result.news.length === 0) {
+      return [];
     }
 
-    // Add significant developments
-    if (insights.sigDevs && insights.sigDevs.length > 0) {
-      for (const dev of insights.sigDevs) {
-        articles.push({
-          uuid: `sigdev_${upperSymbol}_${dev.date}_${Math.random()}`,
-          title: dev.headline,
-          publisher: "Yahoo Finance",
-          link: `https://finance.yahoo.com/quote/${upperSymbol}`,
-          publishedAt: dev.date
-            ? new Date(dev.date).toISOString()
-            : new Date().toISOString(),
-          type: "STORY",
-          relatedSymbols: [upperSymbol],
-        });
+    // Filter to only include articles that actually have this symbol in relatedTickers
+    const relevantNews = result.news.filter((item) => {
+      if (!item.relatedTickers || item.relatedTickers.length === 0) {
+        return false;
       }
-    }
+      return item.relatedTickers.some(
+        (ticker) => ticker.toUpperCase() === upperSymbol
+      );
+    });
 
-    // Sort by date (newest first) and limit
-    articles.sort(
-      (a, b) =>
-        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-    );
-
-    return articles.slice(0, limit);
+    return relevantNews.slice(0, limit).map((item) => ({
+      uuid: item.uuid,
+      title: item.title,
+      publisher: item.publisher || "Unknown",
+      link: item.link,
+      publishedAt: item.providerPublishTime
+        ? new Date(item.providerPublishTime).toISOString()
+        : new Date().toISOString(),
+      type: item.type || "STORY",
+      thumbnail: item.thumbnail?.resolutions?.[0]?.url,
+      relatedSymbols: item.relatedTickers || [symbol],
+    }));
   } catch (error) {
     console.error("Error fetching news:", error);
     return [];

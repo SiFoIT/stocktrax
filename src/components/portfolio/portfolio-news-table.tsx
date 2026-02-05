@@ -60,7 +60,7 @@ export function PortfolioNewsTable({ articles, loading }: PortfolioNewsTableProp
         >
           <div className="flex gap-4">
             {article.thumbnail && (
-              <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-black/10 dark:bg-white/10">
+              <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-black/10 dark:bg-white/10">
                 <img
                   src={article.thumbnail}
                   alt=""
