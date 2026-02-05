@@ -69,7 +69,6 @@ export function MainNavTabs({
   const [newWatchlistName, setNewWatchlistName] = useState("");
   const [creatingWatchlist, setCreatingWatchlist] = useState(false);
   const [newPortfolioName, setNewPortfolioName] = useState("");
-  const [newPortfolioCurrency, setNewPortfolioCurrency] = useState<"USD" | "CAD">("USD");
   const [creatingPortfolio, setCreatingPortfolio] = useState(false);
 
   // Edit state
@@ -190,10 +189,7 @@ export function MainNavTabs({
       const response = await fetch("/api/portfolios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newPortfolioName,
-          currency: newPortfolioCurrency,
-        }),
+        body: JSON.stringify({ name: newPortfolioName }),
       });
 
       if (response.ok) {
@@ -462,25 +458,15 @@ export function MainNavTabs({
           {showPortfolioDropdown && (
             <div className="absolute top-full left-0 mt-2 w-80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
               <div className="p-3 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
-                <form onSubmit={handleCreatePortfolio} className="space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="New portfolio name"
-                      value={newPortfolioName}
-                      onChange={(e) => setNewPortfolioName(e.target.value)}
-                      className="h-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:border-emerald-500/50"
-                    />
-                    <select
-                      className="h-9 px-2 rounded-lg border border-black/10 dark:border-white/10 bg-white/5 text-sm focus:border-emerald-500/50 focus:outline-none"
-                      value={newPortfolioCurrency}
-                      onChange={(e) => setNewPortfolioCurrency(e.target.value as "USD" | "CAD")}
-                    >
-                      <option value="USD" className="bg-gray-900">USD</option>
-                      <option value="CAD" className="bg-gray-900">CAD</option>
-                    </select>
-                  </div>
-                  <Button type="submit" size="sm" disabled={creatingPortfolio} className="w-full bg-emerald-500 hover:bg-emerald-600">
-                    {creatingPortfolio ? "Creating..." : "Create Portfolio"}
+                <form onSubmit={handleCreatePortfolio} className="flex gap-2">
+                  <Input
+                    placeholder="New portfolio name"
+                    value={newPortfolioName}
+                    onChange={(e) => setNewPortfolioName(e.target.value)}
+                    className="h-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:border-emerald-500/50"
+                  />
+                  <Button type="submit" size="sm" disabled={creatingPortfolio} className="bg-emerald-500 hover:bg-emerald-600">
+                    Add
                   </Button>
                 </form>
               </div>
@@ -528,12 +514,7 @@ export function MainNavTabs({
                           </Button>
                         </form>
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{portfolio.name}</span>
-                          <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-xs">
-                            {portfolio.currency}
-                          </span>
-                        </div>
+                        <span className="text-sm font-medium">{portfolio.name}</span>
                       )}
                       {editingPortfolioId !== portfolio.id && (
                         <div className="flex gap-1">
