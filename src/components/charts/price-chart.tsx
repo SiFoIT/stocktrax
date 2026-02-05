@@ -14,6 +14,7 @@ import {
   HistogramSeries,
 } from "lightweight-charts";
 import { StockTimeSeries } from "@/types";
+import { toEasternTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 type TimeRange = "1D" | "5D" | "3M" | "1Y" | "5Y";
@@ -152,16 +153,21 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
     const isIntraday = activeRange === "1D" || activeRange === "5D";
 
     // Process data for the chart
+    // For intraday, convert UTC timestamps to Eastern Time for display
     const processedData = data
-      .map((d) => ({
-        time: (isIntraday
-          ? Math.floor(new Date(d.date).getTime() / 1000)
-          : d.date.split("T")[0]) as Time,
-        open: d.open,
-        high: d.high,
-        low: d.low,
-        close: d.close,
-      }))
+      .map((d, idx) => {
+        const utcTimestamp = Math.floor(new Date(d.date).getTime() / 1000);
+        return {
+          time: (isIntraday
+            ? toEasternTime(utcTimestamp)
+            : d.date.split("T")[0]) as Time,
+          open: d.open,
+          high: d.high,
+          low: d.low,
+          close: d.close,
+          originalIndex: idx, // Keep reference to original data for volume lookup
+        };
+      })
       .sort((a, b) => {
         if (typeof a.time === "number" && typeof b.time === "number") {
           return a.time - b.time;
@@ -226,12 +232,7 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
     const volumeData: HistogramData<Time>[] = finalData.map((d, i) => {
       const prevClose = i > 0 ? finalData[i - 1].close : d.open;
       const isUp = d.close >= prevClose;
-      const originalData = data.find(
-        (orig) =>
-          (isIntraday
-            ? Math.floor(new Date(orig.date).getTime() / 1000)
-            : orig.date.split("T")[0]) === d.time
-      );
+      const originalData = data[d.originalIndex];
       return {
         time: d.time,
         value: originalData?.volume ?? 0,
@@ -243,21 +244,26 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
     // Set visible range based on selected time range
     if (finalData.length > 0) {
       const config = rangeConfig[activeRange];
-      const now = new Date();
-      const fromDate = new Date();
-      fromDate.setDate(now.getDate() - config.showDays);
+      const lastDataPoint = finalData[finalData.length - 1];
+
+      // Calculate the "from" point based on showDays from the last data point
+      const showDaysMs = config.showDays * 24 * 60 * 60 * 1000;
 
       if (isIntraday) {
-        // For intraday, use Unix timestamps
+        // For intraday, use the actual data timestamps
+        const toTime = lastDataPoint.time as number;
+        const fromTime = toTime - (config.showDays * 24 * 60 * 60);
         chart.timeScale().setVisibleRange({
-          from: Math.floor(fromDate.getTime() / 1000) as Time,
-          to: Math.floor(now.getTime() / 1000) as Time,
+          from: fromTime as Time,
+          to: toTime as Time,
         });
       } else {
-        // For daily/weekly, use date strings
+        // For daily/weekly, calculate date strings
+        const toDate = lastDataPoint.time as string;
+        const fromDate = new Date(new Date(toDate).getTime() - showDaysMs);
         chart.timeScale().setVisibleRange({
           from: fromDate.toISOString().split("T")[0] as Time,
-          to: now.toISOString().split("T")[0] as Time,
+          to: toDate as Time,
         });
       }
     }
