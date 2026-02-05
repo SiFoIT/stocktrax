@@ -1,5 +1,6 @@
 "use client";
 
+import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
 
 interface HoldingsTableProps {
@@ -81,9 +82,7 @@ export function HoldingsTable({
             >
               <td className="px-4 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center">
-                    <span className="text-xs font-bold text-emerald-400">{holding.symbol.slice(0, 2)}</span>
-                  </div>
+                  <StockIcon symbol={holding.symbol} />
                   <span className="font-semibold text-black dark:text-white">{holding.symbol}</span>
                 </div>
               </td>

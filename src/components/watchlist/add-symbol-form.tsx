@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StockIcon } from "@/components/ui/stock-icon";
 
 interface SearchResult {
   symbol: string;
@@ -155,9 +156,7 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
           onClick={() => handleSelectSuggestion(suggestion)}
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
-              <span className="text-xs font-bold text-blue-400">{suggestion.symbol.slice(0, 2)}</span>
-            </div>
+            <StockIcon symbol={suggestion.symbol} size="sm" />
             <div>
               <span className="font-medium text-white">{suggestion.symbol}</span>
               <span className="text-white/50 text-sm ml-2 truncate max-w-[200px] inline-block align-bottom">

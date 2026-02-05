@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { PriceRangeBar } from "@/components/ui/price-range-bar";
+import { StockIcon } from "@/components/ui/stock-icon";
 import { WatchlistItemWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 
@@ -228,9 +229,7 @@ export function WatchlistTable({
                       setDetailsSymbol(item.symbol);
                     }}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
-                      <span className="text-xs font-bold text-blue-400">{item.symbol.slice(0, 2)}</span>
-                    </div>
+                    <StockIcon symbol={item.symbol} />
                     <span className="font-semibold text-blue-400 group-hover:text-blue-300 underline decoration-blue-400/40 group-hover:decoration-blue-300 underline-offset-2 transition-colors">{item.symbol}</span>
                   </button>
                 </td>
