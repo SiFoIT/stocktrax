@@ -10,6 +10,7 @@ interface HoldingsTableProps {
   selectedSymbol?: string;
   onSelectHolding: (symbol: string) => void;
   onDeleteHolding: (id: number) => void;
+  onAddTransaction?: (symbol: string) => void;
 }
 
 function formatCurrency(value: number | undefined, currency = "USD"): string {
@@ -48,6 +49,7 @@ export function HoldingsTable({
   selectedSymbol,
   onSelectHolding,
   onDeleteHolding,
+  onAddTransaction,
 }: HoldingsTableProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -203,6 +205,21 @@ export function HoldingsTable({
           className="fixed z-50 min-w-[140px] rounded-xl bg-white dark:bg-zinc-900 border border-black/10 dark:border-white/10 shadow-xl overflow-hidden"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
+          {onAddTransaction && (
+            <button
+              className="w-full px-4 py-2.5 text-left text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-3 transition-colors"
+              onClick={() => {
+                const holding = holdings.find((h) => h.id === contextMenu.holdingId);
+                if (holding) onAddTransaction(holding.symbol);
+                setContextMenu(null);
+              }}
+            >
+              <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Transaction
+            </button>
+          )}
           <button
             className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-3 transition-colors"
             onClick={() => {

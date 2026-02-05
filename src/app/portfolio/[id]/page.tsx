@@ -45,6 +45,7 @@ export default function PortfolioPage() {
   const [newsLoading, setNewsLoading] = useState(false);
   const [transactionsData, setTransactionsData] = useState<TransactionWithSymbol[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [prefillSymbol, setPrefillSymbol] = useState<string | null>(null);
 
   // State for MainNavTabs (used for dropdown highlighting)
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
@@ -209,9 +210,13 @@ export default function PortfolioPage() {
 
   const handleTransactionAdded = () => {
     fetchHoldings();
-    if (holdingsView === "transactions") {
-      fetchTransactions();
-    }
+    fetchTransactions();
+    setPrefillSymbol(null);
+  };
+
+  const handleAddTransactionForSymbol = (symbol: string) => {
+    setPrefillSymbol(symbol);
+    setHoldingsView("transactions");
   };
 
   const handleEditTransaction = async (id: number, data: { shares?: number; price?: number; date?: string; type?: string }) => {
@@ -354,15 +359,6 @@ export default function PortfolioPage() {
         />
       </div>
 
-      {/* Add Transaction Form */}
-      <div className="mb-8">
-        <AddTransactionForm
-          portfolioId={portfolioId}
-          holdings={holdings}
-          onTransactionAdded={handleTransactionAdded}
-        />
-      </div>
-
       {/* Tabs */}
       <div className="flex gap-2 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 w-fit mb-6">
         <button
@@ -502,6 +498,7 @@ export default function PortfolioPage() {
                   selectedSymbol={selectedSymbol || undefined}
                   onSelectHolding={handleSelectHolding}
                   onDeleteHolding={handleDeleteHolding}
+                  onAddTransaction={handleAddTransactionForSymbol}
                 />
               ) : holdingsView === "performance" ? (
                 <PortfolioPerformanceTable
@@ -516,20 +513,28 @@ export default function PortfolioPage() {
                   onSelectSymbol={handleSelectHolding}
                 />
               ) : holdingsView === "transactions" ? (
-                transactionsLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-                      <span className="text-black/50 dark:text-white/50 text-sm">Loading transactions...</span>
-                    </div>
-                  </div>
-                ) : (
-                  <TransactionsTable
-                    transactions={transactionsData}
-                    onEditTransaction={handleEditTransaction}
-                    onDeleteTransaction={handleDeleteTransaction}
+                <div className="space-y-6">
+                  <AddTransactionForm
+                    portfolioId={portfolioId}
+                    holdings={holdings}
+                    onTransactionAdded={handleTransactionAdded}
+                    prefillSymbol={prefillSymbol}
                   />
-                )
+                  {transactionsLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                        <span className="text-black/50 dark:text-white/50 text-sm">Loading transactions...</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <TransactionsTable
+                      transactions={transactionsData}
+                      onEditTransaction={handleEditTransaction}
+                      onDeleteTransaction={handleDeleteTransaction}
+                    />
+                  )}
+                </div>
               ) : (
                 <PortfolioNewsTable
                   articles={portfolioNews}

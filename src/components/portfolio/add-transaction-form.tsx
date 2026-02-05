@@ -16,9 +16,10 @@ interface AddTransactionFormProps {
   portfolioId: number;
   holdings: HoldingWithQuote[];
   onTransactionAdded: () => void;
+  prefillSymbol?: string | null;
 }
 
-export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded }: AddTransactionFormProps) {
+export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, prefillSymbol }: AddTransactionFormProps) {
   const [symbol, setSymbol] = useState("");
   const [transactionType, setTransactionType] = useState<"buy" | "sell" | "dividend">("buy");
   const [shares, setShares] = useState("");
@@ -32,6 +33,14 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded }
   const [fetchingPrice, setFetchingPrice] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Handle prefill symbol from context menu
+  useEffect(() => {
+    if (prefillSymbol) {
+      setSymbol(prefillSymbol);
+      fetchCurrentPrice(prefillSymbol);
+    }
+  }, [prefillSymbol]);
 
   // Available shares for sell validation
   const availableShares = holdings.find(
