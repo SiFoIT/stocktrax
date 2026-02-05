@@ -100,6 +100,17 @@ export interface MarketData {
   sparklineData: number[];
 }
 
+export interface TransactionWithSymbol {
+  id: number;
+  holdingId: number;
+  type: "buy" | "sell" | "dividend";
+  shares: number;
+  price: number;
+  date: string;
+  symbol: string;
+  currency: string;
+}
+
 export interface NewsArticle {
   uuid: string;
   title: string;

@@ -7,13 +7,14 @@ import { HoldingsTable } from "@/components/portfolio/holdings-table";
 import { PortfolioPerformanceTable } from "@/components/portfolio/portfolio-performance-table";
 import { PortfolioDividendTable } from "@/components/portfolio/portfolio-dividend-table";
 import { PortfolioNewsTable } from "@/components/portfolio/portfolio-news-table";
-import { AddHoldingForm } from "@/components/portfolio/add-holding-form";
+import { AddTransactionForm } from "@/components/portfolio/add-transaction-form";
+import { TransactionsTable } from "@/components/portfolio/transactions-table";
 import { PriceChart } from "@/components/charts/price-chart";
 import { AllocationChart } from "@/components/charts/allocation-chart";
 import { Button } from "@/components/ui/button";
 import { MainNav, MainNavTabs } from "@/components/layout/main-nav";
 import { Portfolio, Holding } from "@/lib/db/schema";
-import { HoldingWithQuote, NewsArticle } from "@/types";
+import { HoldingWithQuote, NewsArticle, TransactionWithSymbol } from "@/types";
 
 function formatUpdatedTime(date: Date): string {
   const now = new Date();
@@ -38,10 +39,12 @@ export default function PortfolioPage() {
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"holdings" | "allocation">("holdings");
-  const [holdingsView, setHoldingsView] = useState<"holdings" | "performance" | "dividend" | "news">("holdings");
+  const [holdingsView, setHoldingsView] = useState<"holdings" | "performance" | "dividend" | "news" | "transactions">("holdings");
   const [holdingsUpdatedAt, setHoldingsUpdatedAt] = useState<Date | null>(null);
   const [portfolioNews, setPortfolioNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
+  const [transactionsData, setTransactionsData] = useState<TransactionWithSymbol[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
 
   // State for MainNavTabs (used for dropdown highlighting)
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
@@ -147,6 +150,21 @@ export default function PortfolioPage() {
     }
   }, [holdings]);
 
+  const fetchTransactions = useCallback(async () => {
+    setTransactionsLoading(true);
+    try {
+      const response = await fetch(`/api/transactions?portfolioId=${portfolioId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setTransactionsData(data);
+      }
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  }, [portfolioId]);
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -162,12 +180,18 @@ export default function PortfolioPage() {
     }
   }, [holdingsView, holdings.length, fetchPortfolioNews]);
 
+  useEffect(() => {
+    if (holdingsView === "transactions") {
+      fetchTransactions();
+    }
+  }, [holdingsView, fetchTransactions]);
+
   const handleSelectHolding = (symbol: string) => {
     setSelectedSymbol(symbol);
   };
 
   const handleDeleteHolding = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this holding?")) return;
+    if (!confirm("Are you sure you want to delete this holding and all its transactions?")) return;
 
     try {
       await fetch(`/api/holdings?id=${id}`, { method: "DELETE" });
@@ -183,16 +207,36 @@ export default function PortfolioPage() {
     }
   };
 
-  const handleEditHolding = async (id: number, shares: number, avgCost: number) => {
+  const handleTransactionAdded = () => {
+    fetchHoldings();
+    if (holdingsView === "transactions") {
+      fetchTransactions();
+    }
+  };
+
+  const handleEditTransaction = async (id: number, data: { shares?: number; price?: number; date?: string; type?: string }) => {
     try {
-      await fetch(`/api/holdings?id=${id}`, {
+      await fetch(`/api/transactions?id=${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shares, avgCost }),
+        body: JSON.stringify(data),
       });
+      fetchTransactions();
       fetchHoldings();
     } catch (error) {
-      console.error("Error editing holding:", error);
+      console.error("Error editing transaction:", error);
+    }
+  };
+
+  const handleDeleteTransaction = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this transaction?")) return;
+
+    try {
+      await fetch(`/api/transactions?id=${id}`, { method: "DELETE" });
+      fetchTransactions();
+      fetchHoldings();
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
     }
   };
 
@@ -310,9 +354,13 @@ export default function PortfolioPage() {
         />
       </div>
 
-      {/* Add Holding Form */}
+      {/* Add Transaction Form */}
       <div className="mb-8">
-        <AddHoldingForm portfolioId={portfolioId} onHoldingAdded={fetchHoldings} />
+        <AddTransactionForm
+          portfolioId={portfolioId}
+          holdings={holdings}
+          onTransactionAdded={handleTransactionAdded}
+        />
       </div>
 
       {/* Tabs */}
@@ -405,6 +453,16 @@ export default function PortfolioPage() {
                   >
                     News
                   </button>
+                  <button
+                    onClick={() => setHoldingsView("transactions")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      holdingsView === "transactions"
+                        ? "bg-blue-500 text-white"
+                        : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    Transactions
+                  </button>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -444,7 +502,6 @@ export default function PortfolioPage() {
                   selectedSymbol={selectedSymbol || undefined}
                   onSelectHolding={handleSelectHolding}
                   onDeleteHolding={handleDeleteHolding}
-                  onEditHolding={handleEditHolding}
                 />
               ) : holdingsView === "performance" ? (
                 <PortfolioPerformanceTable
@@ -458,6 +515,21 @@ export default function PortfolioPage() {
                   selectedSymbol={selectedSymbol || undefined}
                   onSelectSymbol={handleSelectHolding}
                 />
+              ) : holdingsView === "transactions" ? (
+                transactionsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                      <span className="text-black/50 dark:text-white/50 text-sm">Loading transactions...</span>
+                    </div>
+                  </div>
+                ) : (
+                  <TransactionsTable
+                    transactions={transactionsData}
+                    onEditTransaction={handleEditTransaction}
+                    onDeleteTransaction={handleDeleteTransaction}
+                  />
+                )
               ) : (
                 <PortfolioNewsTable
                   articles={portfolioNews}
@@ -467,7 +539,7 @@ export default function PortfolioPage() {
             </div>
           </div>
 
-          {selectedSymbol && holdingsView !== "news" && (
+          {selectedSymbol && holdingsView !== "news" && holdingsView !== "transactions" && (
             <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
               <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-purple-500/10 to-transparent">
                 <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">

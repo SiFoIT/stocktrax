@@ -10,7 +10,6 @@ interface HoldingsTableProps {
   selectedSymbol?: string;
   onSelectHolding: (symbol: string) => void;
   onDeleteHolding: (id: number) => void;
-  onEditHolding: (id: number, shares: number, avgCost: number) => void;
 }
 
 function formatCurrency(value: number | undefined, currency = "USD"): string {
@@ -49,11 +48,7 @@ export function HoldingsTable({
   selectedSymbol,
   onSelectHolding,
   onDeleteHolding,
-  onEditHolding,
 }: HoldingsTableProps) {
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editShares, setEditShares] = useState("");
-  const [editAvgCost, setEditAvgCost] = useState("");
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
@@ -68,9 +63,6 @@ export function HoldingsTable({
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setContextMenu(null);
-        if (editingId !== null) {
-          setEditingId(null);
-        }
       }
     };
 
@@ -81,45 +73,7 @@ export function HoldingsTable({
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [editingId]);
-
-  const startEditing = (holding: HoldingWithQuote) => {
-    setEditingId(holding.id);
-    setEditShares(holding.shares.toString());
-    setEditAvgCost(holding.avgCost.toString());
-    setContextMenu(null);
-  };
-
-  const cancelEditing = () => {
-    setEditingId(null);
-    setEditShares("");
-    setEditAvgCost("");
-  };
-
-  const saveEditing = () => {
-    if (editingId === null) return;
-
-    const shares = parseFloat(editShares);
-    const avgCost = parseFloat(editAvgCost);
-
-    if (isNaN(shares) || shares <= 0 || isNaN(avgCost) || avgCost <= 0) {
-      return;
-    }
-
-    onEditHolding(editingId, shares, avgCost);
-    setEditingId(null);
-    setEditShares("");
-    setEditAvgCost("");
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      saveEditing();
-    } else if (e.key === "Escape") {
-      cancelEditing();
-    }
-  };
+  }, []);
 
   const handleContextMenu = (e: React.MouseEvent, holdingId: number) => {
     e.preventDefault();
@@ -139,7 +93,7 @@ export function HoldingsTable({
           </svg>
         </div>
         <h3 className="text-lg font-semibold text-black dark:text-white mb-2">No Holdings Yet</h3>
-        <p className="text-black/50 dark:text-white/50">Add your first holding using the form above.</p>
+        <p className="text-black/50 dark:text-white/50">Add your first transaction using the form above.</p>
       </div>
     );
   }
@@ -169,7 +123,7 @@ export function HoldingsTable({
                   ? "bg-gradient-to-r from-blue-500/10 to-transparent"
                   : ""
               } ${index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}`}
-              onClick={() => editingId !== holding.id && onSelectHolding(holding.symbol)}
+              onClick={() => onSelectHolding(holding.symbol)}
               onContextMenu={(e) => handleContextMenu(e, holding.id)}
             >
               <td className="px-4 py-4">
@@ -179,37 +133,10 @@ export function HoldingsTable({
                 </div>
               </td>
               <td className="px-4 py-4 text-right">
-                {editingId === holding.id ? (
-                  <input
-                    type="number"
-                    value={editShares}
-                    onChange={(e) => setEditShares(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-24 px-2 py-1 text-right font-mono rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    autoFocus
-                    min="0"
-                    step="any"
-                  />
-                ) : (
-                  <span className="font-mono text-black dark:text-white">{holding.shares.toLocaleString()}</span>
-                )}
+                <span className="font-mono text-black dark:text-white">{holding.shares.toLocaleString()}</span>
               </td>
               <td className="px-4 py-4 text-right">
-                {editingId === holding.id ? (
-                  <input
-                    type="number"
-                    value={editAvgCost}
-                    onChange={(e) => setEditAvgCost(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-24 px-2 py-1 text-right font-mono rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    min="0"
-                    step="any"
-                  />
-                ) : (
-                  <span className="font-mono text-black/70 dark:text-white/70">{formatCurrency(holding.avgCost, holding.currency)}</span>
-                )}
+                <span className="font-mono text-black/70 dark:text-white/70">{formatCurrency(holding.avgCost, holding.currency)}</span>
               </td>
               <td className="px-4 py-4 text-right">
                 <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(holding.currentPrice, holding.currency)}</span>
@@ -250,61 +177,18 @@ export function HoldingsTable({
               </td>
               <td className="px-4 py-4 text-right">
                 <div className="flex items-center justify-end gap-1">
-                  {editingId === holding.id ? (
-                    <>
-                      <button
-                        className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 p-2 rounded-lg transition-all"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          saveEditing();
-                        }}
-                        title="Save"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </button>
-                      <button
-                        className="text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10 p-2 rounded-lg transition-all"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          cancelEditing();
-                        }}
-                        title="Cancel"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        className="text-black/40 dark:text-white/40 hover:text-blue-400 hover:bg-blue-500/10 p-2 rounded-lg transition-all"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditing(holding);
-                        }}
-                        title="Edit"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                      </button>
-                      <button
-                        className="text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteHolding(holding.id);
-                        }}
-                        title="Delete"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </>
-                  )}
+                  <button
+                    className="text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteHolding(holding.id);
+                    }}
+                    title="Delete"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -319,18 +203,6 @@ export function HoldingsTable({
           className="fixed z-50 min-w-[140px] rounded-xl bg-white dark:bg-zinc-900 border border-black/10 dark:border-white/10 shadow-xl overflow-hidden"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          <button
-            className="w-full px-4 py-2.5 text-left text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-3 transition-colors"
-            onClick={() => {
-              const holding = holdings.find((h) => h.id === contextMenu.holdingId);
-              if (holding) startEditing(holding);
-            }}
-          >
-            <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-            Edit
-          </button>
           <button
             className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-3 transition-colors"
             onClick={() => {

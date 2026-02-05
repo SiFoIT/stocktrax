@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/schema";
 import { z } from "zod";
 import { BACKUP_VERSION } from "@/lib/backup/settings-registry";
+import { recomputeHolding } from "@/lib/holdings";
 
 // Schema for validating import data
 const backupSchema = z.object({
@@ -157,6 +158,13 @@ export async function POST(request: NextRequest) {
           symbol: item.symbol,
           addedAt: parseDate(item.addedAt),
         });
+      }
+    }
+
+    // Recompute all holdings from their transactions
+    if (backup.data.holdings.length > 0) {
+      for (const h of backup.data.holdings) {
+        await recomputeHolding(h.id);
       }
     }
 
