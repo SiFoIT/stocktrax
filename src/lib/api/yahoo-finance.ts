@@ -87,6 +87,7 @@ export interface StockDetails {
   dayLow?: number;
   volume?: number;
   avgVolume?: number;
+  lastTradeTime?: string;
 
   // 52-week
   fiftyTwoWeekHigh?: number;
@@ -201,6 +202,9 @@ export async function getStockDetails(symbol: string): Promise<StockDetails | nu
       dayLow: quote.regularMarketDayLow,
       volume: quote.regularMarketVolume,
       avgVolume: quote.averageDailyVolume3Month,
+      lastTradeTime: quote.regularMarketTime
+        ? new Date(quote.regularMarketTime).toISOString()
+        : undefined,
 
       // 52-week
       fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh,
@@ -326,6 +330,7 @@ export interface QuoteWithRange extends StockQuote {
   dayLow?: number;
   fiftyTwoWeekHigh?: number;
   fiftyTwoWeekLow?: number;
+  lastTradeTime?: string;
 }
 
 export async function getQuote(symbol: string, includeRange = false): Promise<StockQuote | QuoteWithRange | null> {
@@ -355,6 +360,9 @@ export async function getQuote(symbol: string, includeRange = false): Promise<St
         dayLow: quote.regularMarketDayLow,
         fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh,
         fiftyTwoWeekLow: quote.fiftyTwoWeekLow,
+        lastTradeTime: quote.regularMarketTime
+          ? new Date(quote.regularMarketTime).toISOString()
+          : undefined,
       };
     }
 

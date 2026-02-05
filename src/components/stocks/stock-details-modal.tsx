@@ -19,6 +19,7 @@ interface StockDetails {
   dayLow?: number;
   volume?: number;
   avgVolume?: number;
+  lastTradeTime?: string;
   fiftyTwoWeekHigh?: number;
   fiftyTwoWeekLow?: number;
   fiftyTwoWeekChange?: number;
@@ -107,6 +108,17 @@ function formatVolume(value: number | undefined): string {
   if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
   if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
   return value.toFixed(0);
+}
+
+function formatTradeTime(isoString: string | undefined): string {
+  if (!isoString) return "-";
+  const date = new Date(isoString);
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
 }
 
 function formatPercent(value: number | undefined): string {
@@ -234,7 +246,7 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/stocks/${symbol}?details=true`);
+        const response = await fetch(`/api/stocks/${symbol}?details=true&refresh=true`);
         if (!response.ok) throw new Error("Failed to fetch");
         const data = await response.json();
         setDetails(data);
@@ -258,9 +270,9 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
   const isPositive = (details?.change ?? 0) >= 0;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 py-6 px-4 overflow-y-auto" onClick={onClose}>
       <div
-        className="bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950 border border-white/10 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950 border border-white/10 rounded-2xl shadow-2xl max-w-5xl w-full overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -333,6 +345,11 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   <span className={`text-lg px-2 py-0.5 rounded ${isPositive ? "bg-emerald-500/20" : "bg-red-500/20"}`}>
                     {formatPercentRaw(details.changePercent)}
                   </span>
+                  {details.lastTradeTime && (
+                    <span className="text-sm text-white/50 ml-2">
+                      {formatTradeTime(details.lastTradeTime)}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

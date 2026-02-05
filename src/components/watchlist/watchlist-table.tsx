@@ -42,6 +42,12 @@ function getChangeBg(value: number | undefined): string {
   return value >= 0 ? "bg-emerald-500/10" : "bg-red-500/10";
 }
 
+function formatTradeTime(isoString: string | undefined): string {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 function SortIcon({ direction }: { direction: SortDirection | null }) {
   return (
     <span className={`ml-1 transition-opacity ${direction ? "opacity-100" : "opacity-30"}`}>
@@ -212,7 +218,12 @@ export function WatchlistTable({
                   </button>
                 </td>
                 <td className="px-4 py-4 text-right">
-                  <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(item.price)}</span>
+                  <div>
+                    <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(item.price)}</span>
+                    {item.lastTradeTime && (
+                      <div className="text-[10px] text-black/40 dark:text-white/40">{formatTradeTime(item.lastTradeTime)}</div>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-4 text-right">
                   <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(item.changePercent)} ${getChangeColor(item.changePercent)}`}>
