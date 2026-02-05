@@ -64,6 +64,18 @@ export function TransactionsTable({
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const [collapsedSymbols, setCollapsedSymbols] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<"date" | "symbol" | "type" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const toggleSort = (key: "date" | "symbol" | "type") => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "date" ? "desc" : "asc");
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -128,6 +140,23 @@ export function TransactionsTable({
       return next;
     });
   };
+
+  const filteredUnsorted = search
+    ? transactions.filter((txn) =>
+        txn.symbol.toLowerCase().includes(search.toLowerCase()) ||
+        txn.type.toLowerCase().includes(search.toLowerCase())
+      )
+    : transactions;
+
+  const filtered = sortKey
+    ? [...filteredUnsorted].sort((a, b) => {
+        let cmp = 0;
+        if (sortKey === "date") cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+        else if (sortKey === "symbol") cmp = a.symbol.localeCompare(b.symbol);
+        else if (sortKey === "type") cmp = a.type.localeCompare(b.type);
+        return sortDir === "asc" ? cmp : -cmp;
+      })
+    : filteredUnsorted;
 
   if (transactions.length === 0) {
     return (
@@ -263,24 +292,42 @@ export function TransactionsTable({
     </tr>
   );
 
+  const sortArrow = (key: "date" | "symbol" | "type") => {
+    if (sortKey !== key) return null;
+    return (
+      <svg className="w-3 h-3 inline-block ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sortDir === "asc" ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+      </svg>
+    );
+  };
+
+  const sortableThClass = "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left cursor-pointer select-none transition-colors hover:text-black dark:hover:text-white";
+  const staticThClass = "px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right";
+
   const tableHeaders = (showSymbol = true) => (
     <thead>
       <tr className="border-b border-black/10 dark:border-white/10">
-        <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-left">Date</th>
+        <th className={`${sortableThClass} ${sortKey === "date" ? "text-blue-400 dark:text-blue-400" : "text-black/50 dark:text-white/50"}`} onClick={() => toggleSort("date")}>
+          Date{sortArrow("date")}
+        </th>
         {showSymbol && (
-          <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-left">Symbol</th>
+          <th className={`${sortableThClass} ${sortKey === "symbol" ? "text-blue-400 dark:text-blue-400" : "text-black/50 dark:text-white/50"}`} onClick={() => toggleSort("symbol")}>
+            Symbol{sortArrow("symbol")}
+          </th>
         )}
-        <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-left">Type</th>
-        <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Shares</th>
-        <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Price</th>
-        <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Total</th>
-        <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
+        <th className={`${sortableThClass} ${sortKey === "type" ? "text-blue-400 dark:text-blue-400" : "text-black/50 dark:text-white/50"}`} onClick={() => toggleSort("type")}>
+          Type{sortArrow("type")}
+        </th>
+        <th className={staticThClass}>Shares</th>
+        <th className={staticThClass}>Price</th>
+        <th className={staticThClass}>Total</th>
+        <th className={staticThClass}>Actions</th>
       </tr>
     </thead>
   );
 
-  // Group transactions by symbol
-  const grouped = transactions.reduce<Record<string, TransactionWithSymbol[]>>((acc, txn) => {
+  // Group filtered transactions by symbol
+  const grouped = filtered.reduce<Record<string, TransactionWithSymbol[]>>((acc, txn) => {
     if (!acc[txn.symbol]) acc[txn.symbol] = [];
     acc[txn.symbol].push(txn);
     return acc;
@@ -288,36 +335,64 @@ export function TransactionsTable({
 
   return (
     <div>
-      {/* View toggle */}
-      <div className="flex gap-1 p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 w-fit mb-4">
-        <button
-          onClick={() => setViewMode("chronological")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-            viewMode === "chronological"
-              ? "bg-blue-500 text-white"
-              : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
-          }`}
-        >
-          Chronological
-        </button>
-        <button
-          onClick={() => setViewMode("bySymbol")}
-          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-            viewMode === "bySymbol"
-              ? "bg-blue-500 text-white"
-              : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
-          }`}
-        >
-          By Symbol
-        </button>
+      {/* Toolbar: view toggle + search */}
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="flex gap-1 p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 w-fit">
+          <button
+            onClick={() => setViewMode("chronological")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+              viewMode === "chronological"
+                ? "bg-blue-500 text-white"
+                : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+            }`}
+          >
+            Chronological
+          </button>
+          <button
+            onClick={() => setViewMode("bySymbol")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+              viewMode === "bySymbol"
+                ? "bg-blue-500 text-white"
+                : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+            }`}
+          >
+            By Symbol
+          </button>
+        </div>
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 dark:text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filter by symbol or type..."
+            className="w-56 pl-9 pr-8 py-1.5 text-sm rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
-      {viewMode === "chronological" ? (
+      {filtered.length === 0 && search ? (
+        <div className="text-center py-8 text-black/50 dark:text-white/50 text-sm">
+          No transactions matching &ldquo;{search}&rdquo;
+        </div>
+      ) : viewMode === "chronological" ? (
         <div className="overflow-x-auto">
           <table className="w-full">
             {tableHeaders(true)}
             <tbody>
-              {transactions.map((txn, i) => renderRow(txn, i, true))}
+              {filtered.map((txn, i) => renderRow(txn, i, true))}
             </tbody>
           </table>
         </div>
