@@ -1,5 +1,5 @@
 import YahooFinance from "yahoo-finance2";
-import { StockQuote, StockTimeSeries } from "@/types";
+import { StockQuote, StockTimeSeries, NewsArticle } from "@/types";
 
 const yahooFinance = new YahooFinance();
 
@@ -430,6 +430,84 @@ export async function getTimeSeries(
       }));
   } catch (error) {
     console.error("Error fetching time series:", error);
+    return [];
+  }
+}
+
+export async function getNews(symbol: string, limit = 5): Promise<NewsArticle[]> {
+  try {
+    const upperSymbol = symbol.toUpperCase();
+
+    // Request more than needed since we'll filter
+    const result = await yahooFinance.search(symbol, {
+      newsCount: limit * 3,
+      quotesCount: 0,
+    });
+
+    if (!result || !result.news) {
+      return [];
+    }
+
+    // Filter to only include articles that actually have this symbol in relatedTickers
+    const relevantNews = result.news.filter((item) => {
+      if (!item.relatedTickers || item.relatedTickers.length === 0) {
+        return false;
+      }
+      // Check if the searched symbol is in the related tickers
+      return item.relatedTickers.some(
+        (ticker) => ticker.toUpperCase() === upperSymbol
+      );
+    });
+
+    return relevantNews.slice(0, limit).map((item) => ({
+      uuid: item.uuid,
+      title: item.title,
+      publisher: item.publisher || "Unknown",
+      link: item.link,
+      publishedAt: item.providerPublishTime
+        ? new Date(item.providerPublishTime).toISOString()
+        : new Date().toISOString(),
+      type: item.type || "STORY",
+      thumbnail: item.thumbnail?.resolutions?.[0]?.url,
+      relatedSymbols: item.relatedTickers || [symbol],
+    }));
+  } catch (error) {
+    console.error("Error fetching news:", error);
+    return [];
+  }
+}
+
+export async function getNewsForSymbols(
+  symbols: string[],
+  limitPerSymbol = 3
+): Promise<NewsArticle[]> {
+  try {
+    const allNews = await Promise.all(
+      symbols.map((symbol) => getNews(symbol, limitPerSymbol))
+    );
+
+    // Flatten and dedupe by uuid
+    const seen = new Set<string>();
+    const dedupedNews: NewsArticle[] = [];
+
+    for (const articles of allNews) {
+      for (const article of articles) {
+        if (!seen.has(article.uuid)) {
+          seen.add(article.uuid);
+          dedupedNews.push(article);
+        }
+      }
+    }
+
+    // Sort by publishedAt (newest first)
+    dedupedNews.sort(
+      (a, b) =>
+        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+    );
+
+    return dedupedNews;
+  } catch (error) {
+    console.error("Error fetching news for symbols:", error);
     return [];
   }
 }

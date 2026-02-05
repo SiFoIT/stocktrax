@@ -68,3 +68,14 @@ export interface MarketData {
   changePercent: number;
   sparklineData: number[];
 }
+
+export interface NewsArticle {
+  uuid: string;
+  title: string;
+  publisher: string;
+  link: string;
+  publishedAt: string;
+  type: string;
+  thumbnail?: string;
+  relatedSymbols: string[];
+}

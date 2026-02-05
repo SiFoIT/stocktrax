@@ -204,7 +204,7 @@ export function WatchlistTable({
               >
                 <td className="px-4 py-4">
                   <button
-                    className="flex items-center gap-3 hover:text-blue-400 transition-colors"
+                    className="group flex items-center gap-3 transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
                       setDetailsSymbol(item.symbol);
@@ -213,7 +213,7 @@ export function WatchlistTable({
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
                       <span className="text-xs font-bold text-blue-400">{item.symbol.slice(0, 2)}</span>
                     </div>
-                    <span className="font-semibold text-black dark:text-white">{item.symbol}</span>
+                    <span className="font-semibold text-blue-400 group-hover:text-blue-300 underline decoration-blue-400/40 group-hover:decoration-blue-300 underline-offset-2 transition-colors">{item.symbol}</span>
                   </button>
                 </td>
                 <td className="px-4 py-4 text-right">

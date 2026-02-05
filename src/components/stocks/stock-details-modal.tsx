@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { NewsArticle } from "@/types";
 
 interface StockDetails {
   symbol: string;
@@ -236,10 +237,27 @@ function StatCard({ label, value, change, icon }: { label: string; value: string
   );
 }
 
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
   const [details, setDetails] = useState<StockDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [news, setNews] = useState<NewsArticle[]>([]);
+  const [newsLoading, setNewsLoading] = useState(true);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -257,6 +275,24 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
       }
     };
     fetchDetails();
+  }, [symbol]);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      setNewsLoading(true);
+      try {
+        const response = await fetch(`/api/news?symbol=${symbol}&limit=5`);
+        if (response.ok) {
+          const data = await response.json();
+          setNews(data);
+        }
+      } catch {
+        // Silently fail for news
+      } finally {
+        setNewsLoading(false);
+      }
+    };
+    fetchNews();
   }, [symbol]);
 
   useEffect(() => {
@@ -569,6 +605,66 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   )}
                 </div>
               )}
+
+              {/* News Section */}
+              <div className="rounded-xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 overflow-hidden">
+                <div className="px-5 py-3 border-b border-white/10 bg-gradient-to-r from-cyan-500/20 to-transparent">
+                  <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                    <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                    </svg>
+                    Recent News
+                  </h3>
+                </div>
+                <div className="p-4 max-h-64 overflow-y-auto">
+                  {newsLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+                    </div>
+                  ) : news.length === 0 ? (
+                    <p className="text-sm text-white/50 text-center py-4">No recent news available</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {news.map((article) => (
+                        <a
+                          key={article.uuid}
+                          href={article.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors group"
+                        >
+                          {article.thumbnail ? (
+                            <img
+                              src={article.thumbnail}
+                              alt=""
+                              className="w-16 h-12 object-cover rounded-md shrink-0"
+                            />
+                          ) : (
+                            <div className="w-16 h-12 bg-cyan-500/10 rounded-md shrink-0 flex items-center justify-center">
+                              <svg className="w-6 h-6 text-cyan-400/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                              </svg>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-medium text-white/90 line-clamp-2 group-hover:text-cyan-400 transition-colors">
+                              {article.title}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-white/50">
+                              <span className="truncate">{article.publisher}</span>
+                              <span>•</span>
+                              <span className="shrink-0">{formatRelativeTime(article.publishedAt)}</span>
+                            </div>
+                          </div>
+                          <svg className="w-4 h-4 text-white/30 group-hover:text-cyan-400 transition-colors shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           ) : null}
         </div>

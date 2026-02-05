@@ -5,10 +5,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Portfolio, Watchlist, WatchlistItem } from "@/lib/db/schema";
-import { WatchlistItemWithQuote } from "@/types";
+import { WatchlistItemWithQuote, NewsArticle } from "@/types";
 import { AddSymbolForm } from "@/components/watchlist/add-symbol-form";
 import { WatchlistTable } from "@/components/watchlist/watchlist-table";
 import { DividendTable } from "@/components/watchlist/dividend-table";
+import { NewsTable } from "@/components/watchlist/news-table";
 import { PriceChart } from "@/components/charts/price-chart";
 import { SettingsMenu } from "@/components/settings/settings-menu";
 import { MarketOverview } from "@/components/markets/market-overview";
@@ -54,7 +55,9 @@ export default function Dashboard() {
   const [watchlistLoading, setWatchlistLoading] = useState(true);
   const [selectedSymbol, setSelectedSymbol] = useState<string | undefined>();
   const [watchlistUpdatedAt, setWatchlistUpdatedAt] = useState<Date | null>(null);
-  const [watchlistView, setWatchlistView] = useState<"performance" | "dividend">("performance");
+  const [watchlistView, setWatchlistView] = useState<"performance" | "dividend" | "news">("performance");
+  const [watchlistNews, setWatchlistNews] = useState<NewsArticle[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
 
   // Dropdown state
   const [showWatchlistDropdown, setShowWatchlistDropdown] = useState(false);
@@ -186,6 +189,33 @@ export default function Dashboard() {
       fetchWatchlistItems(selectedWatchlistId);
     }
   }, [selectedWatchlistId, fetchWatchlistItems]);
+
+  const fetchWatchlistNews = useCallback(async () => {
+    if (watchlistItems.length === 0) {
+      setWatchlistNews([]);
+      return;
+    }
+
+    setNewsLoading(true);
+    try {
+      const symbols = watchlistItems.map((item) => item.symbol).join(",");
+      const response = await fetch(`/api/news?symbols=${symbols}&limit=20`);
+      if (response.ok) {
+        const data = await response.json();
+        setWatchlistNews(data);
+      }
+    } catch (error) {
+      console.error("Error fetching watchlist news:", error);
+    } finally {
+      setNewsLoading(false);
+    }
+  }, [watchlistItems]);
+
+  useEffect(() => {
+    if (watchlistView === "news" && watchlistItems.length > 0) {
+      fetchWatchlistNews();
+    }
+  }, [watchlistView, watchlistItems.length, fetchWatchlistNews]);
 
   const handleCreateWatchlist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -721,6 +751,16 @@ export default function Dashboard() {
                         >
                           Dividend
                         </button>
+                        <button
+                          onClick={() => setWatchlistView("news")}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                            watchlistView === "news"
+                              ? "bg-blue-500 text-white"
+                              : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                          }`}
+                        >
+                          News
+                        </button>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -767,12 +807,17 @@ export default function Dashboard() {
                         onSelectSymbol={handleSelectSymbol}
                         onRemoveSymbol={handleRemoveSymbol}
                       />
-                    ) : (
+                    ) : watchlistView === "dividend" ? (
                       <DividendTable
                         items={watchlistItems}
                         selectedSymbol={selectedSymbol}
                         onSelectSymbol={handleSelectSymbol}
                         onRemoveSymbol={handleRemoveSymbol}
+                      />
+                    ) : (
+                      <NewsTable
+                        articles={watchlistNews}
+                        loading={newsLoading}
                       />
                     )}
                   </div>
