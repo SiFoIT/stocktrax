@@ -1,10 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { formatCurrency, formatPercent, getChangeColor, getChangeBg } from "@/lib/utils";
+
+type SortColumn = "symbol" | "shares" | "avgCost" | "price" | "today" | "value" | "port" | "gainLoss";
+type SortDirection = "asc" | "desc";
+
+function SortIcon({ direction }: { direction: SortDirection | null }) {
+  return (
+    <span className={`ml-1 transition-opacity ${direction ? "opacity-100" : "opacity-30"}`}>
+      {direction === "asc" ? "↑" : direction === "desc" ? "↓" : "↕"}
+    </span>
+  );
+}
 
 interface HoldingsTableProps {
   holdings: HoldingWithQuote[];
@@ -31,7 +42,73 @@ export function HoldingsTable({
 }: HoldingsTableProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [detailsSymbol, setDetailsSymbol] = useState<string | null>(null);
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("desc");
+    }
+  };
+
+  const sortedHoldings = useMemo(() => {
+    if (!sortColumn) return holdings;
+
+    return [...holdings].sort((a, b) => {
+      let aVal: number | string | undefined;
+      let bVal: number | string | undefined;
+
+      switch (sortColumn) {
+        case "symbol":
+          aVal = a.symbol;
+          bVal = b.symbol;
+          break;
+        case "shares":
+          aVal = a.shares;
+          bVal = b.shares;
+          break;
+        case "avgCost":
+          aVal = a.avgCost;
+          bVal = b.avgCost;
+          break;
+        case "price":
+          aVal = a.currentPrice;
+          bVal = b.currentPrice;
+          break;
+        case "today":
+          aVal = a.changePercent;
+          bVal = b.changePercent;
+          break;
+        case "value":
+          aVal = a.marketValue;
+          bVal = b.marketValue;
+          break;
+        case "port":
+          aVal = a.marketValue;
+          bVal = b.marketValue;
+          break;
+        case "gainLoss":
+          aVal = a.gainLossPercent;
+          bVal = b.gainLossPercent;
+          break;
+      }
+
+      if (aVal === undefined) return 1;
+      if (bVal === undefined) return -1;
+
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortDirection === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+
+      const numA = aVal as number;
+      const numB = bVal as number;
+      return sortDirection === "asc" ? numA - numB : numB - numA;
+    });
+  }, [holdings, sortColumn, sortDirection]);
 
   // Close context menu on click outside or Escape
   useEffect(() => {
@@ -85,19 +162,30 @@ export function HoldingsTable({
       <table className="w-full">
         <thead>
           <tr className="border-b border-black/10 dark:border-white/10">
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-left">Symbol</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Shares</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Avg Cost</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Price</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Today</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Value</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">% Port</th>
-            <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Gain/Loss</th>
+            {([
+              ["symbol", "Symbol", "left"],
+              ["shares", "Shares", "right"],
+              ["avgCost", "Avg Cost", "right"],
+              ["price", "Price", "right"],
+              ["today", "Today", "right"],
+              ["value", "Value", "right"],
+              ["port", "% Port", "right"],
+              ["gainLoss", "Gain/Loss", "right"],
+            ] as const).map(([col, label, align]) => (
+              <th
+                key={col}
+                className={`px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-${align} cursor-pointer hover:text-black/70 dark:hover:text-white/70 transition-colors select-none`}
+                onClick={() => handleSort(col)}
+              >
+                {label}
+                <SortIcon direction={sortColumn === col ? sortDirection : null} />
+              </th>
+            ))}
             <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {holdings.map((holding, index) => (
+          {sortedHoldings.map((holding, index) => (
             <tr
               key={holding.id}
               className={`border-b border-white/5 cursor-pointer transition-all hover:bg-black/5 dark:hover:bg-white/5 ${
