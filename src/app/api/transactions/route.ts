@@ -7,16 +7,16 @@ import { recomputeHolding } from "@/lib/holdings";
 const createTransactionSchema = z.object({
   portfolioId: z.number(),
   symbol: z.string().min(1).toUpperCase(),
-  type: z.enum(["buy", "sell", "dividend"]),
+  type: z.enum(["buy", "sell", "dividend", "transfer_in"]),
   shares: z.number().positive("Shares must be positive"),
-  price: z.number().positive("Price must be positive"),
+  price: z.number().nonnegative("Price must be non-negative"),
   date: z.string().transform((s) => new Date(s)),
 });
 
 const updateTransactionSchema = z.object({
-  type: z.enum(["buy", "sell", "dividend"]).optional(),
+  type: z.enum(["buy", "sell", "dividend", "transfer_in"]).optional(),
   shares: z.number().positive("Shares must be positive").optional(),
-  price: z.number().positive("Price must be positive").optional(),
+  price: z.number().nonnegative("Price must be non-negative").optional(),
   date: z
     .string()
     .transform((s) => new Date(s))

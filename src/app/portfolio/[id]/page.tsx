@@ -9,6 +9,7 @@ import { PortfolioDividendTable } from "@/components/portfolio/portfolio-dividen
 import { PortfolioNewsTable } from "@/components/portfolio/portfolio-news-table";
 import { AddTransactionForm } from "@/components/portfolio/add-transaction-form";
 import { TransactionsTable } from "@/components/portfolio/transactions-table";
+import { CsvImportModal } from "@/components/portfolio/csv-import-modal";
 import { PriceChart } from "@/components/charts/price-chart";
 import { AllocationChart } from "@/components/charts/allocation-chart";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ export default function PortfolioPage() {
   const [transactionsData, setTransactionsData] = useState<TransactionWithSymbol[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [prefillSymbol, setPrefillSymbol] = useState<string | null>(null);
+  const [showCsvImport, setShowCsvImport] = useState(false);
 
   // State for MainNavTabs (used for dropdown highlighting)
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
@@ -514,12 +516,37 @@ export default function PortfolioPage() {
                 />
               ) : holdingsView === "transactions" ? (
                 <div className="space-y-6">
-                  <AddTransactionForm
-                    portfolioId={portfolioId}
-                    holdings={holdings}
-                    onTransactionAdded={handleTransactionAdded}
-                    prefillSymbol={prefillSymbol}
-                  />
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <AddTransactionForm
+                        portfolioId={portfolioId}
+                        holdings={holdings}
+                        onTransactionAdded={handleTransactionAdded}
+                        prefillSymbol={prefillSymbol}
+                      />
+                    </div>
+                    <button
+                      onClick={() => setShowCsvImport(true)}
+                      className="self-start px-4 py-4 rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all group flex items-center gap-2"
+                      title="Import CSV"
+                    >
+                      <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <span className="text-sm font-medium text-black/60 dark:text-white/60 group-hover:text-blue-400 transition-colors whitespace-nowrap">Import CSV</span>
+                    </button>
+                  </div>
+                  {showCsvImport && (
+                    <CsvImportModal
+                      portfolioId={portfolioId}
+                      existingTransactions={transactionsData}
+                      onImportComplete={() => {
+                        fetchTransactions();
+                        fetchHoldings();
+                      }}
+                      onClose={() => setShowCsvImport(false)}
+                    />
+                  )}
                   {transactionsLoading ? (
                     <div className="flex items-center justify-center py-12">
                       <div className="flex flex-col items-center gap-4">

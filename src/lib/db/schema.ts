@@ -25,7 +25,7 @@ export const transactions = sqliteTable("transactions", {
   holdingId: integer("holding_id")
     .notNull()
     .references(() => holdings.id, { onDelete: "cascade" }),
-  type: text("type", { enum: ["buy", "sell", "dividend"] }).notNull(),
+  type: text("type", { enum: ["buy", "sell", "dividend", "transfer_in"] }).notNull(),
   shares: real("shares").notNull(),
   price: real("price").notNull(),
   date: integer("date", { mode: "timestamp" }).notNull(),
@@ -44,6 +44,23 @@ export type NewHolding = typeof holdings.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
 export type StockCache = typeof stockCache.$inferSelect;
+
+export const cashTransactions = sqliteTable("cash_transactions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  portfolioId: integer("portfolio_id")
+    .notNull()
+    .references(() => portfolios.id, { onDelete: "cascade" }),
+  type: text("type", {
+    enum: ["contribution", "deposit", "refund", "referral", "transfer_in", "transfer_out"],
+  }).notNull(),
+  description: text("description").notNull(),
+  amount: real("amount").notNull(),
+  currency: text("currency").notNull().default("CAD"),
+  date: integer("date", { mode: "timestamp" }).notNull(),
+});
+
+export type CashTransaction = typeof cashTransactions.$inferSelect;
+export type NewCashTransaction = typeof cashTransactions.$inferInsert;
 
 export const watchlists = sqliteTable("watchlists", {
   id: integer("id").primaryKey({ autoIncrement: true }),

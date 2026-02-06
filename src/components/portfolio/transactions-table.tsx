@@ -40,6 +40,8 @@ function getTypeBadge(type: string) {
       return "bg-red-500/15 text-red-400 border-red-500/20";
     case "dividend":
       return "bg-amber-500/15 text-amber-400 border-amber-500/20";
+    case "transfer_in":
+      return "bg-blue-500/15 text-blue-400 border-blue-500/20";
     default:
       return "bg-white/10 text-white/70 border-white/10";
   }
@@ -203,7 +205,7 @@ export function TransactionsTable({
       )}
       <td className="px-4 py-3">
         <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-semibold uppercase border ${getTypeBadge(txn.type)}`}>
-          {txn.type}
+          {txn.type === "transfer_in" ? "Transfer In" : txn.type}
         </span>
       </td>
       <td className="px-4 py-3 text-right">

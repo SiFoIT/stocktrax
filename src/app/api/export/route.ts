@@ -4,6 +4,7 @@ import {
   portfolios,
   holdings,
   transactions,
+  cashTransactions,
   watchlists,
   watchlistItems,
 } from "@/lib/db/schema";
@@ -22,12 +23,14 @@ export async function GET(request: NextRequest) {
       portfoliosData,
       holdingsData,
       transactionsData,
+      cashTransactionsData,
       watchlistsData,
       watchlistItemsData,
     ] = await Promise.all([
       db.select().from(portfolios),
       db.select().from(holdings),
       db.select().from(transactions),
+      db.select().from(cashTransactions),
       db.select().from(watchlists),
       db.select().from(watchlistItems),
     ]);
@@ -53,6 +56,7 @@ export async function GET(request: NextRequest) {
         portfolios: portfoliosData,
         holdings: holdingsData,
         transactions: transactionsData,
+        cashTransactions: cashTransactionsData,
         watchlists: watchlistsData,
         watchlistItems: watchlistItemsData,
       },

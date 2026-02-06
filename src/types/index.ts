@@ -103,7 +103,7 @@ export interface MarketData {
 export interface TransactionWithSymbol {
   id: number;
   holdingId: number;
-  type: "buy" | "sell" | "dividend";
+  type: "buy" | "sell" | "dividend" | "transfer_in";
   shares: number;
   price: number;
   date: string;

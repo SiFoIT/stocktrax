@@ -24,6 +24,7 @@ export interface BackupData {
     portfolios: unknown[];
     holdings: unknown[];
     transactions: unknown[];
+    cashTransactions?: unknown[];
     watchlists: unknown[];
     watchlistItems: unknown[];
   };

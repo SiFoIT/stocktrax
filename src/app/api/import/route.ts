@@ -4,6 +4,7 @@ import {
   portfolios,
   holdings,
   transactions,
+  cashTransactions,
   watchlists,
   watchlistItems,
 } from "@/lib/db/schema";
@@ -33,11 +34,20 @@ const backupSchema = z.object({
     transactions: z.array(z.object({
       id: z.number(),
       holdingId: z.number(),
-      type: z.enum(["buy", "sell", "dividend"]),
+      type: z.enum(["buy", "sell", "dividend", "transfer_in"]),
       shares: z.number(),
       price: z.number(),
       date: z.union([z.string(), z.date(), z.number()]),
     })),
+    cashTransactions: z.array(z.object({
+      id: z.number(),
+      portfolioId: z.number(),
+      type: z.enum(["contribution", "deposit", "refund", "referral", "transfer_in", "transfer_out"]),
+      description: z.string(),
+      amount: z.number(),
+      currency: z.string(),
+      date: z.union([z.string(), z.date(), z.number()]),
+    })).optional().default([]),
     watchlists: z.array(z.object({
       id: z.number(),
       name: z.string(),
@@ -92,9 +102,11 @@ export async function POST(request: NextRequest) {
 
     // Delete all existing data (order matters for foreign keys)
     // Transactions -> Holdings -> Portfolios
+    // CashTransactions (FK to portfolios)
     // WatchlistItems -> Watchlists
     await db.delete(transactions);
     await db.delete(holdings);
+    await db.delete(cashTransactions);
     await db.delete(portfolios);
     await db.delete(watchlistItems);
     await db.delete(watchlists);
@@ -161,6 +173,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (backup.data.cashTransactions && backup.data.cashTransactions.length > 0) {
+      for (const ct of backup.data.cashTransactions) {
+        await db.insert(cashTransactions).values({
+          id: ct.id,
+          portfolioId: ct.portfolioId,
+          type: ct.type,
+          description: ct.description,
+          amount: ct.amount,
+          currency: ct.currency,
+          date: parseDate(ct.date),
+        });
+      }
+    }
+
     // Recompute all holdings from their transactions
     if (backup.data.holdings.length > 0) {
       for (const h of backup.data.holdings) {
@@ -174,6 +200,7 @@ export async function POST(request: NextRequest) {
         portfolios: backup.data.portfolios.length,
         holdings: backup.data.holdings.length,
         transactions: backup.data.transactions.length,
+        cashTransactions: backup.data.cashTransactions?.length || 0,
         watchlists: backup.data.watchlists.length,
         watchlistItems: backup.data.watchlistItems.length,
       },

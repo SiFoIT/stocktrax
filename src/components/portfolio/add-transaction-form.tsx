@@ -31,7 +31,7 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
     localStorage.setItem("addTransactionOpen", String(isOpen));
   }, [isOpen]);
   const [symbol, setSymbol] = useState("");
-  const [transactionType, setTransactionType] = useState<"buy" | "sell" | "dividend">("buy");
+  const [transactionType, setTransactionType] = useState<"buy" | "sell" | "dividend" | "transfer_in">("buy");
   const [shares, setShares] = useState("");
   const [price, setPrice] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -282,22 +282,27 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
             <div>
               <label className="text-sm font-medium mb-2 block text-black/70 dark:text-white/70">Type</label>
               <div className="flex gap-1 p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
-                {(["buy", "sell", "dividend"] as const).map((type) => (
+                {(["buy", "sell", "dividend", "transfer_in"] as const).map((type) => (
                   <button
                     key={type}
                     type="button"
-                    onClick={() => setTransactionType(type)}
+                    onClick={() => {
+                      setTransactionType(type);
+                      if (type === "transfer_in") setPrice("0");
+                    }}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all uppercase ${
                       transactionType === type
                         ? type === "buy"
                           ? "bg-emerald-500 text-white"
                           : type === "sell"
                           ? "bg-red-500 text-white"
-                          : "bg-amber-500 text-white"
+                          : type === "dividend"
+                          ? "bg-amber-500 text-white"
+                          : "bg-blue-500 text-white"
                         : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
                     }`}
                   >
-                    {type}
+                    {type === "transfer_in" ? "Transfer In" : type}
                   </button>
                 ))}
               </div>
@@ -359,6 +364,8 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
                   ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600"
                   : transactionType === "sell"
                   ? "bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600"
+                  : transactionType === "transfer_in"
+                  ? "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
                   : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
               }`}
             >

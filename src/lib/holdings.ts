@@ -11,7 +11,7 @@ export async function recomputeHolding(holdingId: number) {
   let totalSellShares = 0;
 
   for (const txn of txns) {
-    if (txn.type === "buy") {
+    if (txn.type === "buy" || txn.type === "transfer_in") {
       totalBuyShares += txn.shares;
       totalBuyCost += txn.shares * txn.price;
     } else if (txn.type === "sell") {
