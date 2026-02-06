@@ -48,6 +48,7 @@ export default function PortfolioPage() {
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [prefillSymbol, setPrefillSymbol] = useState<string | null>(null);
   const [showCsvImport, setShowCsvImport] = useState(false);
+  const [usdCadRate, setUsdCadRate] = useState<number | null>(null);
 
   // State for MainNavTabs (used for dropdown highlighting)
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
@@ -73,7 +74,7 @@ export default function PortfolioPage() {
               const marketValue = holding.shares * currentPrice;
               const costBasis = holding.shares * holding.avgCost;
               const gainLoss = marketValue - costBasis;
-              const gainLossPercent = (gainLoss / costBasis) * 100;
+              const gainLossPercent = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
 
               return {
                 ...holding,
@@ -168,14 +169,26 @@ export default function PortfolioPage() {
     }
   }, [portfolioId]);
 
+  const fetchExchangeRate = useCallback(async () => {
+    try {
+      const response = await fetch("/api/exchange-rate");
+      if (response.ok) {
+        const data = await response.json();
+        setUsdCadRate(data.rate);
+      }
+    } catch (error) {
+      console.error("Error fetching exchange rate:", error);
+    }
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchPortfolio(), fetchHoldings()]);
+      await Promise.all([fetchPortfolio(), fetchHoldings(), fetchExchangeRate()]);
       setLoading(false);
     };
     loadData();
-  }, [fetchPortfolio, fetchHoldings]);
+  }, [fetchPortfolio, fetchHoldings, fetchExchangeRate]);
 
   useEffect(() => {
     if (holdingsView === "news" && holdings.length > 0) {
@@ -287,8 +300,20 @@ export default function PortfolioPage() {
     setLoading(false);
   };
 
-  const totalValue = holdings.reduce((sum, h) => sum + (h.marketValue || 0), 0);
-  const totalCost = holdings.reduce((sum, h) => sum + h.shares * h.avgCost, 0);
+  const activeHoldings = holdings.filter(h => h.shares > 0.0001);
+  const cadHoldings = activeHoldings.filter(h => h.currency === "CAD");
+  const usdHoldings = activeHoldings.filter(h => h.currency !== "CAD");
+
+  const cadValue = cadHoldings.reduce((sum, h) => sum + (h.marketValue || 0), 0);
+  const cadCost = cadHoldings.reduce((sum, h) => sum + h.shares * h.avgCost, 0);
+  const usdValue = usdHoldings.reduce((sum, h) => sum + (h.marketValue || 0), 0);
+  const usdCost = usdHoldings.reduce((sum, h) => sum + h.shares * h.avgCost, 0);
+
+  const rate = usdCadRate || 1;
+  const hasMixedCurrencies = cadHoldings.length > 0 && usdHoldings.length > 0;
+
+  const totalValue = cadValue + usdValue * rate;
+  const totalCost = cadCost + usdCost * rate;
   const totalGainLoss = totalValue - totalCost;
   const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
 
@@ -377,21 +402,24 @@ export default function PortfolioPage() {
       <div className="grid gap-4 md:grid-cols-4 mt-8 mb-8">
         <StatCard
           label="Total Value"
-          value={`$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+          value={`C$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          subValue={hasMixedCurrencies ? `US$${usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} + C$${cadValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : undefined}
         />
         <StatCard
           label="Total Cost"
-          value={`$${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+          value={`C$${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          subValue={hasMixedCurrencies ? `US$${usdCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} + C$${cadCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : undefined}
         />
         <StatCard
           label="Total Gain/Loss"
-          value={`${totalGainLoss >= 0 ? "+" : ""}$${totalGainLoss.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-          subValue={`${totalGainLoss >= 0 ? "+" : ""}${totalGainLossPercent.toFixed(2)}%`}
+          value={`${totalGainLoss >= 0 ? "+" : "-"}C$${Math.abs(totalGainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          subValue={hasMixedCurrencies ? `${totalGainLoss >= 0 ? "+" : "-"}${Math.abs(totalGainLossPercent).toFixed(2)}% · 1 USD = ${rate.toFixed(4)} CAD` : `${totalGainLoss >= 0 ? "+" : "-"}${Math.abs(totalGainLossPercent).toFixed(2)}%`}
           colorClass={totalGainLoss >= 0 ? "text-emerald-400" : "text-red-400"}
         />
         <StatCard
           label="Holdings"
-          value={holdings.length.toString()}
+          value={activeHoldings.length.toString()}
+          subValue={hasMixedCurrencies ? `${usdHoldings.length} USD · ${cadHoldings.length} CAD` : undefined}
         />
       </div>
 
@@ -440,7 +468,7 @@ export default function PortfolioPage() {
                   </div>
                   <div>
                     <h2 className="font-semibold text-black dark:text-white">Your Holdings</h2>
-                    <p className="text-xs text-black/50 dark:text-white/50">{holdings.length} positions</p>
+                    <p className="text-xs text-black/50 dark:text-white/50">{activeHoldings.length} positions</p>
                   </div>
                 </div>
                 {/* View tabs */}
@@ -529,7 +557,7 @@ export default function PortfolioPage() {
             <div className="p-6">
               {holdingsView === "holdings" ? (
                 <HoldingsTable
-                  holdings={holdings}
+                  holdings={activeHoldings}
                   totalPortfolioValue={totalValue}
                   selectedSymbol={selectedSymbol || undefined}
                   onSelectHolding={handleSelectHolding}
@@ -538,13 +566,13 @@ export default function PortfolioPage() {
                 />
               ) : holdingsView === "performance" ? (
                 <PortfolioPerformanceTable
-                  holdings={holdings}
+                  holdings={activeHoldings}
                   selectedSymbol={selectedSymbol || undefined}
                   onSelectSymbol={handleSelectHolding}
                 />
               ) : holdingsView === "dividend" ? (
                 <PortfolioDividendTable
-                  holdings={holdings}
+                  holdings={activeHoldings}
                   selectedSymbol={selectedSymbol || undefined}
                   onSelectSymbol={handleSelectHolding}
                 />
@@ -651,7 +679,7 @@ export default function PortfolioPage() {
             <h2 className="font-semibold text-black dark:text-white">Portfolio Allocation</h2>
           </div>
           <div className="p-6">
-            <AllocationChart holdings={holdings} />
+            <AllocationChart holdings={activeHoldings} />
           </div>
         </div>
       )}

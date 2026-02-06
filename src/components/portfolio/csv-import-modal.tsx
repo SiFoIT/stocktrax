@@ -25,6 +25,7 @@ interface AcbEntry {
   symbol: string;
   shares: number;
   acbPerShare: number;
+  date: string; // earliest transfer date (ISO)
 }
 
 interface ImportResult {
@@ -110,15 +111,20 @@ export function CsvImportModal({
       setDuplicateCount(dupes);
 
       // Build ACB entries from transfer_in transactions
-      const transferSymbols = new Map<string, number>();
+      const transferSymbols = new Map<string, { shares: number; earliestDate: string }>();
       for (const txn of newStock) {
         if (txn.type === "transfer_in") {
-          const existing = transferSymbols.get(txn.symbol) || 0;
-          transferSymbols.set(txn.symbol, existing + txn.shares);
+          const existing = transferSymbols.get(txn.symbol);
+          if (existing) {
+            existing.shares += txn.shares;
+            if (txn.date < existing.earliestDate) existing.earliestDate = txn.date;
+          } else {
+            transferSymbols.set(txn.symbol, { shares: txn.shares, earliestDate: txn.date });
+          }
         }
       }
       const entries: AcbEntry[] = Array.from(transferSymbols.entries()).map(
-        ([symbol, shares]) => ({ symbol, shares, acbPerShare: 0 })
+        ([symbol, { shares, earliestDate }]) => ({ symbol, shares, acbPerShare: 0, date: earliestDate })
       );
       entries.sort((a, b) => a.symbol.localeCompare(b.symbol));
       setAcbEntries(entries);
@@ -521,6 +527,7 @@ export function CsvImportModal({
                   <thead>
                     <tr className="border-b border-black/10 dark:border-white/10">
                       <th className="px-3 py-2 text-left text-xs font-semibold text-black/50 dark:text-white/50 uppercase">Symbol</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-black/50 dark:text-white/50 uppercase">Date</th>
                       <th className="px-3 py-2 text-right text-xs font-semibold text-black/50 dark:text-white/50 uppercase">Shares</th>
                       <th className="px-3 py-2 text-right text-xs font-semibold text-black/50 dark:text-white/50 uppercase">ACB/Share</th>
                       <th className="px-3 py-2 text-right text-xs font-semibold text-black/50 dark:text-white/50 uppercase">Total Cost</th>
@@ -530,6 +537,7 @@ export function CsvImportModal({
                     {acbEntries.map((entry, i) => (
                       <tr key={entry.symbol} className="border-b border-black/5 dark:border-white/5">
                         <td className="px-3 py-2 font-semibold text-black dark:text-white">{entry.symbol}</td>
+                        <td className="px-3 py-2 text-sm text-black/60 dark:text-white/60">{new Date(entry.date).toLocaleDateString("en-CA")}</td>
                         <td className="px-3 py-2 text-right font-mono text-black/70 dark:text-white/70">{entry.shares.toLocaleString()}</td>
                         <td className="px-3 py-2 text-right">
                           <input

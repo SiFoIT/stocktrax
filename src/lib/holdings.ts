@@ -20,7 +20,8 @@ export async function recomputeHolding(holdingId: number) {
     // dividends don't affect shares/avgCost
   }
 
-  const shares = Math.max(0, totalBuyShares - totalSellShares);
+  // Round to 6 decimal places to eliminate floating point dust (e.g. 1.42e-14)
+  const shares = Math.max(0, Math.round((totalBuyShares - totalSellShares) * 1e6) / 1e6);
   const avgCost = totalBuyShares > 0 ? totalBuyCost / totalBuyShares : 0;
 
   const [updated] = await db

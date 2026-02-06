@@ -148,6 +148,21 @@ function parseAmount(amountStr: string): number {
   return parseFloat(amountStr.replace(/[$,]/g, ""));
 }
 
+/**
+ * Convert a raw broker symbol to Yahoo Finance format for Canadian stocks.
+ * CAD stocks on TSX need ".TO" suffix, and dots in the symbol become hyphens.
+ * .U suffix is a TSX convention for USD-denominated stocks (e.g. HISU.U → HISU-U.TO).
+ * Examples: TD → TD.TO, SRU.UN → SRU-UN.TO, NA → NA.TO, HISU.U → HISU-U.TO
+ */
+export function toYahooSymbol(symbol: string, currency: string): string {
+  if (symbol.endsWith(".TO")) return symbol;
+  const isTsx = currency === "CAD" || /\.U$/i.test(symbol);
+  if (isTsx) {
+    return symbol.replace(/\./g, "-") + ".TO";
+  }
+  return symbol;
+}
+
 // Description regex patterns
 const BUY_PATTERN = /^(\S+)\s*-\s*.+?:\s*Bought\s+([\d.]+)\s+shares/;
 const SELL_PATTERN = /^(\S+)\s*-\s*.+?:\s*Sold\s+([\d.]+)\s+shares/;
@@ -165,7 +180,7 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
   if (wsType === "BUY") {
     const match = desc.match(BUY_PATTERN);
     if (!match) return null;
-    const symbol = match[1];
+    const symbol = toYahooSymbol(match[1], currency);
     const shares = parseFloat(match[2]);
     const price = shares > 0 ? Math.abs(amount) / shares : 0;
     return { type: "buy", symbol, shares, price, date, currency, rawDescription: desc };
@@ -174,7 +189,7 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
   if (wsType === "SELL") {
     const match = desc.match(SELL_PATTERN);
     if (!match) return null;
-    const symbol = match[1];
+    const symbol = toYahooSymbol(match[1], currency);
     const shares = parseFloat(match[2]);
     const price = shares > 0 ? Math.abs(amount) / shares : 0;
     return { type: "sell", symbol, shares, price, date, currency, rawDescription: desc };
@@ -183,14 +198,14 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
   if (wsType === "DIV") {
     const match = desc.match(DIV_PATTERN);
     if (!match) return null;
-    const symbol = match[1];
+    const symbol = toYahooSymbol(match[1], currency);
     return { type: "dividend", symbol, shares: 1, price: Math.abs(amount), date, currency, rawDescription: desc };
   }
 
   if (wsType === "TRFIN") {
     const match = desc.match(TRFIN_PATTERN);
     if (!match) return null;
-    const symbol = match[1];
+    const symbol = toYahooSymbol(match[1], currency);
     const shares = parseFloat(match[2]);
     return { type: "transfer_in", symbol, shares, price: 0, date, currency, rawDescription: desc };
   }
@@ -198,7 +213,7 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
   if (wsType === "STKDIS") {
     const match = desc.match(STKDIS_PATTERN);
     if (!match) return null;
-    const symbol = match[1];
+    const symbol = toYahooSymbol(match[1], currency);
     const shares = parseFloat(match[2]);
     return { type: "transfer_in", symbol, shares, price: 0, date, currency, rawDescription: desc };
   }
@@ -259,8 +274,29 @@ export function parseWealthSimpleCsv(csvText: string, fileName?: string): Wealth
       continue;
     }
 
+    // TRFIN can be stock transfer OR cash transfer
+    if (wsType === "TRFIN") {
+      const stockTxn = parseStockRow(row);
+      if (stockTxn) {
+        result.stockTransactions.push(stockTxn);
+      } else {
+        // Cash money transfer (e.g. "Money transfer into the account")
+        const amount = parseAmount(row.Amount || "0");
+        const currency = row.Currency || "CAD";
+        const date = parseWsDate(row.Date);
+        result.cashTransactions.push({
+          type: "transfer_in",
+          description: row.Description,
+          amount,
+          date,
+          currency,
+        });
+      }
+      continue;
+    }
+
     // Try stock transaction types
-    if (["BUY", "SELL", "DIV", "TRFIN", "STKDIS"].includes(wsType)) {
+    if (["BUY", "SELL", "DIV", "STKDIS"].includes(wsType)) {
       const stockTxn = parseStockRow(row);
       if (stockTxn) {
         result.stockTransactions.push(stockTxn);
@@ -325,8 +361,25 @@ export function parseMultipleFiles(
 }
 
 /**
+ * Convert a Yahoo-formatted symbol back to the raw broker symbol.
+ * Reverses toYahooSymbol: strip .TO suffix, convert hyphens back to dots.
+ * Examples: TRP.TO → TRP, SRU-UN.TO → SRU.UN, HISU-U.TO → HISU.U
+ */
+function fromYahooSymbol(symbol: string): string {
+  if (symbol.endsWith(".TO")) {
+    return symbol.slice(0, -3).replace(/-/g, ".");
+  }
+  return symbol;
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
  * Parse pasted ACB table data (from WealthSimple or broker statement).
  * Looks for known symbols in the pasted text and extracts quantity + book cost.
+ * Handles both Yahoo-formatted symbols (TRP.TO) and raw broker symbols (TRP).
  */
 export function parseAcbTable(
   pastedText: string,
@@ -335,18 +388,25 @@ export function parseAcbTable(
   const result = new Map<string, { quantity: number; bookCost: number }>();
 
   for (const symbol of knownSymbols) {
-    // Pattern: SYMBOL followed by quantity, market value, currency, then book cost values
-    // Flexible pattern that handles various statement formats
-    const pattern = new RegExp(
-      symbol + String.raw`\s+([\d,.]+)\s+[\d,.]+\s+\$?[\d,.]+\s+[A-Z]{3}\s+\$?[\d,.]+\s+\$?([\d,.]+)`,
-      "m"
-    );
-    const match = pastedText.match(pattern);
-    if (match) {
-      const quantity = parseFloat(match[1].replace(/,/g, ""));
-      const bookCost = parseFloat(match[2].replace(/,/g, ""));
-      if (!isNaN(quantity) && !isNaN(bookCost) && quantity > 0) {
-        result.set(symbol, { quantity, bookCost });
+    // Try matching with both Yahoo symbol and raw broker symbol
+    const rawSymbol = fromYahooSymbol(symbol);
+    const candidates = rawSymbol !== symbol ? [rawSymbol, symbol] : [symbol];
+
+    for (const candidate of candidates) {
+      // Pattern: SYMBOL followed by quantity, market value, currency, then book cost values
+      // Flexible pattern that handles various statement formats
+      const pattern = new RegExp(
+        escapeRegex(candidate) + String.raw`\s+([\d,.]+)\s+[\d,.]+\s+\$?[\d,.]+\s+[A-Z]{3}\s+\$?[\d,.]+\s+\$?([\d,.]+)`,
+        "m"
+      );
+      const match = pastedText.match(pattern);
+      if (match) {
+        const quantity = parseFloat(match[1].replace(/,/g, ""));
+        const bookCost = parseFloat(match[2].replace(/,/g, ""));
+        if (!isNaN(quantity) && !isNaN(bookCost) && quantity > 0) {
+          result.set(symbol, { quantity, bookCost });
+        }
+        break;
       }
     }
   }
