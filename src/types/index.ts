@@ -5,6 +5,7 @@ export interface StockQuote {
   changePercent: number;
   volume: number;
   latestTradingDay: string;
+  quoteType?: string;
 }
 
 export interface StockTimeSeries {
@@ -121,4 +122,43 @@ export interface NewsArticle {
   type: string;
   thumbnail?: string;
   relatedSymbols: string[];
+}
+
+export interface PortfolioSummary {
+  id: number;
+  name: string;
+  currency: string;
+  marketValue: number;
+  costBasis: number;
+  gainLoss: number;
+  gainLossPercent: number;
+  todayReturn: number;
+  todayReturnPercent: number;
+  percentOfTotal: number;
+  yearlyReturns: Record<string, { amount: number; percent: number }>;
+  sinceInception: { amount: number; percent: number };
+}
+
+export interface BreakdownItem {
+  name: string;
+  value: number;
+}
+
+export interface PortfolioDashboardData {
+  portfolios: PortfolioSummary[];
+  totals: {
+    marketValue: number;
+    costBasis: number;
+    gainLoss: number;
+    gainLossPercent: number;
+    todayReturn: number;
+    todayReturnPercent: number;
+    cagr: number;
+  };
+  breakdowns: {
+    assetType: BreakdownItem[];
+    sector: BreakdownItem[];
+    currency: BreakdownItem[];
+    topHoldings: BreakdownItem[];
+  };
 }

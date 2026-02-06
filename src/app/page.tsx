@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { WatchlistItem } from "@/lib/db/schema";
-import { WatchlistItemWithQuote, NewsArticle } from "@/types";
+import { WatchlistItemWithQuote, NewsArticle, PortfolioDashboardData } from "@/types";
 import { AddSymbolForm } from "@/components/watchlist/add-symbol-form";
 import { WatchlistTable } from "@/components/watchlist/watchlist-table";
 import { DividendTable } from "@/components/watchlist/dividend-table";
 import { NewsTable } from "@/components/watchlist/news-table";
 import { PriceChart } from "@/components/charts/price-chart";
 import { MarketOverview } from "@/components/markets/market-overview";
+import { PortfolioSummaryList } from "@/components/portfolio/portfolio-summary-list";
+import { PortfolioStats } from "@/components/portfolio/portfolio-stats";
 import { MainNav, MainNavTabs, getInitialTab, getInitialWatchlistId, type Tab } from "@/components/layout/main-nav";
 
 function formatUpdatedTime(date: Date): string {
@@ -70,6 +71,8 @@ export default function Dashboard() {
 
   // Portfolio state for the list view
   const [portfolios, setPortfolios] = useState<{ id: number; name: string; currency: string; createdAt: string }[]>([]);
+  const [dashboardData, setDashboardData] = useState<PortfolioDashboardData | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
 
   const fetchPortfolios = async () => {
     try {
@@ -87,6 +90,21 @@ export default function Dashboard() {
       setPortfoliosLoading(false);
     }
   };
+
+  const fetchDashboardData = useCallback(async () => {
+    setDashboardLoading(true);
+    try {
+      const response = await fetch("/api/portfolios/summary");
+      if (response.ok) {
+        const data = await response.json();
+        setDashboardData(data);
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setDashboardLoading(false);
+    }
+  }, []);
 
   const fetchWatchlistItems = useCallback(async (watchlistId: number, refresh = false) => {
     setWatchlistLoading(true);
@@ -177,6 +195,12 @@ export default function Dashboard() {
   useEffect(() => {
     fetchPortfolios();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "portfolios") {
+      fetchDashboardData();
+    }
+  }, [activeTab, fetchDashboardData]);
 
   useEffect(() => {
     if (selectedWatchlistId) {
@@ -428,56 +452,9 @@ export default function Dashboard() {
 
         {/* Portfolios Content */}
         {activeTab === "portfolios" && (
-          <div className="space-y-4">
-            {portfoliosLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-10 h-10 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-                  <p className="text-black/50 dark:text-white/50">Loading portfolios...</p>
-                </div>
-              </div>
-            ) : portfolios.length === 0 ? (
-              <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-12">
-                <div className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-semibold text-black dark:text-white mb-2">No Portfolios Yet</h3>
-                  <p className="text-black/50 dark:text-white/50">Create your first portfolio using the dropdown above.</p>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {portfolios.map((portfolio) => (
-                  <Link
-                    key={portfolio.id}
-                    href={`/portfolio/${portfolio.id}`}
-                    className="block rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-5 hover:border-emerald-500/30 hover:from-emerald-500/5 hover:to-transparent transition-all group"
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center group-hover:from-emerald-500/30 group-hover:to-teal-500/30 transition-all">
-                          <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                        <h3 className="font-semibold text-black dark:text-white group-hover:text-emerald-400 transition-colors">
-                          {portfolio.name}
-                        </h3>
-                      </div>
-                      <svg className="w-5 h-5 text-black/30 dark:text-white/30 group-hover:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                    <p className="text-xs text-black/40 dark:text-white/40">
-                      Created {new Date(portfolio.createdAt).toLocaleDateString()}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            )}
+          <div className="space-y-6">
+            <PortfolioSummaryList data={dashboardData} loading={dashboardLoading} />
+            <PortfolioStats data={dashboardData} loading={dashboardLoading} />
           </div>
         )}
       </div>

@@ -6,6 +6,7 @@ import { PriceRangeBar } from "@/components/ui/price-range-bar";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { WatchlistItemWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
+import { formatCurrency, formatPercent, getChangeColor, getChangeBg } from "@/lib/utils";
 
 type SortColumn = "symbol" | "price" | "dayRange" | "52wRange" | "1D" | "5D" | "1M" | "3M" | "1Y" | "5Y" | "volume";
 type SortDirection = "asc" | "desc";
@@ -15,31 +16,6 @@ interface WatchlistTableProps {
   selectedSymbol?: string;
   onSelectSymbol: (symbol: string) => void;
   onRemoveSymbol: (id: number) => void;
-}
-
-function formatCurrency(value: number | undefined, currency = "USD"): string {
-  if (value === undefined) return "-";
-  const symbol = currency === "CAD" ? "C$" : currency === "USD" ? "US$" : "$";
-  return `${symbol}${value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-function formatPercent(value: number | undefined): string {
-  if (value === undefined) return "-";
-  const sign = value >= 0 ? "+" : "";
-  return `${sign}${value.toFixed(2)}%`;
-}
-
-function getChangeColor(value: number | undefined): string {
-  if (value === undefined) return "text-black/50 dark:text-black dark:text-white/50";
-  return value >= 0 ? "text-emerald-400" : "text-red-400";
-}
-
-function getChangeBg(value: number | undefined): string {
-  if (value === undefined) return "bg-black/5 dark:bg-white/5";
-  return value >= 0 ? "bg-emerald-500/10" : "bg-red-500/10";
 }
 
 function formatTradeTime(isoString: string | undefined): string {

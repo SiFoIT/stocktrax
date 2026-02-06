@@ -356,6 +356,7 @@ export async function getQuote(symbol: string, includeRange = false): Promise<St
       latestTradingDay: quote.regularMarketTime
         ? new Date(quote.regularMarketTime).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0],
+      quoteType: quote.quoteType,
     };
 
     if (includeRange) {
@@ -376,6 +377,42 @@ export async function getQuote(symbol: string, includeRange = false): Promise<St
     return baseQuote;
   } catch (error) {
     console.error("Error fetching quote:", error);
+    return null;
+  }
+}
+
+export async function getHistoricalPrice(symbol: string, targetDate: Date): Promise<number | null> {
+  try {
+    // Fetch a window around the target date to find nearest trading day
+    const startDate = new Date(targetDate);
+    startDate.setDate(startDate.getDate() - 10); // buffer for weekends/holidays
+    const endDate = new Date(targetDate);
+    endDate.setDate(endDate.getDate() + 5);
+
+    const result = await yahooFinance.chart(symbol, {
+      period1: startDate,
+      period2: endDate,
+      interval: "1d",
+    });
+
+    if (!result || !result.quotes || result.quotes.length === 0) {
+      return null;
+    }
+
+    const quotes = result.quotes.filter((q) => q.date && q.close !== null);
+    if (quotes.length === 0) return null;
+
+    // Find closest quote on or before target date
+    let closest = quotes[0];
+    for (const q of quotes) {
+      if (q.date <= targetDate) {
+        closest = q;
+      }
+    }
+
+    return closest.close ?? null;
+  } catch (error) {
+    console.error(`Error fetching historical price for ${symbol} at ${targetDate}:`, error);
     return null;
   }
 }

@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
+import { formatCurrency } from "@/lib/utils";
 
 type SortColumn = "symbol" | "shares" | "value" | "dividendRate" | "dividendYield" | "annualIncome" | "exDividendDate" | "daysToExDiv" | "dividendDate" | "payoutRatio" | "sector" | "fiveYearAvgYield";
 type SortDirection = "asc" | "desc";
@@ -12,15 +13,6 @@ interface PortfolioDividendTableProps {
   holdings: HoldingWithQuote[];
   selectedSymbol?: string;
   onSelectSymbol: (symbol: string) => void;
-}
-
-function formatCurrency(value: number | undefined, currency = "USD"): string {
-  if (value === undefined) return "-";
-  const symbol = currency === "CAD" ? "C$" : currency === "USD" ? "US$" : "$";
-  return `${symbol}${value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
 }
 
 function formatPercent(value: number | undefined): string {

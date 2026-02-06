@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { TransactionWithSymbol } from "@/types";
+import { formatCurrency } from "@/lib/utils";
 
 interface TransactionsTableProps {
   transactions: TransactionWithSymbol[];
@@ -10,14 +11,6 @@ interface TransactionsTableProps {
   onDeleteTransaction: (id: number) => void;
   onDeleteTransactions: (ids: number[]) => void;
   onDeleteAllTransactions: () => void;
-}
-
-function formatCurrency(value: number, currency = "USD"): string {
-  const sym = currency === "CAD" ? "C$" : currency === "USD" ? "US$" : "$";
-  return `${sym}${value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
 }
 
 function formatDate(dateStr: string): string {

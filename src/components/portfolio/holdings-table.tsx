@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
+import { formatCurrency, formatPercent, getChangeColor, getChangeBg } from "@/lib/utils";
 
 interface HoldingsTableProps {
   holdings: HoldingWithQuote[];
@@ -12,30 +13,6 @@ interface HoldingsTableProps {
   onSelectHolding: (symbol: string) => void;
   onDeleteHolding: (id: number) => void;
   onAddTransaction?: (symbol: string) => void;
-}
-
-function formatCurrency(value: number | undefined, currency = "USD"): string {
-  if (value === undefined) return "-";
-  const symbol = currency === "CAD" ? "C$" : currency === "USD" ? "US$" : "$";
-  return `${symbol}${value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-function formatPercent(value: number | undefined): string {
-  if (value === undefined) return "-";
-  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
-}
-
-function getChangeColor(value: number | undefined): string {
-  if (value === undefined) return "text-black/50 dark:text-white/50";
-  return value >= 0 ? "text-emerald-400" : "text-red-400";
-}
-
-function getChangeBg(value: number | undefined): string {
-  if (value === undefined) return "bg-black/5 dark:bg-white/5";
-  return value >= 0 ? "bg-emerald-500/10" : "bg-red-500/10";
 }
 
 interface ContextMenu {
