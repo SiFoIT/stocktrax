@@ -227,12 +227,87 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
+  const portfolioId = url.searchParams.get("portfolioId");
+  const all = url.searchParams.get("all");
 
-  if (!id) {
-    return NextResponse.json({ error: "ID is required" }, { status: 400 });
+  // Mass delete all transactions for a portfolio
+  if (portfolioId && all === "true") {
+    const pid = parseInt(portfolioId);
+    const holdingsList = await db.query.holdings.findMany({
+      where: eq(schema.holdings.portfolioId, pid),
+    });
+
+    if (holdingsList.length === 0) {
+      return NextResponse.json({ success: true, deleted: 0 });
+    }
+
+    const holdingIds = holdingsList.map((h) => h.id);
+    const txns = await db.query.transactions.findMany({
+      where: inArray(schema.transactions.holdingId, holdingIds),
+    });
+
+    if (txns.length === 0) {
+      return NextResponse.json({ success: true, deleted: 0 });
+    }
+
+    await db
+      .delete(schema.transactions)
+      .where(inArray(schema.transactions.holdingId, holdingIds));
+
+    // Recompute all affected holdings
+    for (const hid of holdingIds) {
+      await recomputeHolding(hid);
+    }
+
+    return NextResponse.json({ success: true, deleted: txns.length });
   }
 
-  // Get the transaction to find its holdingId
+  // Batch delete by JSON body with ids[]
+  if (!id) {
+    try {
+      const body = await request.json();
+      const ids: number[] = body.ids;
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return NextResponse.json(
+          { error: "ids array is required" },
+          { status: 400 }
+        );
+      }
+
+      // Get all transactions to find their holdingIds
+      const txns = await db.query.transactions.findMany({
+        where: inArray(schema.transactions.id, ids),
+      });
+
+      if (txns.length === 0) {
+        return NextResponse.json(
+          { error: "No transactions found" },
+          { status: 404 }
+        );
+      }
+
+      const uniqueHoldingIds = [...new Set(txns.map((t) => t.holdingId))];
+
+      await db
+        .delete(schema.transactions)
+        .where(inArray(schema.transactions.id, ids));
+
+      // Recompute all affected holdings
+      for (const hid of uniqueHoldingIds) {
+        await recomputeHolding(hid);
+      }
+
+      return NextResponse.json({ success: true, deleted: txns.length });
+    } catch {
+      return NextResponse.json(
+        { error: "ID or ids[] is required" },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Single delete by query param (existing behavior)
   const existing = await db.query.transactions.findFirst({
     where: eq(schema.transactions.id, parseInt(id)),
   });

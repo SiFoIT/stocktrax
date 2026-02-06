@@ -247,6 +247,40 @@ export default function PortfolioPage() {
     }
   };
 
+  const handleDeleteTransactions = async (ids: number[]) => {
+    if (!confirm(`Delete ${ids.length} transaction${ids.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+
+    try {
+      await fetch("/api/transactions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      fetchTransactions();
+      fetchHoldings();
+    } catch (error) {
+      console.error("Error deleting transactions:", error);
+    }
+  };
+
+  const handleDeleteAllTransactions = async () => {
+    const count = transactionsData.length;
+    if (!confirm(`Delete ALL ${count} transactions in this portfolio? This cannot be undone.`)) return;
+
+    const typed = prompt(`Type DELETE to confirm removing all ${count} transactions`);
+    if (typed !== "DELETE") return;
+
+    try {
+      await fetch(`/api/transactions?portfolioId=${portfolioId}&all=true`, {
+        method: "DELETE",
+      });
+      fetchTransactions();
+      fetchHoldings();
+    } catch (error) {
+      console.error("Error deleting all transactions:", error);
+    }
+  };
+
   const handleRefresh = async () => {
     setLoading(true);
     await fetchHoldings(true);
@@ -559,6 +593,8 @@ export default function PortfolioPage() {
                       transactions={transactionsData}
                       onEditTransaction={handleEditTransaction}
                       onDeleteTransaction={handleDeleteTransaction}
+                      onDeleteTransactions={handleDeleteTransactions}
+                      onDeleteAllTransactions={handleDeleteAllTransactions}
                     />
                   )}
                 </div>

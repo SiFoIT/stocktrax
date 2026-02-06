@@ -8,6 +8,8 @@ interface TransactionsTableProps {
   transactions: TransactionWithSymbol[];
   onEditTransaction: (id: number, data: { shares?: number; price?: number; date?: string; type?: string }) => void;
   onDeleteTransaction: (id: number) => void;
+  onDeleteTransactions: (ids: number[]) => void;
+  onDeleteAllTransactions: () => void;
 }
 
 function formatCurrency(value: number, currency = "USD"): string {
@@ -57,6 +59,8 @@ export function TransactionsTable({
   transactions,
   onEditTransaction,
   onDeleteTransaction,
+  onDeleteTransactions,
+  onDeleteAllTransactions,
 }: TransactionsTableProps) {
   const [viewMode, setViewMode] = useState<"chronological" | "bySymbol">("chronological");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -69,6 +73,7 @@ export function TransactionsTable({
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<"date" | "symbol" | "type" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const toggleSort = (key: "date" | "symbol" | "type") => {
     if (sortKey === key) {
@@ -78,6 +83,11 @@ export function TransactionsTable({
       setSortDir(key === "date" ? "desc" : "asc");
     }
   };
+
+  // Clear selection when transactions data changes (e.g. after delete)
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [transactions]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -134,6 +144,36 @@ export function TransactionsTable({
     setContextMenu({ x: e.clientX, y: e.clientY, transactionId });
   };
 
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (visibleIds: number[]) => {
+    const allSelected = visibleIds.every((id) => selectedIds.has(id));
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    onDeleteTransactions([...selectedIds]);
+  };
+
   const toggleSymbolCollapse = (symbol: string) => {
     setCollapsedSymbols((prev) => {
       const next = new Set(prev);
@@ -178,10 +218,18 @@ export function TransactionsTable({
     <tr
       key={txn.id}
       className={`border-b border-white/5 transition-all hover:bg-black/5 dark:hover:bg-white/5 ${
-        index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""
+        selectedIds.has(txn.id) ? "bg-blue-500/10 dark:bg-blue-500/10" : index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""
       }`}
       onContextMenu={(e) => handleContextMenu(e, txn.id)}
     >
+      <td className="px-4 py-3 w-10">
+        <input
+          type="checkbox"
+          checked={selectedIds.has(txn.id)}
+          onChange={() => toggleSelect(txn.id)}
+          className="w-4 h-4 rounded border-black/20 dark:border-white/20 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+        />
+      </td>
       <td className="px-4 py-3 text-sm">
         {editingId === txn.id ? (
           <input
@@ -306,9 +354,17 @@ export function TransactionsTable({
   const sortableThClass = "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left cursor-pointer select-none transition-colors hover:text-black dark:hover:text-white";
   const staticThClass = "px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right";
 
-  const tableHeaders = (showSymbol = true) => (
+  const tableHeaders = (showSymbol = true, visibleIds: number[] = []) => (
     <thead>
       <tr className="border-b border-black/10 dark:border-white/10">
+        <th className="px-4 py-3 w-10">
+          <input
+            type="checkbox"
+            checked={visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id))}
+            onChange={() => toggleSelectAll(visibleIds)}
+            className="w-4 h-4 rounded border-black/20 dark:border-white/20 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+          />
+        </th>
         <th className={`${sortableThClass} ${sortKey === "date" ? "text-blue-400 dark:text-blue-400" : "text-black/50 dark:text-white/50"}`} onClick={() => toggleSort("date")}>
           Date{sortArrow("date")}
         </th>
@@ -337,49 +393,82 @@ export function TransactionsTable({
 
   return (
     <div>
-      {/* Toolbar: view toggle + search */}
+      {/* Toolbar: view toggle + selection actions + search + delete all */}
       <div className="flex items-center justify-between gap-4 mb-4">
-        <div className="flex gap-1 p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 w-fit">
-          <button
-            onClick={() => setViewMode("chronological")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-              viewMode === "chronological"
-                ? "bg-blue-500 text-white"
-                : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
-            }`}
-          >
-            Chronological
-          </button>
-          <button
-            onClick={() => setViewMode("bySymbol")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-              viewMode === "bySymbol"
-                ? "bg-blue-500 text-white"
-                : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
-            }`}
-          >
-            By Symbol
-          </button>
-        </div>
-        <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 dark:text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter by symbol or type..."
-            className="w-56 pl-9 pr-8 py-1.5 text-sm rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-          />
-          {search && (
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1 p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 w-fit">
             <button
-              onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white transition-colors"
+              onClick={() => setViewMode("chronological")}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                viewMode === "chronological"
+                  ? "bg-blue-500 text-white"
+                  : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+              }`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              Chronological
+            </button>
+            <button
+              onClick={() => setViewMode("bySymbol")}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                viewMode === "bySymbol"
+                  ? "bg-blue-500 text-white"
+                  : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+              }`}
+            >
+              By Symbol
+            </button>
+          </div>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <span className="text-xs font-medium text-blue-400">
+                {selectedIds.size} selected
+              </span>
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="text-xs text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white transition-colors"
+              >
+                Deselect
+              </button>
+              <div className="w-px h-4 bg-blue-500/20" />
+              <button
+                onClick={handleDeleteSelected}
+                className="text-xs font-medium text-red-400 hover:text-red-300 transition-colors"
+              >
+                Delete Selected
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 dark:text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter by symbol or type..."
+              className="w-56 pl-9 pr-8 py-1.5 text-sm rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {selectedIds.size === 0 && (
+            <button
+              onClick={onDeleteAllTransactions}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+              title="Delete all transactions"
+            >
+              Delete All
             </button>
           )}
         </div>
@@ -392,7 +481,7 @@ export function TransactionsTable({
       ) : viewMode === "chronological" ? (
         <div className="overflow-x-auto">
           <table className="w-full">
-            {tableHeaders(true)}
+            {tableHeaders(true, filtered.map((t) => t.id))}
             <tbody>
               {filtered.map((txn, i) => renderRow(txn, i, true))}
             </tbody>
@@ -429,7 +518,7 @@ export function TransactionsTable({
                   {!isCollapsed && (
                     <div className="overflow-x-auto">
                       <table className="w-full">
-                        {tableHeaders(false)}
+                        {tableHeaders(false, txns.map((t) => t.id))}
                         <tbody>
                           {txns.map((txn, i) => renderRow(txn, i, false))}
                         </tbody>
