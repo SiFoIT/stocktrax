@@ -128,6 +128,7 @@ export interface PortfolioSummary {
   id: number;
   name: string;
   currency: string;
+  createdAt: string;
   marketValue: number;
   costBasis: number;
   gainLoss: number;
@@ -154,6 +155,7 @@ export interface PortfolioDashboardData {
     todayReturn: number;
     todayReturnPercent: number;
     cagr: number;
+    earliestTransactionDate: string;
   };
   breakdowns: {
     assetType: BreakdownItem[];

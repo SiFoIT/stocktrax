@@ -118,7 +118,9 @@ export function PortfolioSummaryList({ data, loading }: PortfolioSummaryListProp
                       <span className="font-semibold text-black dark:text-white group-hover/link:text-emerald-400 transition-colors">
                         {portfolio.name}
                       </span>
-                      <span className="block text-xs text-black/40 dark:text-white/40">{portfolio.currency}</span>
+                      <span className="block text-xs text-black/40 dark:text-white/40">
+                        {portfolio.currency} · Created {new Date(portfolio.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </span>
                     </div>
                     <svg className="w-4 h-4 text-black/20 dark:text-white/20 group-hover/link:text-emerald-400 transition-colors ml-1 opacity-0 group-hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

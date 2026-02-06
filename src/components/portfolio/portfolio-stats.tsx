@@ -119,19 +119,39 @@ function BreakdownChart({ title, data, icon }: { title: string; data: BreakdownI
   );
 }
 
-function TopHoldingsChart({ data }: { data: BreakdownItem[] }) {
+function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; totalMarketValue: number }) {
   if (data.length === 0) return null;
 
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ value: number; payload: BreakdownItem }> }) => {
     if (active && payload && payload.length) {
+      const pct = totalMarketValue > 0 ? ((payload[0].value / totalMarketValue) * 100).toFixed(1) : "0";
       return (
         <div className="bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-xl">
           <p className="font-semibold text-white">{payload[0].payload.name}</p>
           <p className="text-white/70 text-sm">{formatCurrency(payload[0].value, "CAD")}</p>
+          <p className="text-white/50 text-xs">{pct}%</p>
         </div>
       );
     }
     return null;
+  };
+
+  // Custom bar label showing both $ and %
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const renderBarLabel = (props: any) => {
+    const { x, y, width, height, value } = props;
+    const pct = totalMarketValue > 0 ? ((value / totalMarketValue) * 100).toFixed(1) : "0";
+    return (
+      <text
+        x={(x ?? 0) + (width ?? 0) + 6}
+        y={(y ?? 0) + (height ?? 0) / 2}
+        dominantBaseline="central"
+        fontSize={11}
+        fill="rgba(128,128,128,0.7)"
+      >
+        {formatCurrency(value ?? 0, "CAD")} · {pct}%
+      </text>
+    );
   };
 
   return (
@@ -145,7 +165,7 @@ function TopHoldingsChart({ data }: { data: BreakdownItem[] }) {
         <h3 className="font-semibold text-sm text-black dark:text-white">Top Holdings</h3>
       </div>
       <ResponsiveContainer width="100%" height={Math.max(200, data.length * 32)}>
-        <BarChart data={data} layout="vertical" margin={{ left: 10, right: 20, top: 0, bottom: 0 }}>
+        <BarChart data={data} layout="vertical" margin={{ left: 10, right: 140, top: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.1)" horizontal={false} />
           <XAxis type="number" hide />
           <YAxis
@@ -157,7 +177,7 @@ function TopHoldingsChart({ data }: { data: BreakdownItem[] }) {
             tickLine={false}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24}>
+          <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24} label={renderBarLabel}>
             {data.map((_, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
@@ -191,6 +211,11 @@ export function PortfolioStats({ data, loading }: PortfolioStatsProps) {
   const { totals, breakdowns } = data;
   const gainColor = getChangeColor(totals.gainLoss);
 
+  // Compute CAGR date context
+  const earliestDate = new Date(totals.earliestTransactionDate);
+  const yearsSince = (Date.now() - earliestDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+  const cagrSubValue = `Since ${earliestDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })} (${yearsSince.toFixed(1)} yrs)`;
+
   return (
     <div className="space-y-4">
       {/* Stat cards */}
@@ -204,6 +229,7 @@ export function PortfolioStats({ data, loading }: PortfolioStatsProps) {
         <StatCard
           label="CAGR"
           value={`${totals.cagr >= 0 ? "+" : ""}${totals.cagr.toFixed(2)}%`}
+          subValue={cagrSubValue}
           colorClass={getChangeColor(totals.cagr)}
         />
         <StatCard
@@ -251,7 +277,7 @@ export function PortfolioStats({ data, loading }: PortfolioStatsProps) {
             </div>
           }
         />
-        <TopHoldingsChart data={breakdowns.topHoldings} />
+        <TopHoldingsChart data={breakdowns.topHoldings} totalMarketValue={totals.marketValue} />
       </div>
     </div>
   );

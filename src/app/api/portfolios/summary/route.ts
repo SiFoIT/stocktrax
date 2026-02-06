@@ -33,7 +33,7 @@ export async function GET() {
     if (allPortfolios.length === 0) {
       const empty: PortfolioDashboardData = {
         portfolios: [],
-        totals: { marketValue: 0, costBasis: 0, gainLoss: 0, gainLossPercent: 0, todayReturn: 0, todayReturnPercent: 0, cagr: 0 },
+        totals: { marketValue: 0, costBasis: 0, gainLoss: 0, gainLossPercent: 0, todayReturn: 0, todayReturnPercent: 0, cagr: 0, earliestTransactionDate: new Date().toISOString() },
         breakdowns: { assetType: [], sector: [], currency: [], topHoldings: [] },
       };
       return NextResponse.json(empty);
@@ -248,10 +248,16 @@ export async function GET() {
       const sinceInceptionAmount = marketValue - totalInvested + totalDividends;
       const sinceInceptionPercent = totalInvested > 0 ? (sinceInceptionAmount / totalInvested) * 100 : 0;
 
+      // Use earliest transaction date as inception date (more reliable than createdAt which may have been backfilled)
+      const earliestPortfolioTx = pTransactions.length > 0
+        ? new Date(Math.min(...pTransactions.map((t) => new Date(t.date).getTime())))
+        : portfolio.createdAt;
+
       portfolioSummaries.push({
         id: portfolio.id,
         name: portfolio.name,
         currency: portfolio.currency,
+        createdAt: earliestPortfolioTx instanceof Date ? earliestPortfolioTx.toISOString() : new Date(earliestPortfolioTx).toISOString(),
         marketValue,
         costBasis,
         gainLoss,
@@ -362,6 +368,7 @@ export async function GET() {
         todayReturn: totalTodayReturn,
         todayReturnPercent: totalTodayReturnPercent,
         cagr,
+        earliestTransactionDate: earliestTxDate.toISOString(),
       },
       breakdowns: {
         assetType,
