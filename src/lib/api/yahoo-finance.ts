@@ -329,6 +329,7 @@ export async function getDividendInfo(symbol: string): Promise<DividendInfo> {
 }
 
 export interface QuoteWithRange extends StockQuote {
+  shortName?: string;
   dayHigh?: number;
   dayLow?: number;
   fiftyTwoWeekHigh?: number;
@@ -360,6 +361,7 @@ export async function getQuote(symbol: string, includeRange = false): Promise<St
     if (includeRange) {
       return {
         ...baseQuote,
+        shortName: quote.shortName,
         dayHigh: quote.regularMarketDayHigh,
         dayLow: quote.regularMarketDayLow,
         fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh,

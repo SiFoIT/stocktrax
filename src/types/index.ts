@@ -20,6 +20,7 @@ export interface HoldingWithQuote {
   id: number;
   portfolioId: number;
   symbol: string;
+  shortName?: string;
   shares: number;
   avgCost: number;
   currency: string;

@@ -79,6 +79,7 @@ export default function PortfolioPage() {
               return {
                 ...holding,
                 currency: quoteData.quote?.currency || holding.currency,
+                shortName: quoteData.quote?.shortName,
                 currentPrice,
                 marketValue,
                 gainLoss,

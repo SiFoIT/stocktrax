@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
+import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 
 interface HoldingsTableProps {
   holdings: HoldingWithQuote[];
@@ -52,6 +53,7 @@ export function HoldingsTable({
   onAddTransaction,
 }: HoldingsTableProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
+  const [detailsSymbol, setDetailsSymbol] = useState<string | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // Close context menu on click outside or Escape
@@ -101,6 +103,7 @@ export function HoldingsTable({
   }
 
   return (
+    <>
     <div className="overflow-x-auto relative">
       <table className="w-full">
         <thead>
@@ -129,10 +132,21 @@ export function HoldingsTable({
               onContextMenu={(e) => handleContextMenu(e, holding.id)}
             >
               <td className="px-4 py-4">
-                <div className="flex items-center gap-3">
+                <button
+                  className="group/sym relative flex items-center gap-3 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDetailsSymbol(holding.symbol);
+                  }}
+                >
                   <StockIcon symbol={holding.symbol} />
-                  <span className="font-semibold text-black dark:text-white">{holding.symbol}</span>
-                </div>
+                  <span className="font-semibold text-blue-400 group-hover/sym:text-blue-300 underline decoration-blue-400/40 group-hover/sym:decoration-blue-300 underline-offset-2 transition-colors">{holding.symbol}</span>
+                  {holding.shortName && (
+                    <span className="pointer-events-none absolute left-0 -top-9 z-50 hidden group-hover/sym:block whitespace-nowrap rounded-lg bg-zinc-800 border border-white/10 px-3 py-1.5 text-xs text-white shadow-xl">
+                      {holding.shortName}
+                    </span>
+                  )}
+                </button>
               </td>
               <td className="px-4 py-4 text-right">
                 <span className="font-mono text-black dark:text-white">{holding.shares.toLocaleString()}</span>
@@ -235,5 +249,13 @@ export function HoldingsTable({
         </div>
       )}
     </div>
+
+      {detailsSymbol && (
+        <StockDetailsModal
+          symbol={detailsSymbol}
+          onClose={() => setDetailsSymbol(null)}
+        />
+      )}
+    </>
   );
 }
