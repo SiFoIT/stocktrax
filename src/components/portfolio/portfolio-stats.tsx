@@ -164,26 +164,28 @@ function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; t
         </div>
         <h3 className="font-semibold text-sm text-black dark:text-white">Top Holdings</h3>
       </div>
-      <ResponsiveContainer width="100%" height={Math.max(200, data.length * 32)}>
-        <BarChart data={data} layout="vertical" margin={{ left: 10, right: 150, top: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.1)" horizontal={false} />
-          <XAxis type="number" hide />
-          <YAxis
-            type="category"
-            dataKey="name"
-            width={80}
-            tick={{ fontSize: 12, fill: "rgba(128,128,128,0.7)" }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24} label={renderBarLabel}>
-            {data.map((_, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="max-h-[400px] overflow-y-auto">
+        <ResponsiveContainer width="100%" height={Math.max(200, data.length * 32)}>
+          <BarChart data={data} layout="vertical" margin={{ left: 10, right: 150, top: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.1)" horizontal={false} />
+            <XAxis type="number" hide />
+            <YAxis
+              type="category"
+              dataKey="name"
+              width={80}
+              tick={{ fontSize: 12, fill: "rgba(128,128,128,0.7)" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24} label={renderBarLabel}>
+              {data.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

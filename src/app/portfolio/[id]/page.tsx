@@ -11,7 +11,7 @@ import { AddTransactionForm } from "@/components/portfolio/add-transaction-form"
 import { TransactionsTable } from "@/components/portfolio/transactions-table";
 import { CsvImportModal } from "@/components/portfolio/csv-import-modal";
 import { PriceChart } from "@/components/charts/price-chart";
-import { AllocationChart } from "@/components/charts/allocation-chart";
+
 import { Button } from "@/components/ui/button";
 import { MainNav, MainNavTabs } from "@/components/layout/main-nav";
 import { Portfolio, Holding } from "@/lib/db/schema";
@@ -40,7 +40,7 @@ export default function PortfolioPage() {
   const [holdings, setHoldings] = useState<HoldingWithQuote[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"holdings" | "allocation" | "performance">("holdings");
+  const [activeTab, setActiveTab] = useState<"holdings" | "performance">("holdings");
   const [dashboardData, setDashboardData] = useState<PortfolioDashboardData | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [holdingsView, setHoldingsView] = useState<"holdings" | "performance" | "dividend" | "news" | "transactions">("holdings");
@@ -250,7 +250,6 @@ export default function PortfolioPage() {
 
         const topHoldings: BreakdownItem[] = [...currentActiveHoldings]
           .sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0))
-          .slice(0, 10)
           .map(h => ({ name: h.symbol, value: h.marketValue || 0 }));
 
         const data: PortfolioDashboardData = {
@@ -521,20 +520,6 @@ export default function PortfolioPage() {
           Holdings
         </button>
         <button
-          onClick={() => setActiveTab("allocation")}
-          className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
-            activeTab === "allocation"
-              ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg"
-              : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
-          }`}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-          </svg>
-          Allocation
-        </button>
-        <button
           onClick={() => setActiveTab("performance")}
           className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
             activeTab === "performance"
@@ -759,23 +744,6 @@ export default function PortfolioPage() {
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {activeTab === "allocation" && (
-        <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
-          <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-emerald-500/10 to-transparent">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-              <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-              </svg>
-            </div>
-            <h2 className="font-semibold text-black dark:text-white">Portfolio Allocation</h2>
-          </div>
-          <div className="p-6">
-            <AllocationChart holdings={activeHoldings} />
-          </div>
         </div>
       )}
 
