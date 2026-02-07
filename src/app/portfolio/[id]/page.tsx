@@ -6,29 +6,17 @@ import Link from "next/link";
 import { HoldingsTable } from "@/components/portfolio/holdings-table";
 import { PortfolioPerformanceTable } from "@/components/portfolio/portfolio-performance-table";
 import { PortfolioDividendTable } from "@/components/portfolio/portfolio-dividend-table";
-import { PortfolioNewsTable } from "@/components/portfolio/portfolio-news-table";
+import { NewsTable } from "@/components/watchlist/news-table";
 import { AddTransactionForm } from "@/components/portfolio/add-transaction-form";
 import { TransactionsTable } from "@/components/portfolio/transactions-table";
+import { DividendReturnsTable } from "@/components/portfolio/dividend-returns-table";
 import { CsvImportModal } from "@/components/portfolio/csv-import-modal";
 import { Button } from "@/components/ui/button";
 import { MainNav, MainNavTabs } from "@/components/layout/main-nav";
 import { Portfolio, Holding } from "@/lib/db/schema";
 import { PortfolioStats } from "@/components/portfolio/portfolio-stats";
 import { HoldingWithQuote, NewsArticle, TransactionWithSymbol, PortfolioDashboardData, BreakdownItem } from "@/types";
-
-function formatUpdatedTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-
-  if (diffMins < 1) {
-    return "Updated just now";
-  } else if (diffMins < 60) {
-    return `Updated ${diffMins} min ago`;
-  } else {
-    return `Updated ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
-  }
-}
+import { formatUpdatedTime } from "@/lib/utils";
 
 export default function PortfolioPage() {
   const params = useParams();
@@ -40,7 +28,7 @@ export default function PortfolioPage() {
   const [activeTab, setActiveTab] = useState<"holdings" | "performance">("holdings");
   const [dashboardData, setDashboardData] = useState<PortfolioDashboardData | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
-  const [holdingsView, setHoldingsView] = useState<"holdings" | "performance" | "dividend" | "news" | "transactions">("holdings");
+  const [holdingsView, setHoldingsView] = useState<"holdings" | "performance" | "dividend" | "divreturns" | "news" | "transactions">("holdings");
   const [holdingsUpdatedAt, setHoldingsUpdatedAt] = useState<Date | null>(null);
   const [portfolioNews, setPortfolioNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
@@ -111,7 +99,6 @@ export default function PortfolioPage() {
               };
             }
           } catch (error) {
-            console.error(`Error fetching quote for ${holding.symbol}:`, error);
           }
 
           return holding;
@@ -121,7 +108,6 @@ export default function PortfolioPage() {
       setHoldings(holdingsWithQuotes);
       setHoldingsUpdatedAt(new Date());
     } catch (error) {
-      console.error("Error fetching holdings:", error);
     }
   }, [portfolioId]);
 
@@ -132,7 +118,6 @@ export default function PortfolioPage() {
       const found = portfolios.find((p) => p.id === portfolioId);
       setPortfolio(found || null);
     } catch (error) {
-      console.error("Error fetching portfolio:", error);
     }
   }, [portfolioId]);
 
@@ -151,7 +136,6 @@ export default function PortfolioPage() {
         setPortfolioNews(data);
       }
     } catch (error) {
-      console.error("Error fetching portfolio news:", error);
     } finally {
       setNewsLoading(false);
     }
@@ -166,7 +150,6 @@ export default function PortfolioPage() {
         setTransactionsData(data);
       }
     } catch (error) {
-      console.error("Error fetching transactions:", error);
     } finally {
       setTransactionsLoading(false);
     }
@@ -180,7 +163,6 @@ export default function PortfolioPage() {
         setUsdCadRate(data.rate);
       }
     } catch (error) {
-      console.error("Error fetching exchange rate:", error);
     }
   }, []);
 
@@ -200,7 +182,7 @@ export default function PortfolioPage() {
   }, [holdingsView, holdings.length, fetchPortfolioNews]);
 
   useEffect(() => {
-    if (holdingsView === "transactions") {
+    if (holdingsView === "transactions" || holdingsView === "divreturns") {
       fetchTransactions();
     }
   }, [holdingsView, fetchTransactions]);
@@ -271,7 +253,6 @@ export default function PortfolioPage() {
 
         setDashboardData(data);
       } catch (error) {
-        console.error("Error fetching performance data:", error);
       } finally {
         setDashboardLoading(false);
       }
@@ -287,7 +268,6 @@ export default function PortfolioPage() {
       await fetch(`/api/holdings?id=${id}`, { method: "DELETE" });
       fetchHoldings();
     } catch (error) {
-      console.error("Error deleting holding:", error);
     }
   };
 
@@ -312,7 +292,6 @@ export default function PortfolioPage() {
       fetchTransactions();
       fetchHoldings();
     } catch (error) {
-      console.error("Error editing transaction:", error);
     }
   };
 
@@ -324,7 +303,6 @@ export default function PortfolioPage() {
       fetchTransactions();
       fetchHoldings();
     } catch (error) {
-      console.error("Error deleting transaction:", error);
     }
   };
 
@@ -340,7 +318,6 @@ export default function PortfolioPage() {
       fetchTransactions();
       fetchHoldings();
     } catch (error) {
-      console.error("Error deleting transactions:", error);
     }
   };
 
@@ -358,7 +335,6 @@ export default function PortfolioPage() {
       fetchTransactions();
       fetchHoldings();
     } catch (error) {
-      console.error("Error deleting all transactions:", error);
     }
   };
 
@@ -571,6 +547,16 @@ export default function PortfolioPage() {
                     Dividend
                   </button>
                   <button
+                    onClick={() => setHoldingsView("divreturns")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      holdingsView === "divreturns"
+                        ? "bg-blue-500 text-white"
+                        : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    Div Returns
+                  </button>
+                  <button
                     onClick={() => setHoldingsView("news")}
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                       holdingsView === "news"
@@ -640,6 +626,21 @@ export default function PortfolioPage() {
                   holdings={activeHoldings}
                   storageKey={`portfolio_${portfolioId}`}
                 />
+              ) : holdingsView === "divreturns" ? (
+                transactionsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+                      <span className="text-black/50 dark:text-white/50 text-sm">Loading dividend data...</span>
+                    </div>
+                  </div>
+                ) : (
+                  <DividendReturnsTable
+                    holdings={activeHoldings}
+                    transactions={transactionsData}
+                    storageKey={`portfolio_${portfolioId}`}
+                  />
+                )
               ) : holdingsView === "transactions" ? (
                 <div className="space-y-6">
                   <div className="flex gap-3">
@@ -691,9 +692,10 @@ export default function PortfolioPage() {
                   )}
                 </div>
               ) : (
-                <PortfolioNewsTable
+                <NewsTable
                   articles={portfolioNews}
                   loading={newsLoading}
+                  emptyMessage="News for your portfolio holdings will appear here."
                 />
               )}
             </div>
