@@ -100,82 +100,68 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Delete all existing data (order matters for foreign keys)
-    // Transactions -> Holdings -> Portfolios
-    // CashTransactions (FK to portfolios)
-    // WatchlistItems -> Watchlists
-    await db.delete(transactions);
-    await db.delete(holdings);
-    await db.delete(cashTransactions);
-    await db.delete(portfolios);
-    await db.delete(watchlistItems);
-    await db.delete(watchlists);
+    // Wrap entire delete + insert + recompute in a transaction
+    // so a failure mid-import rolls back all changes
+    db.transaction((tx) => {
+      // Delete all existing data (order matters for foreign keys)
+      tx.delete(transactions).run();
+      tx.delete(holdings).run();
+      tx.delete(cashTransactions).run();
+      tx.delete(portfolios).run();
+      tx.delete(watchlistItems).run();
+      tx.delete(watchlists).run();
 
-    // Insert new data (order matters for foreign keys)
-    // Portfolios -> Holdings -> Transactions
-    // Watchlists -> WatchlistItems
-
-    if (backup.data.portfolios.length > 0) {
+      // Insert new data (order matters for foreign keys)
       for (const p of backup.data.portfolios) {
-        await db.insert(portfolios).values({
+        tx.insert(portfolios).values({
           id: p.id,
           name: p.name,
           currency: p.currency,
           createdAt: parseDate(p.createdAt),
-        });
+        }).run();
       }
-    }
 
-    if (backup.data.holdings.length > 0) {
       for (const h of backup.data.holdings) {
-        await db.insert(holdings).values({
+        tx.insert(holdings).values({
           id: h.id,
           portfolioId: h.portfolioId,
           symbol: h.symbol,
           shares: h.shares,
           avgCost: h.avgCost,
           currency: h.currency,
-        });
+        }).run();
       }
-    }
 
-    if (backup.data.transactions.length > 0) {
       for (const t of backup.data.transactions) {
-        await db.insert(transactions).values({
+        tx.insert(transactions).values({
           id: t.id,
           holdingId: t.holdingId,
           type: t.type,
           shares: t.shares,
           price: t.price,
           date: parseDate(t.date),
-        });
+        }).run();
       }
-    }
 
-    if (backup.data.watchlists.length > 0) {
       for (const w of backup.data.watchlists) {
-        await db.insert(watchlists).values({
+        tx.insert(watchlists).values({
           id: w.id,
           name: w.name,
           createdAt: parseDate(w.createdAt),
-        });
+        }).run();
       }
-    }
 
-    if (backup.data.watchlistItems.length > 0) {
       for (const item of backup.data.watchlistItems) {
-        await db.insert(watchlistItems).values({
+        tx.insert(watchlistItems).values({
           id: item.id,
           watchlistId: item.watchlistId,
           symbol: item.symbol,
           addedAt: parseDate(item.addedAt),
-        });
+        }).run();
       }
-    }
 
-    if (backup.data.cashTransactions && backup.data.cashTransactions.length > 0) {
       for (const ct of backup.data.cashTransactions) {
-        await db.insert(cashTransactions).values({
+        tx.insert(cashTransactions).values({
           id: ct.id,
           portfolioId: ct.portfolioId,
           type: ct.type,
@@ -183,16 +169,14 @@ export async function POST(request: NextRequest) {
           amount: ct.amount,
           currency: ct.currency,
           date: parseDate(ct.date),
-        });
+        }).run();
       }
-    }
 
-    // Recompute all holdings from their transactions
-    if (backup.data.holdings.length > 0) {
+      // Recompute all holdings from their transactions
       for (const h of backup.data.holdings) {
-        await recomputeHolding(h.id);
+        recomputeHolding(h.id, tx);
       }
-    }
+    });
 
     return NextResponse.json({
       success: true,
@@ -207,7 +191,6 @@ export async function POST(request: NextRequest) {
       settings: backup.settings,
     });
   } catch (error) {
-    console.error("Import error:", error);
     return NextResponse.json(
       { error: "Failed to import data" },
       { status: 500 }

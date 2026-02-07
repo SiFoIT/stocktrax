@@ -1,8 +1,11 @@
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 
-export async function recomputeHolding(holdingId: number) {
-  const txns = await db.query.transactions.findMany({
+type DbOrTx = BaseSQLiteDatabase<"sync", unknown, typeof schema>;
+
+export async function recomputeHolding(holdingId: number, dbOrTx: DbOrTx = db) {
+  const txns = await dbOrTx.query.transactions.findMany({
     where: eq(schema.transactions.holdingId, holdingId),
   });
 
@@ -22,9 +25,11 @@ export async function recomputeHolding(holdingId: number) {
 
   // Round to 6 decimal places to eliminate floating point dust (e.g. 1.42e-14)
   const shares = Math.max(0, Math.round((totalBuyShares - totalSellShares) * 1e6) / 1e6);
-  const avgCost = totalBuyShares > 0 ? totalBuyCost / totalBuyShares : 0;
+  const avgCost = shares > 0 && totalBuyShares > 0
+    ? Math.round((totalBuyCost / totalBuyShares) * 1e6) / 1e6
+    : 0;
 
-  const [updated] = await db
+  const [updated] = await dbOrTx
     .update(schema.holdings)
     .set({ shares, avgCost })
     .where(eq(schema.holdings.id, holdingId))
