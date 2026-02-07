@@ -53,6 +53,7 @@ export interface HoldingWithQuote {
   fiveYearAvgDividendYield?: number;
   // Company info
   sector?: string;
+  quoteType?: string;
   // Volume fields
   volume?: number;
   avgVolume?: number;

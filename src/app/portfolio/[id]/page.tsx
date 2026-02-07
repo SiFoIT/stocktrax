@@ -15,7 +15,8 @@ import { AllocationChart } from "@/components/charts/allocation-chart";
 import { Button } from "@/components/ui/button";
 import { MainNav, MainNavTabs } from "@/components/layout/main-nav";
 import { Portfolio, Holding } from "@/lib/db/schema";
-import { HoldingWithQuote, NewsArticle, TransactionWithSymbol } from "@/types";
+import { PortfolioStats } from "@/components/portfolio/portfolio-stats";
+import { HoldingWithQuote, NewsArticle, TransactionWithSymbol, PortfolioDashboardData, BreakdownItem } from "@/types";
 
 function formatUpdatedTime(date: Date): string {
   const now = new Date();
@@ -39,7 +40,9 @@ export default function PortfolioPage() {
   const [holdings, setHoldings] = useState<HoldingWithQuote[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"holdings" | "allocation">("holdings");
+  const [activeTab, setActiveTab] = useState<"holdings" | "allocation" | "performance">("holdings");
+  const [dashboardData, setDashboardData] = useState<PortfolioDashboardData | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
   const [holdingsView, setHoldingsView] = useState<"holdings" | "performance" | "dividend" | "news" | "transactions">("holdings");
   const [holdingsUpdatedAt, setHoldingsUpdatedAt] = useState<Date | null>(null);
   const [portfolioNews, setPortfolioNews] = useState<NewsArticle[]>([]);
@@ -55,6 +58,7 @@ export default function PortfolioPage() {
   const handleNavTabChange = () => {}; // Navigation handled by MainNavTabs internally
 
   const fetchHoldings = useCallback(async (refresh = false) => {
+    setDashboardData(null); // invalidate performance cache
     try {
       const response = await fetch(`/api/holdings?portfolioId=${portfolioId}`);
       const holdingsData: Holding[] = await response.json();
@@ -104,6 +108,7 @@ export default function PortfolioPage() {
                 trailingAnnualDividendYield: quoteData.dividendInfo?.trailingAnnualDividendYield,
                 fiveYearAvgDividendYield: quoteData.dividendInfo?.fiveYearAvgDividendYield,
                 sector: quoteData.dividendInfo?.sector,
+                quoteType: quoteData.quote?.quoteType,
                 volume: quoteData.quote?.volume,
                 avgVolume: quoteData.quote?.avgVolume,
               };
@@ -202,6 +207,82 @@ export default function PortfolioPage() {
       fetchTransactions();
     }
   }, [holdingsView, fetchTransactions]);
+
+  useEffect(() => {
+    const currentActiveHoldings = holdings.filter(h => h.shares > 0.0001);
+    if (activeTab !== "performance" || currentActiveHoldings.length === 0) return;
+    if (dashboardData) return; // already fetched
+
+    const buildPerformanceData = async () => {
+      setDashboardLoading(true);
+      try {
+        const res = await fetch("/api/portfolios/summary");
+        const summaryData: PortfolioDashboardData = await res.json();
+        const portfolioSummary = summaryData.portfolios.find(p => p.id === portfolioId);
+        if (!portfolioSummary) {
+          setDashboardLoading(false);
+          return;
+        }
+
+        // Compute CAGR for this portfolio
+        const startDate = new Date(portfolioSummary.createdAt);
+        const yearsSinceStart = (Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+        const cagr = portfolioSummary.costBasis > 0 && yearsSinceStart > 0
+          ? (Math.pow(portfolioSummary.marketValue / portfolioSummary.costBasis, 1 / yearsSinceStart) - 1) * 100
+          : 0;
+
+        // Build breakdowns from holdings data
+        const assetTypeMap = new Map<string, number>();
+        const sectorMap = new Map<string, number>();
+        const currencyMap = new Map<string, number>();
+
+        for (const h of currentActiveHoldings) {
+          const mv = h.marketValue || 0;
+          const type = h.quoteType === "ETF" ? "ETFs" : "Stocks";
+          assetTypeMap.set(type, (assetTypeMap.get(type) ?? 0) + mv);
+          const sector = h.sector || "Unknown";
+          sectorMap.set(sector, (sectorMap.get(sector) ?? 0) + mv);
+          currencyMap.set(h.currency, (currencyMap.get(h.currency) ?? 0) + mv);
+        }
+
+        const toSorted = (map: Map<string, number>): BreakdownItem[] =>
+          [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+
+        const topHoldings: BreakdownItem[] = [...currentActiveHoldings]
+          .sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0))
+          .slice(0, 10)
+          .map(h => ({ name: h.symbol, value: h.marketValue || 0 }));
+
+        const data: PortfolioDashboardData = {
+          portfolios: [portfolioSummary],
+          totals: {
+            marketValue: portfolioSummary.marketValue,
+            costBasis: portfolioSummary.costBasis,
+            gainLoss: portfolioSummary.gainLoss,
+            gainLossPercent: portfolioSummary.gainLossPercent,
+            todayReturn: portfolioSummary.todayReturn,
+            todayReturnPercent: portfolioSummary.todayReturnPercent,
+            cagr,
+            earliestTransactionDate: portfolioSummary.createdAt,
+          },
+          breakdowns: {
+            assetType: toSorted(assetTypeMap),
+            sector: toSorted(sectorMap),
+            currency: toSorted(currencyMap),
+            topHoldings,
+          },
+        };
+
+        setDashboardData(data);
+      } catch (error) {
+        console.error("Error fetching performance data:", error);
+      } finally {
+        setDashboardLoading(false);
+      }
+    };
+
+    buildPerformanceData();
+  }, [activeTab, holdings, dashboardData, portfolioId]);
 
   const handleSelectHolding = (symbol: string) => {
     setSelectedSymbol(symbol);
@@ -453,6 +534,19 @@ export default function PortfolioPage() {
           </svg>
           Allocation
         </button>
+        <button
+          onClick={() => setActiveTab("performance")}
+          className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+            activeTab === "performance"
+              ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg"
+              : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+          Performance
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -683,6 +777,10 @@ export default function PortfolioPage() {
             <AllocationChart holdings={activeHoldings} />
           </div>
         </div>
+      )}
+
+      {activeTab === "performance" && (
+        <PortfolioStats data={dashboardData} loading={dashboardLoading} />
       )}
     </div>
   );
