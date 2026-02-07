@@ -40,15 +40,17 @@ export function MarketOverview() {
     fetchMarketData(true);
   };
 
-  const flatSymbols = useMemo(() => {
+  const flatMarketData = useMemo(() => {
     if (!marketData) return [];
-    return CATEGORIES.flatMap((category) =>
-      (marketData[category] ?? []).map((d) => ({
-        symbol: d.symbol,
-        changePercent: d.changePercent,
-      }))
-    );
+    return CATEGORIES.flatMap((category) => marketData[category] ?? []);
   }, [marketData]);
+
+  const flatSymbols = useMemo(() => {
+    return flatMarketData.map((d) => ({
+      symbol: d.symbol,
+      changePercent: d.changePercent,
+    }));
+  }, [flatMarketData]);
 
   const symbolIndexMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -119,6 +121,13 @@ export function MarketOverview() {
         symbols={flatSymbols}
         initialIndex={chartIndex}
         storageKey="market_overview"
+        getTimeframeChanges={(symbol) => {
+          const item = flatMarketData.find((d) => d.symbol === symbol);
+          if (!item) return undefined;
+          return {
+            "1D": item.changePercent,
+          };
+        }}
         onClose={() => setChartIndex(null)}
       />
     )}
