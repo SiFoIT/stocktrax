@@ -47,20 +47,20 @@ const rangeConfig: Record<TimeRange, { period: string; interval: string; showDay
 };
 
 function loadChartPrefs(key: string | undefined): { range: TimeRange; type: ChartType } {
-  if (!key || typeof window === "undefined") return { range: "3M", type: "line" };
+  if (!key || typeof window === "undefined") return { range: "3M", type: "candle" };
   try {
     const stored = localStorage.getItem(`chart_prefs_${key}`);
     if (stored) {
       const prefs = JSON.parse(stored);
       return {
         range: prefs.range || "3M",
-        type: prefs.type || "line",
+        type: prefs.type || "candle",
       };
     }
   } catch {
     // Ignore errors
   }
-  return { range: "3M", type: "line" };
+  return { range: "3M", type: "candle" };
 }
 
 function saveChartPrefs(key: string | undefined, range: TimeRange, type: ChartType) {

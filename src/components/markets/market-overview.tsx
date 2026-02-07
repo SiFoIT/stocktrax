@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Category, CATEGORIES, CATEGORY_LABELS } from "@/lib/markets/symbols";
 import { MarketData } from "@/types";
 import { MarketCard } from "./market-card";
 import { MarketStatus, MarketStatusIndicator } from "./market-status";
+import { PriceChartModal } from "@/components/charts/price-chart-modal";
 
 type MarketDataByCategory = Record<Category, MarketData[]>;
 
@@ -12,6 +13,7 @@ export function MarketOverview() {
   const [marketData, setMarketData] = useState<MarketDataByCategory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [chartIndex, setChartIndex] = useState<number | null>(null);
 
   const fetchMarketData = useCallback(async (refresh = false) => {
     setIsLoading(true);
@@ -38,7 +40,24 @@ export function MarketOverview() {
     fetchMarketData(true);
   };
 
+  const flatSymbols = useMemo(() => {
+    if (!marketData) return [];
+    return CATEGORIES.flatMap((category) =>
+      (marketData[category] ?? []).map((d) => ({
+        symbol: d.symbol,
+        changePercent: d.changePercent,
+      }))
+    );
+  }, [marketData]);
+
+  const symbolIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    flatSymbols.forEach((s, i) => map.set(s.symbol, i));
+    return map;
+  }, [flatSymbols]);
+
   return (
+    <>
     <div className="space-y-6">
       <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
         {/* Header */}
@@ -82,7 +101,11 @@ export function MarketOverview() {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {marketData[category]?.map((data) => (
-                    <MarketCard key={data.symbol} data={data} />
+                    <MarketCard
+                      key={data.symbol}
+                      data={data}
+                      onClick={() => setChartIndex(symbolIndexMap.get(data.symbol) ?? 0)}
+                    />
                   ))}
                 </div>
               </section>
@@ -91,5 +114,14 @@ export function MarketOverview() {
         </div>
       </div>
     </div>
+    {chartIndex !== null && flatSymbols.length > 0 && (
+      <PriceChartModal
+        symbols={flatSymbols}
+        initialIndex={chartIndex}
+        storageKey="market_overview"
+        onClose={() => setChartIndex(null)}
+      />
+    )}
+    </>
   );
 }

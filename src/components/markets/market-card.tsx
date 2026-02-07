@@ -3,9 +3,10 @@ import { Sparkline } from "./sparkline";
 
 interface MarketCardProps {
   data: MarketData;
+  onClick?: () => void;
 }
 
-export function MarketCard({ data }: MarketCardProps) {
+export function MarketCard({ data, onClick }: MarketCardProps) {
   const isPositive = data.change >= 0;
   const changeColor = isPositive ? "text-green-500" : "text-red-500";
   const bgGradient = isPositive
@@ -37,7 +38,8 @@ export function MarketCard({ data }: MarketCardProps) {
 
   return (
     <div
-      className={`rounded-xl border border-black/10 dark:border-white/10 bg-gradient-to-br ${bgGradient} p-4 transition-all hover:border-black/20 dark:hover:border-white/20 hover:shadow-lg`}
+      className={`rounded-xl border border-black/10 dark:border-white/10 bg-gradient-to-br ${bgGradient} p-4 transition-all hover:border-black/20 dark:hover:border-white/20 hover:shadow-lg ${onClick ? "cursor-pointer" : ""}`}
+      onClick={onClick}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1">
