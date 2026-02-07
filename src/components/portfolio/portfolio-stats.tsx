@@ -165,13 +165,13 @@ function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; t
         <h3 className="font-semibold text-sm text-black dark:text-white">Top Holdings</h3>
       </div>
       <ResponsiveContainer width="100%" height={Math.max(200, data.length * 32)}>
-        <BarChart data={data} layout="vertical" margin={{ left: 10, right: 140, top: 0, bottom: 0 }}>
+        <BarChart data={data} layout="vertical" margin={{ left: 10, right: 150, top: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.1)" horizontal={false} />
           <XAxis type="number" hide />
           <YAxis
             type="category"
             dataKey="name"
-            width={60}
+            width={80}
             tick={{ fontSize: 12, fill: "rgba(128,128,128,0.7)" }}
             axisLine={false}
             tickLine={false}
