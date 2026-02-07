@@ -66,7 +66,6 @@ export async function getHistoricalChanges(symbol: string): Promise<HistoricalCh
       change5Y: calcChange(price5Y),
     };
   } catch (error) {
-    console.error("Error fetching historical changes:", error);
     return {};
   }
 }
@@ -282,7 +281,6 @@ export async function getStockDetails(symbol: string): Promise<StockDetails | nu
       description: profile?.longBusinessSummary,
     };
   } catch (error) {
-    console.error("Error fetching stock details:", error);
     return null;
   }
 }
@@ -323,7 +321,6 @@ export async function getDividendInfo(symbol: string): Promise<DividendInfo> {
       sector: profile?.sector,
     };
   } catch (error) {
-    console.error("Error fetching dividend info:", error);
     return {};
   }
 }
@@ -343,7 +340,6 @@ export async function getQuote(symbol: string, includeRange = false): Promise<St
     const quote = await yahooFinance.quote(symbol);
 
     if (!quote || quote.regularMarketPrice === undefined) {
-      console.error("Invalid response from Yahoo Finance for symbol:", symbol);
       return null;
     }
 
@@ -376,7 +372,6 @@ export async function getQuote(symbol: string, includeRange = false): Promise<St
 
     return baseQuote;
   } catch (error) {
-    console.error("Error fetching quote:", error);
     return null;
   }
 }
@@ -412,7 +407,6 @@ export async function getHistoricalPrice(symbol: string, targetDate: Date): Prom
 
     return closest.close ?? null;
   } catch (error) {
-    console.error(`Error fetching historical price for ${symbol} at ${targetDate}:`, error);
     return null;
   }
 }
@@ -465,7 +459,6 @@ export async function getTimeSeries(
     });
 
     if (!result || !result.quotes) {
-      console.error("Invalid time series response for symbol:", symbol);
       return [];
     }
 
@@ -483,7 +476,6 @@ export async function getTimeSeries(
         volume: q.volume ?? 0,
       }));
   } catch (error) {
-    console.error("Error fetching time series:", error);
     return [];
   }
 }
@@ -525,7 +517,6 @@ export async function getNews(symbol: string, limit = 5): Promise<NewsArticle[]>
       relatedSymbols: item.relatedTickers || [symbol],
     }));
   } catch (error) {
-    console.error("Error fetching news:", error);
     return [];
   }
 }
@@ -560,7 +551,6 @@ export async function getNewsForSymbols(
 
     return dedupedNews;
   } catch (error) {
-    console.error("Error fetching news for symbols:", error);
     return [];
   }
 }

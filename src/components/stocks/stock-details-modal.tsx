@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { NewsArticle } from "@/types";
+import { formatVolume, formatPercentRatio, formatRelativeTime } from "@/lib/utils";
 
 interface StockDetails {
   symbol: string;
@@ -103,13 +104,6 @@ function formatLargeNumber(value: number | undefined): string {
   return `$${value.toFixed(2)}`;
 }
 
-function formatVolume(value: number | undefined): string {
-  if (value === undefined || value === null) return "-";
-  if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
-  if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
-  if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
-  return value.toFixed(0);
-}
 
 function formatTradeTime(isoString: string | undefined): string {
   if (!isoString) return "-";
@@ -122,10 +116,6 @@ function formatTradeTime(isoString: string | undefined): string {
   });
 }
 
-function formatPercent(value: number | undefined): string {
-  if (value === undefined || value === null) return "-";
-  return `${(value * 100).toFixed(2)}%`;
-}
 
 function formatPercentRaw(value: number | undefined): string {
   if (value === undefined || value === null) return "-";
@@ -237,20 +227,6 @@ function StatCard({ label, value, change, icon }: { label: string; value: string
   );
 }
 
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
 
 export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
   const [details, setDetails] = useState<StockDetails | null>(null);
@@ -428,7 +404,7 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                 />
                 <StatCard
                   label="Dividend Yield"
-                  value={details.dividendYield ? formatPercent(details.dividendYield) : "N/A"}
+                  value={details.dividendYield ? formatPercentRatio(details.dividendYield) : "N/A"}
                   icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                 />
                 <StatCard
@@ -469,8 +445,8 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   <Row label="Previous Close" value={formatCurrency(details.previousClose, details.currency)} />
                   <Row label="Day High" value={formatCurrency(details.dayHigh, details.currency)} className="text-emerald-400" />
                   <Row label="Day Low" value={formatCurrency(details.dayLow, details.currency)} className="text-red-400" />
-                  <Row label="Volume" value={formatVolume(details.volume)} />
-                  <Row label="Avg Volume" value={formatVolume(details.avgVolume)} />
+                  <Row label="Volume" value={formatVolume(details.volume, 2)} />
+                  <Row label="Avg Volume" value={formatVolume(details.avgVolume, 2)} />
                 </Section>
 
                 <Section
@@ -492,9 +468,9 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   icon={<svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                 >
                   <Row label="Dividend Rate" value={formatCurrency(details.dividendRate, details.currency)} />
-                  <Row label="Dividend Yield" value={formatPercent(details.dividendYield)} className={details.dividendYield && details.dividendYield > 0.02 ? "text-emerald-400" : ""} />
+                  <Row label="Dividend Yield" value={formatPercentRatio(details.dividendYield)} className={details.dividendYield && details.dividendYield > 0.02 ? "text-emerald-400" : ""} />
                   <Row label="Ex-Dividend Date" value={details.exDividendDate || "-"} />
-                  <Row label="Payout Ratio" value={formatPercent(details.payoutRatio)} className={getRatioColor(details.payoutRatio, 0.3, 0.8, true)} />
+                  <Row label="Payout Ratio" value={formatPercentRatio(details.payoutRatio)} className={getRatioColor(details.payoutRatio, 0.3, 0.8, true)} />
                 </Section>
 
                 <Section
@@ -515,10 +491,10 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   color="from-cyan-500/20 to-transparent"
                   icon={<svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
                 >
-                  <Row label="Profit Margin" value={formatPercent(details.profitMargin)} className={getRatioColor(details.profitMargin, 0.05, 0.2, false)} />
-                  <Row label="Operating Margin" value={formatPercent(details.operatingMargin)} className={getRatioColor(details.operatingMargin, 0.1, 0.25, false)} />
-                  <Row label="Return on Assets" value={formatPercent(details.returnOnAssets)} className={getRatioColor(details.returnOnAssets, 0.05, 0.15, false)} />
-                  <Row label="Return on Equity" value={formatPercent(details.returnOnEquity)} className={getRatioColor(details.returnOnEquity, 0.1, 0.2, false)} />
+                  <Row label="Profit Margin" value={formatPercentRatio(details.profitMargin)} className={getRatioColor(details.profitMargin, 0.05, 0.2, false)} />
+                  <Row label="Operating Margin" value={formatPercentRatio(details.operatingMargin)} className={getRatioColor(details.operatingMargin, 0.1, 0.25, false)} />
+                  <Row label="Return on Assets" value={formatPercentRatio(details.returnOnAssets)} className={getRatioColor(details.returnOnAssets, 0.05, 0.15, false)} />
+                  <Row label="Return on Equity" value={formatPercentRatio(details.returnOnEquity)} className={getRatioColor(details.returnOnEquity, 0.1, 0.2, false)} />
                 </Section>
 
                 <Section
@@ -538,11 +514,11 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   color="from-indigo-500/20 to-transparent"
                   icon={<svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
                 >
-                  <Row label="Shares Outstanding" value={formatVolume(details.sharesOutstanding)} />
-                  <Row label="Float" value={formatVolume(details.floatShares)} />
-                  <Row label="Shares Short" value={formatVolume(details.sharesShort)} />
+                  <Row label="Shares Outstanding" value={formatVolume(details.sharesOutstanding, 2)} />
+                  <Row label="Float" value={formatVolume(details.floatShares, 2)} />
+                  <Row label="Shares Short" value={formatVolume(details.sharesShort, 2)} />
                   <Row label="Short Ratio" value={formatNumber(details.shortRatio)} className={getRatioColor(details.shortRatio, 3, 10, true)} />
-                  <Row label="Short % of Float" value={formatPercent(details.shortPercentOfFloat)} className={getRatioColor(details.shortPercentOfFloat, 0.05, 0.2, true)} />
+                  <Row label="Short % of Float" value={formatPercentRatio(details.shortPercentOfFloat)} className={getRatioColor(details.shortPercentOfFloat, 0.05, 0.2, true)} />
                 </Section>
 
                 <Section

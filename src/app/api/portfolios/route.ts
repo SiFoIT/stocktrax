@@ -64,7 +64,6 @@ export async function PATCH(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    console.error("Error updating portfolio:", error);
     return NextResponse.json(
       { error: "Failed to update portfolio" },
       { status: 500 }

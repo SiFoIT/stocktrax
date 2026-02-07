@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    console.error("Error creating watchlist:", error);
     return NextResponse.json(
       { error: "Failed to create watchlist" },
       { status: 500 }
@@ -61,7 +60,6 @@ export async function PATCH(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    console.error("Error updating watchlist:", error);
     return NextResponse.json(
       { error: "Failed to update watchlist" },
       { status: 500 }

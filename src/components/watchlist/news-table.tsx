@@ -1,28 +1,15 @@
 "use client";
 
 import { NewsArticle } from "@/types";
+import { formatRelativeTime } from "@/lib/utils";
 
 interface NewsTableProps {
   articles: NewsArticle[];
   loading: boolean;
+  emptyMessage?: string;
 }
 
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-export function NewsTable({ articles, loading }: NewsTableProps) {
+export function NewsTable({ articles, loading, emptyMessage }: NewsTableProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -43,7 +30,7 @@ export function NewsTable({ articles, loading }: NewsTableProps) {
           </svg>
         </div>
         <h3 className="text-lg font-semibold text-black dark:text-white mb-2">No News Available</h3>
-        <p className="text-black/50 dark:text-white/50">No recent news articles found for the symbols in this watchlist.</p>
+        <p className="text-black/50 dark:text-white/50">{emptyMessage || "No recent news articles found for the symbols in this watchlist."}</p>
       </div>
     );
   }

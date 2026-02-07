@@ -12,20 +12,7 @@ import { MarketOverview } from "@/components/markets/market-overview";
 import { PortfolioSummaryList } from "@/components/portfolio/portfolio-summary-list";
 import { PortfolioStats } from "@/components/portfolio/portfolio-stats";
 import { MainNav, MainNavTabs, getInitialTab, getInitialWatchlistId, type Tab } from "@/components/layout/main-nav";
-
-function formatUpdatedTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-
-  if (diffMins < 1) {
-    return "Updated just now";
-  } else if (diffMins < 60) {
-    return `Updated ${diffMins} min ago`;
-  } else {
-    return `Updated ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
-  }
-}
+import { formatUpdatedTime } from "@/lib/utils";
 
 // Helper to get tab from URL on initial load
 function getTabFromUrl(): Tab {
@@ -83,7 +70,6 @@ export default function Dashboard() {
         setSelectedPortfolioId(data[0].id);
       }
     } catch (error) {
-      console.error("Error fetching portfolios:", error);
     } finally {
       setPortfoliosLoading(false);
     }
@@ -98,7 +84,6 @@ export default function Dashboard() {
         setDashboardData(data);
       }
     } catch (error) {
-      console.error("Error fetching dashboard data:", error);
     } finally {
       setDashboardLoading(false);
     }
@@ -159,7 +144,6 @@ export default function Dashboard() {
       setWatchlistItems(itemsWithQuotes);
       setWatchlistUpdatedAt(new Date());
     } catch (error) {
-      console.error("Error fetching watchlist items:", error);
     } finally {
       setWatchlistLoading(false);
     }
@@ -177,7 +161,6 @@ export default function Dashboard() {
             setSelectedWatchlistId(watchlists[0].id);
           }
         } catch (error) {
-          console.error("Error fetching watchlists:", error);
         }
       }
     };
@@ -215,7 +198,6 @@ export default function Dashboard() {
         setWatchlistNews(data);
       }
     } catch (error) {
-      console.error("Error fetching watchlist news:", error);
     } finally {
       setNewsLoading(false);
     }
@@ -234,7 +216,6 @@ export default function Dashboard() {
         fetchWatchlistItems(selectedWatchlistId);
       }
     } catch (error) {
-      console.error("Error removing symbol:", error);
     }
   };
 

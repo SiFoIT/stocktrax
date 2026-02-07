@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getNews, getNewsForSymbols } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
-
-const NEWS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+import { CACHE_TTL } from "@/lib/config";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -23,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     if (cached) {
       const age = Date.now() - cached.fetchedAt.getTime();
-      if (age < NEWS_CACHE_TTL_MS) {
+      if (age < CACHE_TTL.news) {
         return NextResponse.json(JSON.parse(cached.data));
       }
     }
@@ -73,7 +72,7 @@ export async function GET(request: NextRequest) {
 
     if (cached) {
       const age = Date.now() - cached.fetchedAt.getTime();
-      if (age < NEWS_CACHE_TTL_MS) {
+      if (age < CACHE_TTL.news) {
         return NextResponse.json(JSON.parse(cached.data));
       }
     }

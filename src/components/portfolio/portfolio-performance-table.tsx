@@ -6,7 +6,7 @@ import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
-import { formatCurrency, formatPercent, getChangeColor, getChangeBg } from "@/lib/utils";
+import { formatCurrency, formatPercent, getChangeColor, getChangeBg, formatTradeTime, formatVolume } from "@/lib/utils";
 
 type SortColumn = "symbol" | "price" | "dayRange" | "52wRange" | "1D" | "5D" | "1M" | "3M" | "1Y" | "5Y" | "volume" | "value";
 type SortDirection = "asc" | "desc";
@@ -16,19 +16,6 @@ interface PortfolioPerformanceTableProps {
   storageKey?: string;
 }
 
-function formatTradeTime(isoString: string | undefined): string {
-  if (!isoString) return "";
-  const date = new Date(isoString);
-  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-
-function formatVolume(value: number | undefined): string {
-  if (value === undefined) return "-";
-  if (value >= 1e9) return `${(value / 1e9).toFixed(1)}B`;
-  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-  if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
-  return value.toFixed(0);
-}
 
 function SortIcon({ direction }: { direction: SortDirection | null }) {
   return (

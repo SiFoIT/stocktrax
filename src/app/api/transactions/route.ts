@@ -99,6 +99,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Inherit currency from the portfolio
+      const portfolio = await db.query.portfolios.findFirst({
+        where: eq(schema.portfolios.id, validated.portfolioId),
+      });
+
       // Create new holding with zeroed values (will be recomputed)
       const [newHolding] = await db
         .insert(schema.holdings)
@@ -107,7 +112,7 @@ export async function POST(request: NextRequest) {
           symbol: validated.symbol,
           shares: 0,
           avgCost: 0,
-          currency: "USD",
+          currency: portfolio?.currency ?? "USD",
         })
         .returning();
 
@@ -160,7 +165,6 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    console.error("Error creating transaction:", error);
     return NextResponse.json(
       { error: "Failed to create transaction" },
       { status: 500 }
@@ -216,7 +220,6 @@ export async function PATCH(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    console.error("Error updating transaction:", error);
     return NextResponse.json(
       { error: "Failed to update transaction" },
       { status: 500 }

@@ -26,7 +26,6 @@ export function MarketOverview() {
         setUpdatedAt(new Date());
       }
     } catch (error) {
-      console.error("Error fetching market data:", error);
     } finally {
       setIsLoading(false);
     }

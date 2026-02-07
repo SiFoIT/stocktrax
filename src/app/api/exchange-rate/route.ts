@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getQuote } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
-
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+import { CACHE_TTL } from "@/lib/config";
 const CACHE_KEY = "USDCAD_RATE";
 
 export async function GET() {
@@ -15,7 +14,7 @@ export async function GET() {
 
     if (cached) {
       const age = Date.now() - cached.fetchedAt.getTime();
-      if (age < CACHE_TTL_MS) {
+      if (age < CACHE_TTL.exchangeRate) {
         return NextResponse.json(JSON.parse(cached.data));
       }
     }
@@ -49,7 +48,6 @@ export async function GET() {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Exchange rate error:", error);
     return NextResponse.json(
       { error: "Failed to fetch exchange rate" },
       { status: 500 }

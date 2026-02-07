@@ -4,9 +4,9 @@ import { eq } from "drizzle-orm";
 import { getQuote, getHistoricalPrice, getDividendInfo } from "@/lib/api/yahoo-finance";
 import type { QuoteWithRange } from "@/lib/api/yahoo-finance";
 import type { PortfolioDashboardData, PortfolioSummary, BreakdownItem } from "@/types";
+import { CACHE_TTL } from "@/lib/config";
 
 const CACHE_KEY = "PORTFOLIO_SUMMARY";
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function GET() {
   try {
@@ -17,7 +17,7 @@ export async function GET() {
 
     if (cached) {
       const age = Date.now() - cached.fetchedAt.getTime();
-      if (age < CACHE_TTL_MS) {
+      if (age < CACHE_TTL.portfolioSummary) {
         return NextResponse.json(JSON.parse(cached.data));
       }
     }
@@ -43,13 +43,18 @@ export async function GET() {
     const activeHoldings = allHoldings.filter((h) => h.shares > 0);
     const uniqueSymbols = [...new Set(activeHoldings.map((h) => h.symbol))];
 
-    // Fetch exchange rate and quotes in parallel
+    // Fetch exchange rate, quotes, and sector info all in parallel
     const exchangeRatePromise = getQuote("USDCAD=X");
     const quotePromises = uniqueSymbols.map((sym) => getQuote(sym, true));
-    const [exchangeRateQuote, ...quoteResults] = await Promise.all([
+    const sectorPromises = uniqueSymbols.map((sym) => getDividendInfo(sym));
+    const [exchangeRateQuote, ...quoteAndSectorResults] = await Promise.all([
       exchangeRatePromise,
       ...quotePromises,
+      ...sectorPromises,
     ]);
+
+    const quoteResults = quoteAndSectorResults.slice(0, uniqueSymbols.length);
+    const sectorResults = quoteAndSectorResults.slice(uniqueSymbols.length);
 
     const usdCadRate = exchangeRateQuote?.price ?? 1.36;
 
@@ -60,12 +65,10 @@ export async function GET() {
       if (q) quoteMap.set(sym, q as QuoteWithRange);
     });
 
-    // Fetch sector info for breakdown charts (reuse getDividendInfo which returns sector)
-    const sectorPromises = uniqueSymbols.map((sym) => getDividendInfo(sym));
-    const sectorResults = await Promise.all(sectorPromises);
+    // Build sector map
     const sectorMap = new Map<string, string>();
     uniqueSymbols.forEach((sym, i) => {
-      const info = sectorResults[i];
+      const info = sectorResults[i] as Awaited<ReturnType<typeof getDividendInfo>>;
       if (info?.sector) sectorMap.set(sym, info.sector);
     });
 
@@ -74,10 +77,12 @@ export async function GET() {
       return currency === "USD" ? value * usdCadRate : value;
     };
 
-    // Build holding-to-portfolio mapping
+    // Build holding lookup maps
     const holdingToPortfolio = new Map<number, number>();
+    const holdingById = new Map<number, typeof allHoldings[number]>();
     for (const h of allHoldings) {
       holdingToPortfolio.set(h.id, h.portfolioId);
+      holdingById.set(h.id, h);
     }
 
     // Compute per-portfolio metrics
@@ -107,23 +112,20 @@ export async function GET() {
     // For each year, walk transactions to find positions at year start
     const yearStartPrices = new Map<string, Map<number, number>>(); // symbol -> year -> price
 
-    // Fetch historical prices for year boundaries
-    for (const year of years) {
+    // Fetch historical prices for all year/symbol combinations in parallel
+    const allPricePromises = years.flatMap((year) => {
       const jan1 = new Date(year, 0, 2); // Jan 2 to avoid holiday issues
-      const yearPrices = new Map<number, number>();
-
-      const pricePromises = uniqueSymbols.map(async (sym) => {
+      return uniqueSymbols.map(async (sym) => {
         const price = await getHistoricalPrice(sym, jan1);
-        return { sym, price };
+        return { sym, year, price };
       });
+    });
 
-      const prices = await Promise.all(pricePromises);
-      for (const { sym, price } of prices) {
-        if (price !== null) {
-          yearPrices.set(uniqueSymbols.indexOf(sym), price);
-          if (!yearStartPrices.has(sym)) yearStartPrices.set(sym, new Map());
-          yearStartPrices.get(sym)!.set(year, price);
-        }
+    const allPriceResults = await Promise.all(allPricePromises);
+    for (const { sym, year, price } of allPriceResults) {
+      if (price !== null) {
+        if (!yearStartPrices.has(sym)) yearStartPrices.set(sym, new Map());
+        yearStartPrices.get(sym)!.set(year, price);
       }
     }
 
@@ -172,7 +174,7 @@ export async function GET() {
 
         for (const txn of sortedTxns) {
           if (new Date(txn.date) >= jan1) break;
-          const holding = allHoldings.find((h) => h.id === txn.holdingId);
+          const holding = holdingById.get(txn.holdingId);
           if (!holding) continue;
 
           const current = sharesAtStart.get(holding.symbol) ?? { shares: 0, currency: holding.currency };
@@ -207,7 +209,7 @@ export async function GET() {
           const txnDate = new Date(txn.date);
           if (txnDate < jan1 || txnDate >= yearEnd) continue;
 
-          const holding = allHoldings.find((h) => h.id === txn.holdingId);
+          const holding = holdingById.get(txn.holdingId);
           if (!holding) continue;
 
           const value = txn.shares * txn.price;
@@ -233,7 +235,7 @@ export async function GET() {
       let totalInvested = 0;
       let totalDividends = 0;
       for (const txn of pTransactions) {
-        const holding = allHoldings.find((h) => h.id === txn.holdingId);
+        const holding = holdingById.get(txn.holdingId);
         if (!holding) continue;
         const value = txn.shares * txn.price;
         if (txn.type === "buy" || txn.type === "transfer_in") {
@@ -396,7 +398,6 @@ export async function GET() {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Portfolio summary error:", error);
     return NextResponse.json(
       { error: "Failed to compute portfolio summary" },
       { status: 500 }

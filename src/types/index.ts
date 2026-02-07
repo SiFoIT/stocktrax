@@ -17,11 +17,41 @@ export interface StockTimeSeries {
   volume: number;
 }
 
-export interface HoldingWithQuote {
+export interface QuoteFields {
+  change?: number;
+  changePercent?: number;
+  lastTradeTime?: string;
+  shortName?: string;
+  // Historical changes
+  change5D?: number;
+  change1M?: number;
+  change3M?: number;
+  change1Y?: number;
+  change5Y?: number;
+  // Price range
+  dayHigh?: number;
+  dayLow?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+  // Dividend
+  dividendRate?: number;
+  dividendYield?: number;
+  exDividendDate?: string;
+  dividendDate?: string;
+  payoutRatio?: number;
+  trailingAnnualDividendYield?: number;
+  fiveYearAvgDividendYield?: number;
+  // Company info
+  sector?: string;
+  // Volume
+  volume?: number;
+  avgVolume?: number;
+}
+
+export interface HoldingWithQuote extends QuoteFields {
   id: number;
   portfolioId: number;
   symbol: string;
-  shortName?: string;
   shares: number;
   avgCost: number;
   currency: string;
@@ -29,70 +59,16 @@ export interface HoldingWithQuote {
   marketValue?: number;
   gainLoss?: number;
   gainLossPercent?: number;
-  // Price change fields (same as WatchlistItemWithQuote)
-  change?: number;
-  changePercent?: number;
-  lastTradeTime?: string;
-  change5D?: number;
-  change1M?: number;
-  change3M?: number;
-  change1Y?: number;
-  change5Y?: number;
-  // Price range fields
-  dayHigh?: number;
-  dayLow?: number;
-  fiftyTwoWeekHigh?: number;
-  fiftyTwoWeekLow?: number;
-  // Dividend fields
-  dividendRate?: number;
-  dividendYield?: number;
-  exDividendDate?: string;
-  dividendDate?: string;
-  payoutRatio?: number;
-  trailingAnnualDividendYield?: number;
-  fiveYearAvgDividendYield?: number;
-  // Company info
-  sector?: string;
   quoteType?: string;
-  // Volume fields
-  volume?: number;
-  avgVolume?: number;
 }
 
-export interface WatchlistItemWithQuote {
+export interface WatchlistItemWithQuote extends QuoteFields {
   id: number;
   watchlistId: number;
   symbol: string;
   addedAt: Date;
   price?: number;
-  change?: number;
-  changePercent?: number;
   currency?: string;
-  lastTradeTime?: string;
-  change5D?: number;
-  change1M?: number;
-  change3M?: number;
-  change1Y?: number;
-  change5Y?: number;
-  // Price range fields
-  dayHigh?: number;
-  dayLow?: number;
-  fiftyTwoWeekHigh?: number;
-  fiftyTwoWeekLow?: number;
-  // Dividend fields
-  dividendRate?: number;
-  dividendYield?: number;
-  exDividendDate?: string;
-  dividendDate?: string;
-  payoutRatio?: number;
-  trailingAnnualDividendYield?: number;
-  fiveYearAvgDividendYield?: number;
-  // Company info
-  shortName?: string;
-  sector?: string;
-  // Volume fields
-  volume?: number;
-  avgVolume?: number;
 }
 
 export interface MarketData {

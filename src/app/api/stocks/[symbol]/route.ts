@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getQuote, getTimeSeries, getHistoricalChanges, getStockDetails, getDividendInfo, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
-
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
-const INTRADAY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes for intraday
+import { CACHE_TTL } from "@/lib/config";
 
 export async function GET(
   request: NextRequest,
@@ -34,7 +32,7 @@ export async function GET(
 
       if (cached) {
         const age = Date.now() - cached.fetchedAt.getTime();
-        if (age < CACHE_TTL_MS) {
+        if (age < CACHE_TTL.stockQuote) {
           return NextResponse.json(JSON.parse(cached.data));
         }
       }
@@ -68,7 +66,7 @@ export async function GET(
 
   const isIntraday = interval !== "1d";
   const cacheKey = includeChanges ? `${upperSymbol}_changes` : `${upperSymbol}_${period}_${interval}`;
-  const cacheTTL = isIntraday ? INTRADAY_CACHE_TTL_MS : CACHE_TTL_MS;
+  const cacheTTL = isIntraday ? CACHE_TTL.stockIntraday : CACHE_TTL.stockQuote;
 
   // Check cache (skip if refresh requested)
   if (!skipCache) {

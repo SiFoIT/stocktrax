@@ -1,25 +1,12 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { formatUpdatedTime } from "@/lib/utils";
 
 interface MarketStatusProps {
   onRefresh: () => void;
   isLoading: boolean;
   updatedAt?: Date | null;
-}
-
-function formatUpdatedTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-
-  if (diffMins < 1) {
-    return "Updated just now";
-  } else if (diffMins < 60) {
-    return `Updated ${diffMins} min ago`;
-  } else {
-    return `Updated ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
-  }
 }
 
 function isMarketOpen(): boolean {

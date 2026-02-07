@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core";
 
 export const portfolios = sqliteTable("portfolios", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -18,7 +18,9 @@ export const holdings = sqliteTable("holdings", {
   shares: real("shares").notNull(),
   avgCost: real("avg_cost").notNull(),
   currency: text("currency").notNull().default("USD"),
-});
+}, (table) => [
+  index("idx_holdings_portfolio_id").on(table.portfolioId),
+]);
 
 export const transactions = sqliteTable("transactions", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -29,7 +31,9 @@ export const transactions = sqliteTable("transactions", {
   shares: real("shares").notNull(),
   price: real("price").notNull(),
   date: integer("date", { mode: "timestamp" }).notNull(),
-});
+}, (table) => [
+  index("idx_transactions_holding_id").on(table.holdingId),
+]);
 
 export const stockCache = sqliteTable("stock_cache", {
   symbol: text("symbol").primaryKey(),
@@ -57,7 +61,9 @@ export const cashTransactions = sqliteTable("cash_transactions", {
   amount: real("amount").notNull(),
   currency: text("currency").notNull().default("CAD"),
   date: integer("date", { mode: "timestamp" }).notNull(),
-});
+}, (table) => [
+  index("idx_cash_transactions_portfolio_id").on(table.portfolioId),
+]);
 
 export type CashTransaction = typeof cashTransactions.$inferSelect;
 export type NewCashTransaction = typeof cashTransactions.$inferInsert;
@@ -79,7 +85,10 @@ export const watchlistItems = sqliteTable("watchlist_items", {
   addedAt: integer("added_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
-});
+}, (table) => [
+  index("idx_watchlist_items_watchlist_id").on(table.watchlistId),
+  index("idx_watchlist_items_symbol").on(table.symbol),
+]);
 
 export type Watchlist = typeof watchlists.$inferSelect;
 export type NewWatchlist = typeof watchlists.$inferInsert;

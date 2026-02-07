@@ -25,7 +25,6 @@ export async function POST() {
 
     return NextResponse.json({ updated, changes });
   } catch (error) {
-    console.error("Fix symbols error:", error);
     return NextResponse.json(
       { error: "Failed to fix symbols" },
       { status: 500 }

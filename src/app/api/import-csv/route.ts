@@ -190,7 +190,6 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    console.error("CSV import error:", error);
     return NextResponse.json(
       { error: "Failed to import CSV data" },
       { status: 500 }

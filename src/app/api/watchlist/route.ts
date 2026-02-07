@@ -60,7 +60,6 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    console.error("Error adding to watchlist:", error);
     return NextResponse.json(
       { error: "Failed to add to watchlist" },
       { status: 500 }

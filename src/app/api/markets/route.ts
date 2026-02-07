@@ -4,8 +4,7 @@ import { getQuote, getTimeSeries } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
 import { MARKET_SYMBOLS, Category, CATEGORIES } from "@/lib/markets/symbols";
 import { MarketData } from "@/types";
-
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+import { CACHE_TTL } from "@/lib/config";
 
 async function fetchCategoryData(category: Category, skipCache: boolean): Promise<MarketData[]> {
   const symbols = MARKET_SYMBOLS[category];
@@ -19,7 +18,7 @@ async function fetchCategoryData(category: Category, skipCache: boolean): Promis
 
     if (cached) {
       const age = Date.now() - cached.fetchedAt.getTime();
-      if (age < CACHE_TTL_MS) {
+      if (age < CACHE_TTL.markets) {
         return JSON.parse(cached.data);
       }
     }
@@ -48,7 +47,6 @@ async function fetchCategoryData(category: Category, skipCache: boolean): Promis
           sparklineData,
         };
       } catch (error) {
-        console.error(`Error fetching market data for ${symbol}:`, error);
         return {
           symbol,
           name,

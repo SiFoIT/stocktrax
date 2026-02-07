@@ -16,7 +16,7 @@ import {
   SeriesType,
 } from "lightweight-charts";
 import { StockTimeSeries } from "@/types";
-import { toEasternTime } from "@/lib/utils";
+import { toEasternTime, formatVolume } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 type TimeRange = "1D" | "5D" | "3M" | "1Y" | "5Y";
@@ -83,13 +83,6 @@ function getChangeColor(value: number | undefined): string {
   return value >= 0 ? "text-emerald-400" : "text-red-400";
 }
 
-function formatVolume(value: number): string {
-  if (value >= 1_000_000_000) return (value / 1_000_000_000).toFixed(2) + "B";
-  if (value >= 1_000_000) return (value / 1_000_000).toFixed(2) + "M";
-  if (value >= 1_000) return (value / 1_000).toFixed(2) + "K";
-  return value.toFixed(0);
-}
-
 function formatLegendTime(time: Time, isIntraday: boolean): string {
   if (isIntraday && typeof time === "number") {
     const date = new Date(time * 1000);
@@ -139,7 +132,6 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
         setData(result.timeSeries || []);
       }
     } catch (error) {
-      console.error("Error fetching chart data:", error);
       setData([]);
     } finally {
       setLoading(false);
@@ -488,7 +480,7 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
                     </span>
                   )}
                   <span className="text-black/50 dark:text-white/50">
-                    Vol: <span className="text-black dark:text-white">{formatVolume(legendData.volume)}</span>
+                    Vol: <span className="text-black dark:text-white">{formatVolume(legendData.volume, 2)}</span>
                   </span>
                 </div>
               )}

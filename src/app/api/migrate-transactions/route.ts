@@ -94,7 +94,6 @@ export async function POST() {
       results,
     });
   } catch (error) {
-    console.error("Migration error:", error);
     return NextResponse.json(
       { error: "Failed to migrate transactions" },
       { status: 500 }

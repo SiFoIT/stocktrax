@@ -90,7 +90,6 @@ export function MainNavTabs({
         setWatchlists(watchlistsData);
         setPortfolios(portfoliosData);
       } catch (error) {
-        console.error("Error fetching nav data:", error);
       }
     };
     fetchData();
@@ -137,7 +136,7 @@ export function MainNavTabs({
         setShowWatchlistDropdown(false);
       }
     } catch (error) {
-      console.error("Error creating watchlist:", error);
+      // silently handle fetch error
     } finally {
       setCreatingWatchlist(false);
     }
@@ -156,7 +155,7 @@ export function MainNavTabs({
         }
       }
     } catch (error) {
-      console.error("Error deleting watchlist:", error);
+      // silently handle fetch error
     }
   };
 
@@ -175,7 +174,7 @@ export function MainNavTabs({
       setEditingWatchlistId(null);
       setEditingWatchlistName("");
     } catch (error) {
-      console.error("Error renaming watchlist:", error);
+      // silently handle fetch error
     }
   };
 
@@ -205,7 +204,7 @@ export function MainNavTabs({
         setShowPortfolioDropdown(false);
       }
     } catch (error) {
-      console.error("Error creating portfolio:", error);
+      // silently handle fetch error
     } finally {
       setCreatingPortfolio(false);
     }
@@ -228,7 +227,7 @@ export function MainNavTabs({
         window.location.href = "/?tab=portfolios";
       }
     } catch (error) {
-      console.error("Error deleting portfolio:", error);
+      // silently handle fetch error
     }
   };
 
@@ -247,7 +246,7 @@ export function MainNavTabs({
       setEditingPortfolioId(null);
       setEditingPortfolioName("");
     } catch (error) {
-      console.error("Error renaming portfolio:", error);
+      // silently handle fetch error
     }
   };
 
