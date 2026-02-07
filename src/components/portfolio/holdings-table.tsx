@@ -198,19 +198,19 @@ export function HoldingsTable({
             >
               <td className="px-4 py-4">
                 <button
-                  className="group/sym relative flex items-center gap-3 transition-colors"
+                  className="group/sym flex items-center gap-3 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     setDetailsSymbol(holding.symbol);
                   }}
                 >
                   <StockIcon symbol={holding.symbol} />
-                  <span className="font-semibold text-blue-400 group-hover/sym:text-blue-300 underline decoration-blue-400/40 group-hover/sym:decoration-blue-300 underline-offset-2 transition-colors">{holding.symbol}</span>
-                  {holding.shortName && (
-                    <span className="pointer-events-none absolute left-0 -top-9 z-50 hidden group-hover/sym:block whitespace-nowrap rounded-lg bg-zinc-800 border border-white/10 px-3 py-1.5 text-xs text-white shadow-xl">
-                      {holding.shortName}
-                    </span>
-                  )}
+                  <div className="flex flex-col items-start">
+                    <span className="font-semibold text-blue-400 group-hover/sym:text-blue-300 underline decoration-blue-400/40 group-hover/sym:decoration-blue-300 underline-offset-2 transition-colors">{holding.symbol}</span>
+                    {holding.shortName && (
+                      <span className="text-[11px] leading-tight text-black/40 dark:text-white/40 max-w-[200px] truncate block">{holding.shortName}</span>
+                    )}
+                  </div>
                 </button>
               </td>
               <td className="px-4 py-4 text-right">
