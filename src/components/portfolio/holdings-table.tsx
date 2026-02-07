@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
+import { PriceChartModal } from "@/components/charts/price-chart-modal";
 import { formatCurrency, formatPercent, getChangeColor, getChangeBg } from "@/lib/utils";
 
 type SortColumn = "symbol" | "shares" | "avgCost" | "price" | "today" | "value" | "port" | "gainLoss";
@@ -20,10 +21,9 @@ function SortIcon({ direction }: { direction: SortDirection | null }) {
 interface HoldingsTableProps {
   holdings: HoldingWithQuote[];
   totalPortfolioValue: number;
-  selectedSymbol?: string;
-  onSelectHolding: (symbol: string) => void;
   onDeleteHolding: (id: number) => void;
   onAddTransaction?: (symbol: string) => void;
+  storageKey?: string;
 }
 
 interface ContextMenu {
@@ -35,13 +35,13 @@ interface ContextMenu {
 export function HoldingsTable({
   holdings,
   totalPortfolioValue,
-  selectedSymbol,
-  onSelectHolding,
   onDeleteHolding,
   onAddTransaction,
+  storageKey,
 }: HoldingsTableProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [detailsSymbol, setDetailsSymbol] = useState<string | null>(null);
+  const [chartIndex, setChartIndex] = useState<number | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -188,30 +188,36 @@ export function HoldingsTable({
           {sortedHoldings.map((holding, index) => (
             <tr
               key={holding.id}
-              className={`border-b border-white/5 cursor-pointer transition-all hover:bg-black/5 dark:hover:bg-white/5 ${
-                selectedSymbol === holding.symbol
-                  ? "bg-gradient-to-r from-blue-500/10 to-transparent"
-                  : ""
-              } ${index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}`}
-              onClick={() => onSelectHolding(holding.symbol)}
+              className={`border-b border-white/5 transition-all hover:bg-black/5 dark:hover:bg-white/5 ${index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}`}
               onContextMenu={(e) => handleContextMenu(e, holding.id)}
             >
               <td className="px-4 py-4">
-                <button
-                  className="group/sym flex items-center gap-3 transition-colors"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDetailsSymbol(holding.symbol);
-                  }}
-                >
-                  <StockIcon symbol={holding.symbol} />
-                  <div className="flex flex-col items-start">
-                    <span className="font-semibold text-blue-400 group-hover/sym:text-blue-300 underline decoration-blue-400/40 group-hover/sym:decoration-blue-300 underline-offset-2 transition-colors">{holding.symbol}</span>
-                    {holding.shortName && (
-                      <span className="text-[11px] leading-tight text-black/40 dark:text-white/40 max-w-[200px] truncate block">{holding.shortName}</span>
-                    )}
-                  </div>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="group/sym flex items-center gap-3 transition-colors"
+                    onClick={() => setDetailsSymbol(holding.symbol)}
+                  >
+                    <StockIcon symbol={holding.symbol} />
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold text-blue-400 group-hover/sym:text-blue-300 underline decoration-blue-400/40 group-hover/sym:decoration-blue-300 underline-offset-2 transition-colors">{holding.symbol}</span>
+                      {holding.shortName && (
+                        <span className="text-[11px] leading-tight text-black/40 dark:text-white/40 max-w-[200px] truncate block">{holding.shortName}</span>
+                      )}
+                    </div>
+                  </button>
+                  <button
+                    className="text-black/30 dark:text-white/30 hover:text-blue-400 transition-colors p-1 rounded"
+                    onClick={() => {
+                      const idx = sortedHoldings.findIndex((h) => h.symbol === holding.symbol);
+                      setChartIndex(idx >= 0 ? idx : 0);
+                    }}
+                    title="View chart"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16" />
+                    </svg>
+                  </button>
+                </div>
               </td>
               <td className="px-4 py-4 text-right">
                 <span className="font-mono text-black dark:text-white">{holding.shares.toLocaleString()}</span>
@@ -260,10 +266,7 @@ export function HoldingsTable({
                 <div className="flex items-center justify-end gap-1">
                   <button
                     className="text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteHolding(holding.id);
-                    }}
+                    onClick={() => onDeleteHolding(holding.id)}
                     title="Delete"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -319,6 +322,26 @@ export function HoldingsTable({
         <StockDetailsModal
           symbol={detailsSymbol}
           onClose={() => setDetailsSymbol(null)}
+        />
+      )}
+
+      {chartIndex !== null && (
+        <PriceChartModal
+          symbols={sortedHoldings.map((h) => ({ symbol: h.symbol, changePercent: h.changePercent }))}
+          initialIndex={chartIndex}
+          storageKey={storageKey}
+          getTimeframeChanges={(symbol) => {
+            const h = holdings.find((h) => h.symbol === symbol);
+            if (!h) return undefined;
+            return {
+              "1D": h.changePercent,
+              "5D": h.change5D,
+              "3M": h.change3M,
+              "1Y": h.change1Y,
+              "5Y": h.change5Y,
+            };
+          }}
+          onClose={() => setChartIndex(null)}
         />
       )}
     </>

@@ -10,8 +10,6 @@ import { PortfolioNewsTable } from "@/components/portfolio/portfolio-news-table"
 import { AddTransactionForm } from "@/components/portfolio/add-transaction-form";
 import { TransactionsTable } from "@/components/portfolio/transactions-table";
 import { CsvImportModal } from "@/components/portfolio/csv-import-modal";
-import { PriceChart } from "@/components/charts/price-chart";
-
 import { Button } from "@/components/ui/button";
 import { MainNav, MainNavTabs } from "@/components/layout/main-nav";
 import { Portfolio, Holding } from "@/lib/db/schema";
@@ -38,7 +36,6 @@ export default function PortfolioPage() {
 
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [holdings, setHoldings] = useState<HoldingWithQuote[]>([]);
-  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"holdings" | "performance">("holdings");
   const [dashboardData, setDashboardData] = useState<PortfolioDashboardData | null>(null);
@@ -283,22 +280,12 @@ export default function PortfolioPage() {
     buildPerformanceData();
   }, [activeTab, holdings, dashboardData, portfolioId]);
 
-  const handleSelectHolding = (symbol: string) => {
-    setSelectedSymbol(symbol);
-  };
-
   const handleDeleteHolding = async (id: number) => {
     if (!confirm("Are you sure you want to delete this holding and all its transactions?")) return;
 
     try {
       await fetch(`/api/holdings?id=${id}`, { method: "DELETE" });
       fetchHoldings();
-      if (selectedSymbol) {
-        const deleted = holdings.find((h) => h.id === id);
-        if (deleted?.symbol === selectedSymbol) {
-          setSelectedSymbol(null);
-        }
-      }
     } catch (error) {
       console.error("Error deleting holding:", error);
     }
@@ -639,22 +626,19 @@ export default function PortfolioPage() {
                 <HoldingsTable
                   holdings={activeHoldings}
                   totalPortfolioValue={totalValue}
-                  selectedSymbol={selectedSymbol || undefined}
-                  onSelectHolding={handleSelectHolding}
                   onDeleteHolding={handleDeleteHolding}
                   onAddTransaction={handleAddTransactionForSymbol}
+                  storageKey={`portfolio_${portfolioId}`}
                 />
               ) : holdingsView === "performance" ? (
                 <PortfolioPerformanceTable
                   holdings={activeHoldings}
-                  selectedSymbol={selectedSymbol || undefined}
-                  onSelectSymbol={handleSelectHolding}
+                  storageKey={`portfolio_${portfolioId}`}
                 />
               ) : holdingsView === "dividend" ? (
                 <PortfolioDividendTable
                   holdings={activeHoldings}
-                  selectedSymbol={selectedSymbol || undefined}
-                  onSelectSymbol={handleSelectHolding}
+                  storageKey={`portfolio_${portfolioId}`}
                 />
               ) : holdingsView === "transactions" ? (
                 <div className="space-y-6">
@@ -715,35 +699,6 @@ export default function PortfolioPage() {
             </div>
           </div>
 
-          {selectedSymbol && holdingsView !== "news" && holdingsView !== "transactions" && (
-            <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
-              <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-purple-500/10 to-transparent">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16" />
-                  </svg>
-                </div>
-                <h2 className="font-semibold text-black dark:text-white">{selectedSymbol} Price Chart</h2>
-              </div>
-              <div className="p-6">
-                <PriceChart
-                  symbol={selectedSymbol}
-                  storageKey={`portfolio_${portfolioId}`}
-                  timeframeChanges={(() => {
-                    const holding = holdings.find(h => h.symbol === selectedSymbol);
-                    if (!holding) return undefined;
-                    return {
-                      "1D": holding.changePercent,
-                      "5D": holding.change5D,
-                      "3M": holding.change3M,
-                      "1Y": holding.change1Y,
-                      "5Y": holding.change5Y,
-                    };
-                  })()}
-                />
-              </div>
-            </div>
-          )}
         </div>
       )}
 

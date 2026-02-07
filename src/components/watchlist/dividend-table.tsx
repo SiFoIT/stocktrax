@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { WatchlistItemWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
+import { PriceChartModal } from "@/components/charts/price-chart-modal";
 import { formatCurrency } from "@/lib/utils";
 
 type SortColumn = "symbol" | "price" | "dividendRate" | "dividendYield" | "exDividendDate" | "daysToExDiv" | "dividendDate" | "payoutRatio" | "sector" | "fiveYearAvgYield";
@@ -12,9 +13,8 @@ type SortDirection = "asc" | "desc";
 
 interface DividendTableProps {
   items: WatchlistItemWithQuote[];
-  selectedSymbol?: string;
-  onSelectSymbol: (symbol: string) => void;
   onRemoveSymbol: (id: number) => void;
+  storageKey?: string;
 }
 
 function formatPercent(value: number | undefined): string {
@@ -105,13 +105,13 @@ function SortIcon({ direction }: { direction: SortDirection | null }) {
 
 export function DividendTable({
   items,
-  selectedSymbol,
-  onSelectSymbol,
   onRemoveSymbol,
+  storageKey,
 }: DividendTableProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [detailsSymbol, setDetailsSymbol] = useState<string | null>(null);
+  const [chartIndex, setChartIndex] = useState<number | null>(null);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -234,24 +234,30 @@ export function DividendTable({
             {sortedItems.map((item, index) => (
               <tr
                 key={item.id}
-                className={`border-b border-white/5 cursor-pointer transition-all hover:bg-black/5 dark:hover:bg-white/5 ${
-                  selectedSymbol === item.symbol
-                    ? "bg-gradient-to-r from-blue-500/10 to-transparent"
-                    : ""
-                } ${index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}`}
-                onClick={() => onSelectSymbol(item.symbol)}
+                className={`border-b border-white/5 transition-all hover:bg-black/5 dark:hover:bg-white/5 ${index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}`}
               >
                 <td className="px-4 py-4">
-                  <button
-                    className="flex items-center gap-3 hover:text-blue-400 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDetailsSymbol(item.symbol);
-                    }}
-                  >
-                    <StockIcon symbol={item.symbol} />
-                    <span className="font-semibold text-black dark:text-white">{item.symbol}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="flex items-center gap-3 hover:text-blue-400 transition-colors"
+                      onClick={() => setDetailsSymbol(item.symbol)}
+                    >
+                      <StockIcon symbol={item.symbol} />
+                      <span className="font-semibold text-black dark:text-white">{item.symbol}</span>
+                    </button>
+                    <button
+                      className="text-black/30 dark:text-white/30 hover:text-blue-400 transition-colors p-1 rounded"
+                      onClick={() => {
+                        const idx = sortedItems.findIndex((i) => i.symbol === item.symbol);
+                        setChartIndex(idx >= 0 ? idx : 0);
+                      }}
+                      title="View chart"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16" />
+                      </svg>
+                    </button>
+                  </div>
                 </td>
                 <td className="px-4 py-4">
                   <span className="text-xs text-black/60 dark:text-white/60">{getSectorAbbrev(item.sector)}</span>
@@ -300,10 +306,7 @@ export function DividendTable({
                     variant="ghost"
                     size="sm"
                     className="text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemoveSymbol(item.id);
-                    }}
+                    onClick={() => onRemoveSymbol(item.id)}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -320,6 +323,26 @@ export function DividendTable({
         <StockDetailsModal
           symbol={detailsSymbol}
           onClose={() => setDetailsSymbol(null)}
+        />
+      )}
+
+      {chartIndex !== null && (
+        <PriceChartModal
+          symbols={sortedItems.map((i) => ({ symbol: i.symbol, changePercent: i.changePercent }))}
+          initialIndex={chartIndex}
+          storageKey={storageKey}
+          getTimeframeChanges={(symbol) => {
+            const item = items.find((i) => i.symbol === symbol);
+            if (!item) return undefined;
+            return {
+              "1D": item.changePercent,
+              "5D": item.change5D,
+              "3M": item.change3M,
+              "1Y": item.change1Y,
+              "5Y": item.change5Y,
+            };
+          }}
+          onClose={() => setChartIndex(null)}
         />
       )}
     </>

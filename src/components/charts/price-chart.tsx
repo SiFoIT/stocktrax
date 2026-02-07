@@ -443,56 +443,59 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
 
       {/* Chart Container */}
       <div className="rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-white/10 p-4 overflow-hidden">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-[300px] gap-3">
-            <div className="w-10 h-10 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-            <span className="text-black/50 dark:text-white/50 text-sm">Loading chart data...</span>
-          </div>
-        ) : data.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[300px] gap-3">
-            <div className="w-12 h-12 rounded-xl bg-black/5 dark:bg-white/5 flex items-center justify-center">
-              <svg className="w-6 h-6 text-black/30 dark:text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-            <span className="text-black/50 dark:text-white/50 text-sm">No price data available</span>
-          </div>
-        ) : (
-          <>
-            {/* OHLCV Legend */}
-            {legendData && (
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-2 font-mono">
-                <span className="text-black/50 dark:text-white/50">{legendData.time}</span>
-                {chartType === "candle" ? (
-                  <>
-                    <span className="text-black/50 dark:text-white/50">
-                      O: <span className="text-black dark:text-white">{legendData.open.toFixed(2)}</span>
-                    </span>
-                    <span className="text-black/50 dark:text-white/50">
-                      H: <span className="text-black dark:text-white">{legendData.high.toFixed(2)}</span>
-                    </span>
-                    <span className="text-black/50 dark:text-white/50">
-                      L: <span className="text-black dark:text-white">{legendData.low.toFixed(2)}</span>
-                    </span>
-                    <span className="text-black/50 dark:text-white/50">
-                      C: <span className={legendData.close >= legendData.open ? "text-emerald-500" : "text-red-500"}>
-                        {legendData.close.toFixed(2)}
-                      </span>
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-black/50 dark:text-white/50">
-                    Close: <span className="text-black dark:text-white">{legendData.close.toFixed(2)}</span>
-                  </span>
-                )}
-                <span className="text-black/50 dark:text-white/50">
-                  Vol: <span className="text-black dark:text-white">{formatVolume(legendData.volume)}</span>
-                </span>
+        <div className="relative" style={{ minHeight: height + 80 }}>
+          {data.length === 0 && !loading ? (
+            <div className="flex flex-col items-center justify-center h-[300px] gap-3">
+              <div className="w-12 h-12 rounded-xl bg-black/5 dark:bg-white/5 flex items-center justify-center">
+                <svg className="w-6 h-6 text-black/30 dark:text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
               </div>
-            )}
-            <div ref={chartContainerRef} />
-          </>
-        )}
+              <span className="text-black/50 dark:text-white/50 text-sm">No price data available</span>
+            </div>
+          ) : (
+            <>
+              {/* Loading overlay */}
+              {loading && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 backdrop-blur-[1px] rounded-xl">
+                  <div className="w-8 h-8 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                </div>
+              )}
+              {/* OHLCV Legend */}
+              {legendData && (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-2 font-mono">
+                  <span className="text-black/50 dark:text-white/50">{legendData.time}</span>
+                  {chartType === "candle" ? (
+                    <>
+                      <span className="text-black/50 dark:text-white/50">
+                        O: <span className="text-black dark:text-white">{legendData.open.toFixed(2)}</span>
+                      </span>
+                      <span className="text-black/50 dark:text-white/50">
+                        H: <span className="text-black dark:text-white">{legendData.high.toFixed(2)}</span>
+                      </span>
+                      <span className="text-black/50 dark:text-white/50">
+                        L: <span className="text-black dark:text-white">{legendData.low.toFixed(2)}</span>
+                      </span>
+                      <span className="text-black/50 dark:text-white/50">
+                        C: <span className={legendData.close >= legendData.open ? "text-emerald-500" : "text-red-500"}>
+                          {legendData.close.toFixed(2)}
+                        </span>
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-black/50 dark:text-white/50">
+                      Close: <span className="text-black dark:text-white">{legendData.close.toFixed(2)}</span>
+                    </span>
+                  )}
+                  <span className="text-black/50 dark:text-white/50">
+                    Vol: <span className="text-black dark:text-white">{formatVolume(legendData.volume)}</span>
+                  </span>
+                </div>
+              )}
+              <div ref={chartContainerRef} />
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

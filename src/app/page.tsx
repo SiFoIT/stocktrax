@@ -8,7 +8,6 @@ import { AddSymbolForm } from "@/components/watchlist/add-symbol-form";
 import { WatchlistTable } from "@/components/watchlist/watchlist-table";
 import { DividendTable } from "@/components/watchlist/dividend-table";
 import { NewsTable } from "@/components/watchlist/news-table";
-import { PriceChart } from "@/components/charts/price-chart";
 import { MarketOverview } from "@/components/markets/market-overview";
 import { PortfolioSummaryList } from "@/components/portfolio/portfolio-summary-list";
 import { PortfolioStats } from "@/components/portfolio/portfolio-stats";
@@ -63,7 +62,6 @@ export default function Dashboard() {
   // Watchlist state
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItemWithQuote[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(true);
-  const [selectedSymbol, setSelectedSymbol] = useState<string | undefined>();
   const [watchlistUpdatedAt, setWatchlistUpdatedAt] = useState<Date | null>(null);
   const [watchlistView, setWatchlistView] = useState<"performance" | "dividend" | "news">("performance");
   const [watchlistNews, setWatchlistNews] = useState<NewsArticle[]>([]);
@@ -160,13 +158,6 @@ export default function Dashboard() {
 
       setWatchlistItems(itemsWithQuotes);
       setWatchlistUpdatedAt(new Date());
-
-      // Auto-select first symbol if none selected
-      if (itemsWithQuotes.length > 0) {
-        setSelectedSymbol(itemsWithQuotes[0].symbol);
-      } else {
-        setSelectedSymbol(undefined);
-      }
     } catch (error) {
       console.error("Error fetching watchlist items:", error);
     } finally {
@@ -239,24 +230,12 @@ export default function Dashboard() {
   const handleRemoveSymbol = async (id: number) => {
     try {
       await fetch(`/api/watchlist?id=${id}`, { method: "DELETE" });
-
-      // If we're removing the selected symbol, clear selection
-      const removedItem = watchlistItems.find((item) => item.id === id);
-      if (removedItem?.symbol === selectedSymbol) {
-        const remaining = watchlistItems.filter((item) => item.id !== id);
-        setSelectedSymbol(remaining.length > 0 ? remaining[0].symbol : undefined);
-      }
-
       if (selectedWatchlistId) {
         fetchWatchlistItems(selectedWatchlistId);
       }
     } catch (error) {
       console.error("Error removing symbol:", error);
     }
-  };
-
-  const handleSelectSymbol = (symbol: string) => {
-    setSelectedSymbol(symbol);
   };
 
   const handleRefresh = async () => {
@@ -385,16 +364,14 @@ export default function Dashboard() {
                     ) : watchlistView === "performance" ? (
                       <WatchlistTable
                         items={watchlistItems}
-                        selectedSymbol={selectedSymbol}
-                        onSelectSymbol={handleSelectSymbol}
                         onRemoveSymbol={handleRemoveSymbol}
+                        storageKey={`watchlist_${selectedWatchlistId}`}
                       />
                     ) : watchlistView === "dividend" ? (
                       <DividendTable
                         items={watchlistItems}
-                        selectedSymbol={selectedSymbol}
-                        onSelectSymbol={handleSelectSymbol}
                         onRemoveSymbol={handleRemoveSymbol}
+                        storageKey={`watchlist_${selectedWatchlistId}`}
                       />
                     ) : (
                       <NewsTable
@@ -405,35 +382,6 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {selectedSymbol && (
-                  <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
-                    <div className="flex items-center gap-3 px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-purple-500/10 to-transparent">
-                      <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                        </svg>
-                      </div>
-                      <h2 className="font-semibold text-black dark:text-white">{selectedSymbol} Price Chart</h2>
-                    </div>
-                    <div className="p-4">
-                      <PriceChart
-                        symbol={selectedSymbol}
-                        storageKey={`watchlist_${selectedWatchlistId}`}
-                        timeframeChanges={(() => {
-                          const item = watchlistItems.find(i => i.symbol === selectedSymbol);
-                          if (!item) return undefined;
-                          return {
-                            "1D": item.changePercent,
-                            "5D": item.change5D,
-                            "3M": item.change3M,
-                            "1Y": item.change1Y,
-                            "5Y": item.change5Y,
-                          };
-                        })()}
-                      />
-                    </div>
-                  </div>
-                )}
               </>
             ) : (
               <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-12">
