@@ -5,7 +5,7 @@ import { z } from "zod";
 
 const createPortfolioSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  currency: z.enum(["USD", "CAD"]).default("USD"),
+  currency: z.enum(["USD", "CAD"]).default("CAD"),
 });
 
 export async function GET() {

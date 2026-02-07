@@ -180,42 +180,47 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
   if (wsType === "BUY") {
     const match = desc.match(BUY_PATTERN);
     if (!match) return null;
+    const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
     const symbol = toYahooSymbol(match[1], currency);
     const shares = parseFloat(match[2]);
     const price = shares > 0 ? Math.abs(amount) / shares : 0;
-    return { type: "buy", symbol, shares, price, date, currency, rawDescription: desc };
+    return { type: "buy", symbol, shares, price, date, currency: effectiveCurrency, rawDescription: desc };
   }
 
   if (wsType === "SELL") {
     const match = desc.match(SELL_PATTERN);
     if (!match) return null;
+    const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
     const symbol = toYahooSymbol(match[1], currency);
     const shares = parseFloat(match[2]);
     const price = shares > 0 ? Math.abs(amount) / shares : 0;
-    return { type: "sell", symbol, shares, price, date, currency, rawDescription: desc };
+    return { type: "sell", symbol, shares, price, date, currency: effectiveCurrency, rawDescription: desc };
   }
 
   if (wsType === "DIV") {
     const match = desc.match(DIV_PATTERN);
     if (!match) return null;
+    const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
     const symbol = toYahooSymbol(match[1], currency);
-    return { type: "dividend", symbol, shares: 1, price: Math.abs(amount), date, currency, rawDescription: desc };
+    return { type: "dividend", symbol, shares: 1, price: Math.abs(amount), date, currency: effectiveCurrency, rawDescription: desc };
   }
 
   if (wsType === "TRFIN") {
     const match = desc.match(TRFIN_PATTERN);
     if (!match) return null;
+    const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
     const symbol = toYahooSymbol(match[1], currency);
     const shares = parseFloat(match[2]);
-    return { type: "transfer_in", symbol, shares, price: 0, date, currency, rawDescription: desc };
+    return { type: "transfer_in", symbol, shares, price: 0, date, currency: effectiveCurrency, rawDescription: desc };
   }
 
   if (wsType === "STKDIS") {
     const match = desc.match(STKDIS_PATTERN);
     if (!match) return null;
+    const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
     const symbol = toYahooSymbol(match[1], currency);
     const shares = parseFloat(match[2]);
-    return { type: "transfer_in", symbol, shares, price: 0, date, currency, rawDescription: desc };
+    return { type: "transfer_in", symbol, shares, price: 0, date, currency: effectiveCurrency, rawDescription: desc };
   }
 
   return null;

@@ -77,6 +77,10 @@ export async function GET() {
       return currency === "USD" ? value * usdCadRate : value;
     };
 
+    // Helper: get canonical currency from quote (falls back to holding record)
+    const holdingCurrency = (h: typeof allHoldings[number]): string =>
+      (quoteMap.get(h.symbol) as QuoteWithRange | undefined)?.currency || h.currency;
+
     // Build holding lookup maps
     const holdingToPortfolio = new Map<number, number>();
     const holdingById = new Map<number, typeof allHoldings[number]>();
@@ -94,7 +98,7 @@ export async function GET() {
       const quote = quoteMap.get(holding.symbol);
       if (!quote) continue;
       const mv = holding.shares * quote.price;
-      const mvCAD = toCAD(mv, holding.currency);
+      const mvCAD = toCAD(mv, holdingCurrency(holding));
       const current = portfolioMarketValues.get(holding.portfolioId) ?? 0;
       portfolioMarketValues.set(holding.portfolioId, current + mvCAD);
       totalMarketValueAll += mvCAD;
@@ -150,9 +154,9 @@ export async function GET() {
         const cb = holding.shares * holding.avgCost;
         const todayChg = (quote.change ?? 0) * holding.shares;
 
-        marketValue += toCAD(mv, holding.currency);
-        costBasis += toCAD(cb, holding.currency);
-        todayReturn += toCAD(todayChg, holding.currency);
+        marketValue += toCAD(mv, holdingCurrency(holding));
+        costBasis += toCAD(cb, holdingCurrency(holding));
+        todayReturn += toCAD(todayChg, holdingCurrency(holding));
       }
 
       const gainLoss = marketValue - costBasis;
@@ -177,7 +181,7 @@ export async function GET() {
           const holding = holdingById.get(txn.holdingId);
           if (!holding) continue;
 
-          const current = sharesAtStart.get(holding.symbol) ?? { shares: 0, currency: holding.currency };
+          const current = sharesAtStart.get(holding.symbol) ?? { shares: 0, currency: holdingCurrency(holding) };
           if (txn.type === "buy" || txn.type === "transfer_in") {
             current.shares += txn.shares;
           } else if (txn.type === "sell") {
@@ -214,11 +218,11 @@ export async function GET() {
 
           const value = txn.shares * txn.price;
           if (txn.type === "buy" || txn.type === "transfer_in") {
-            netBuys += toCAD(value, holding.currency);
+            netBuys += toCAD(value, holdingCurrency(holding));
           } else if (txn.type === "sell") {
-            netSells += toCAD(value, holding.currency);
+            netSells += toCAD(value, holdingCurrency(holding));
           } else if (txn.type === "dividend") {
-            dividends += toCAD(value, holding.currency);
+            dividends += toCAD(value, holdingCurrency(holding));
           }
         }
 
@@ -239,11 +243,11 @@ export async function GET() {
         if (!holding) continue;
         const value = txn.shares * txn.price;
         if (txn.type === "buy" || txn.type === "transfer_in") {
-          totalInvested += toCAD(value, holding.currency);
+          totalInvested += toCAD(value, holdingCurrency(holding));
         } else if (txn.type === "sell") {
-          totalInvested -= toCAD(value, holding.currency);
+          totalInvested -= toCAD(value, holdingCurrency(holding));
         } else if (txn.type === "dividend") {
-          totalDividends += toCAD(value, holding.currency);
+          totalDividends += toCAD(value, holdingCurrency(holding));
         }
       }
 
@@ -296,7 +300,7 @@ export async function GET() {
     for (const holding of activeHoldings) {
       const quote = quoteMap.get(holding.symbol);
       if (!quote) continue;
-      const mv = toCAD(holding.shares * quote.price, holding.currency);
+      const mv = toCAD(holding.shares * quote.price, holdingCurrency(holding));
       const type = quote.quoteType === "ETF" ? "ETFs" : "Stocks";
       assetTypeMap.set(type, (assetTypeMap.get(type) ?? 0) + mv);
     }
@@ -322,7 +326,7 @@ export async function GET() {
     for (const holding of activeHoldings) {
       const quote = quoteMap.get(holding.symbol);
       if (!quote) continue;
-      const mv = toCAD(holding.shares * quote.price, holding.currency);
+      const mv = toCAD(holding.shares * quote.price, holdingCurrency(holding));
       const sector = sectorMap.get(holding.symbol) ?? "Unknown";
       sectorBreakdown.set(sector, (sectorBreakdown.get(sector) ?? 0) + mv);
     }
@@ -335,8 +339,9 @@ export async function GET() {
     for (const holding of activeHoldings) {
       const quote = quoteMap.get(holding.symbol);
       if (!quote) continue;
-      const mv = toCAD(holding.shares * quote.price, holding.currency);
-      currencyBreakdown.set(holding.currency, (currencyBreakdown.get(holding.currency) ?? 0) + mv);
+      const mv = toCAD(holding.shares * quote.price, holdingCurrency(holding));
+      const cur = holdingCurrency(holding);
+      currencyBreakdown.set(cur, (currencyBreakdown.get(cur) ?? 0) + mv);
     }
     const currency: BreakdownItem[] = [...currencyBreakdown.entries()]
       .map(([name, value]) => ({ name, value }))
@@ -347,7 +352,7 @@ export async function GET() {
     for (const holding of activeHoldings) {
       const quote = quoteMap.get(holding.symbol);
       if (!quote) continue;
-      const mv = toCAD(holding.shares * quote.price, holding.currency);
+      const mv = toCAD(holding.shares * quote.price, holdingCurrency(holding));
       // Aggregate by symbol across portfolios
       const existing = holdingValues.find((h) => h.name === holding.symbol);
       if (existing) {

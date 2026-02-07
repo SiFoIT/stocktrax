@@ -3,7 +3,7 @@ import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core
 export const portfolios = sqliteTable("portfolios", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
-  currency: text("currency", { enum: ["USD", "CAD"] }).notNull().default("USD"),
+  currency: text("currency", { enum: ["USD", "CAD"] }).notNull().default("CAD"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
