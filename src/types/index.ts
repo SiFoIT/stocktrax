@@ -88,6 +88,7 @@ export interface WatchlistItemWithQuote {
   trailingAnnualDividendYield?: number;
   fiveYearAvgDividendYield?: number;
   // Company info
+  shortName?: string;
   sector?: string;
   // Volume fields
   volume?: number;

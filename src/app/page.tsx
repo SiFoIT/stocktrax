@@ -128,6 +128,7 @@ export default function Dashboard() {
                 change: quoteData.quote?.change,
                 changePercent: quoteData.quote?.changePercent,
                 currency: quoteData.quote?.currency,
+                shortName: quoteData.quote?.shortName,
                 lastTradeTime: quoteData.quote?.lastTradeTime,
                 dayHigh: quoteData.quote?.dayHigh,
                 dayLow: quoteData.quote?.dayLow,

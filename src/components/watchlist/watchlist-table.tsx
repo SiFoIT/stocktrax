@@ -206,7 +206,12 @@ export function WatchlistTable({
                     }}
                   >
                     <StockIcon symbol={item.symbol} />
-                    <span className="font-semibold text-blue-400 group-hover:text-blue-300 underline decoration-blue-400/40 group-hover:decoration-blue-300 underline-offset-2 transition-colors">{item.symbol}</span>
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold text-blue-400 group-hover:text-blue-300 underline decoration-blue-400/40 group-hover:decoration-blue-300 underline-offset-2 transition-colors">{item.symbol}</span>
+                      {item.shortName && (
+                        <span className="text-[11px] leading-tight text-black/40 dark:text-white/40 max-w-[200px] truncate block">{item.shortName}</span>
+                      )}
+                    </div>
                   </button>
                 </td>
                 <td className="px-4 py-4 text-right">
