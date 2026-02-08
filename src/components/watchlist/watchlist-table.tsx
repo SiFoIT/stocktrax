@@ -7,15 +7,17 @@ import { StockIcon } from "@/components/ui/stock-icon";
 import { WatchlistItemWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
-import { formatCurrency, formatPercent, getChangeColor, getChangeBg, formatTradeTime, formatVolume } from "@/lib/utils";
+import { formatCurrency, formatPercent, getChangeColor, getChangeBg, formatTradeTime } from "@/lib/utils";
 
-type SortColumn = "symbol" | "price" | "dayRange" | "52wRange" | "1D" | "5D" | "1M" | "3M" | "1Y" | "5Y" | "volume";
+type SortColumn = "symbol" | "price" | "dayRange" | "52wRange" | "1D" | "5D" | "1M" | "3M" | "1Y" | "5Y";
 type SortDirection = "asc" | "desc";
 
 interface WatchlistTableProps {
   items: WatchlistItemWithQuote[];
   onRemoveSymbol: (id: number) => void;
   storageKey?: string;
+  alertStates?: Record<number, { count: number; triggered: boolean }>;
+  onOpenAlerts?: (symbol: string, id: number) => void;
 }
 
 function SortIcon({ direction }: { direction: SortDirection | null }) {
@@ -30,6 +32,8 @@ export function WatchlistTable({
   items,
   onRemoveSymbol,
   storageKey,
+  alertStates,
+  onOpenAlerts,
 }: WatchlistTableProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -101,10 +105,6 @@ export function WatchlistTable({
           aVal = a.change5Y;
           bVal = b.change5Y;
           break;
-        case "volume":
-          aVal = a.volume;
-          bVal = b.volume;
-          break;
       }
 
       if (aVal === undefined && bVal === undefined) return 0;
@@ -138,7 +138,7 @@ export function WatchlistTable({
 
   const HeaderCell = ({ column, label, align = "right" }: { column: SortColumn; label: string; align?: "left" | "right" }) => (
     <th
-      className={`px-4 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:text-white/80 transition-colors select-none ${align === "left" ? "text-left" : "text-right"}`}
+      className={`px-3 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:text-white/80 transition-colors select-none ${align === "left" ? "text-left" : "text-right"}`}
       onClick={() => handleSort(column)}
     >
       {label}
@@ -155,12 +155,11 @@ export function WatchlistTable({
               <HeaderCell column="symbol" label="Symbol" align="left" />
               <HeaderCell column="price" label="Price" />
               <HeaderCell column="1D" label="Chg %" />
-              <HeaderCell column="volume" label="Volume" />
-              <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-center cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none" onClick={() => handleSort("dayRange")}>
+              <th className="px-3 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-center cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none" onClick={() => handleSort("dayRange")}>
                 Day Range
                 <SortIcon direction={sortColumn === "dayRange" ? sortDirection : null} />
               </th>
-              <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-center cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none" onClick={() => handleSort("52wRange")}>
+              <th className="px-3 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-center cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none" onClick={() => handleSort("52wRange")}>
                 52W Range
                 <SortIcon direction={sortColumn === "52wRange" ? sortDirection : null} />
               </th>
@@ -169,7 +168,7 @@ export function WatchlistTable({
               <HeaderCell column="3M" label="3M" />
               <HeaderCell column="1Y" label="1Y" />
               <HeaderCell column="5Y" label="5Y" />
-              <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
+              <th className="px-3 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -178,7 +177,7 @@ export function WatchlistTable({
                 key={item.id}
                 className={`border-b border-white/5 transition-all hover:bg-black/5 dark:hover:bg-white/5 ${index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}`}
               >
-                <td className="px-4 py-4">
+                <td className="px-3 py-4">
                   <div className="flex items-center gap-2">
                     <button
                       className="group flex items-center gap-3 transition-colors"
@@ -206,7 +205,7 @@ export function WatchlistTable({
                     </button>
                   </div>
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="px-3 py-4 text-right whitespace-nowrap">
                   <div>
                     <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(item.price, item.currency)}</span>
                     {item.lastTradeTime && (
@@ -214,66 +213,85 @@ export function WatchlistTable({
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="px-2 py-4 text-right">
                   <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(item.changePercent)} ${getChangeColor(item.changePercent)}`}>
                     {formatPercent(item.changePercent)}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-right">
-                  <span className="font-mono text-sm text-black/70 dark:text-white/70">
-                    {formatVolume(item.volume)}
-                  </span>
-                </td>
-                <td className="px-4 py-4 text-center">
+                <td className="px-2 py-4 text-center">
                   {item.dayLow && item.dayHigh && item.price ? (
                     <PriceRangeBar low={item.dayLow} current={item.price} high={item.dayHigh} compact />
                   ) : (
                     <span className="text-black/30 dark:text-white/30">-</span>
                   )}
                 </td>
-                <td className="px-4 py-4 text-center">
+                <td className="px-2 py-4 text-center">
                   {item.fiftyTwoWeekLow && item.fiftyTwoWeekHigh && item.price ? (
                     <PriceRangeBar low={item.fiftyTwoWeekLow} current={item.price} high={item.fiftyTwoWeekHigh} compact />
                   ) : (
                     <span className="text-black/30 dark:text-white/30">-</span>
                   )}
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="px-2 py-4 text-right">
                   <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(item.change5D)} ${getChangeColor(item.change5D)}`}>
                     {formatPercent(item.change5D)}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="px-2 py-4 text-right">
                   <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(item.change1M)} ${getChangeColor(item.change1M)}`}>
                     {formatPercent(item.change1M)}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="px-2 py-4 text-right">
                   <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(item.change3M)} ${getChangeColor(item.change3M)}`}>
                     {formatPercent(item.change3M)}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="px-2 py-4 text-right">
                   <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(item.change1Y)} ${getChangeColor(item.change1Y)}`}>
                     {formatPercent(item.change1Y)}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="px-2 py-4 text-right">
                   <span className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${getChangeBg(item.change5Y)} ${getChangeColor(item.change5Y)}`}>
                     {formatPercent(item.change5Y)}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-black dark:text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10"
-                    onClick={() => onRemoveSymbol(item.id)}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </Button>
+                <td className="pl-2 pr-1 py-4 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    {onOpenAlerts && (
+                      <button
+                        className={`relative p-2 rounded-lg transition-colors ${
+                          alertStates?.[item.id]?.triggered
+                            ? "text-red-500 hover:bg-red-500/10"
+                            : alertStates?.[item.id]?.count
+                            ? "text-amber-500 hover:bg-amber-500/10"
+                            : "text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                        }`}
+                        onClick={() => onOpenAlerts(item.symbol, item.id)}
+                        aria-label="Manage alerts"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        {alertStates?.[item.id]?.count ? (
+                          <span className="absolute -top-1 -right-1 min-w-[16px] px-1 rounded-full bg-amber-500 text-white text-[9px] font-semibold">
+                            {alertStates[item.id].count}
+                          </span>
+                        ) : null}
+                      </button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-black dark:text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10"
+                      onClick={() => onRemoveSymbol(item.id)}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}

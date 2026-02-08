@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { HoldingsTable } from "@/components/portfolio/holdings-table";
@@ -15,8 +15,27 @@ import { Button } from "@/components/ui/button";
 import { MainNav, MainNavTabs } from "@/components/layout/main-nav";
 import { Portfolio, Holding } from "@/lib/db/schema";
 import { PortfolioStats } from "@/components/portfolio/portfolio-stats";
-import { HoldingWithQuote, NewsArticle, TransactionWithSymbol, PortfolioDashboardData, BreakdownItem } from "@/types";
+import {
+  HoldingWithQuote,
+  NewsArticle,
+  TransactionWithSymbol,
+  PortfolioDashboardData,
+  BreakdownItem,
+  AlertRuleDTO,
+  AlertHistoryEntry,
+  TriggeredAlertSummary,
+} from "@/types";
 import { formatUpdatedTime } from "@/lib/utils";
+import { AlertsPanel } from "@/components/alerts/alerts-panel";
+import {
+  triggerHoldingAlerts,
+  fetchAlertRules,
+  createAlertRule,
+  deleteAlertRule,
+  resetAlertRule,
+  fetchAlertHistory,
+} from "@/lib/alerts/api";
+import type { CreateAlertRuleInput } from "@/lib/alerts/api";
 
 export default function PortfolioPage() {
   const params = useParams();
@@ -37,10 +56,25 @@ export default function PortfolioPage() {
   const [prefillSymbol, setPrefillSymbol] = useState<string | null>(null);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [usdCadRate, setUsdCadRate] = useState<number | null>(null);
+  const [holdingAlerts, setHoldingAlerts] = useState<TriggeredAlertSummary[]>([]);
+  const [holdingRules, setHoldingRules] = useState<AlertRuleDTO[]>([]);
+  const [holdingHistory, setHoldingHistory] = useState<AlertHistoryEntry[]>([]);
+  const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
+  const [focusedAlertSymbol, setFocusedAlertSymbol] = useState<string | null>(null);
 
   // State for MainNavTabs (used for dropdown highlighting)
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
   const handleNavTabChange = () => {}; // Navigation handled by MainNavTabs internally
+
+  const refreshHoldingRules = useCallback(async () => {
+    const data = await fetchAlertRules("holding");
+    setHoldingRules(data);
+  }, []);
+
+  const refreshHoldingHistory = useCallback(async () => {
+    const data = await fetchAlertHistory("holding", 40);
+    setHoldingHistory(data);
+  }, []);
 
   const fetchHoldings = useCallback(async (refresh = false) => {
     setDashboardData(null); // invalidate performance cache
@@ -107,9 +141,14 @@ export default function PortfolioPage() {
 
       setHoldings(holdingsWithQuotes);
       setHoldingsUpdatedAt(new Date());
+      const triggered = await triggerHoldingAlerts(holdingsWithQuotes);
+      setHoldingAlerts(triggered);
+      if (triggered.length > 0) {
+        refreshHoldingHistory();
+      }
     } catch (error) {
     }
-  }, [portfolioId]);
+  }, [portfolioId, refreshHoldingHistory]);
 
   const fetchPortfolio = useCallback(async () => {
     try {
@@ -174,6 +213,18 @@ export default function PortfolioPage() {
     };
     loadData();
   }, [fetchPortfolio, fetchHoldings, fetchExchangeRate]);
+
+  useEffect(() => {
+    refreshHoldingRules();
+    refreshHoldingHistory();
+  }, [portfolioId, refreshHoldingRules, refreshHoldingHistory]);
+
+  useEffect(() => {
+    if (alertsPanelOpen) {
+      refreshHoldingRules();
+      refreshHoldingHistory();
+    }
+  }, [alertsPanelOpen, refreshHoldingRules, refreshHoldingHistory]);
 
   useEffect(() => {
     if (holdingsView === "news" && holdings.length > 0) {
@@ -361,6 +412,54 @@ export default function PortfolioPage() {
   const totalGainLoss = totalValue - totalCost;
   const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
 
+  const handleCreateHoldingRule = async (input: CreateAlertRuleInput) => {
+    const rule = await createAlertRule(input);
+    setHoldingRules((prev) => [...prev, rule]);
+    refreshHoldingHistory();
+  };
+
+  const handleDeleteHoldingRule = async (id: number) => {
+    await deleteAlertRule(id);
+    setHoldingRules((prev) => prev.filter((rule) => rule.id !== id));
+  };
+
+  const handleResetHoldingRule = async (id: number) => {
+    await resetAlertRule(id);
+    setHoldingRules((prev) =>
+      prev.map((rule) => (rule.id === id ? { ...rule, isMuted: false, needsRecovery: false, cooldownUntil: null } : rule))
+    );
+  };
+
+  const activeHoldingRules = holdingRules.filter((rule) =>
+    rule.scope === "holding" && activeHoldings.some((holding) => holding.id === rule.holdingId || holding.symbol === rule.symbol)
+  );
+
+  const holdingOptions = activeHoldings.map((holding) => ({
+    id: holding.id,
+    label: `${holding.shares.toFixed(2)} shares`,
+    symbol: holding.symbol,
+  }));
+
+  const holdingAlertStates = useMemo(() => {
+    const triggeredSymbols = new Set(holdingAlerts.map((alert) => alert.symbol));
+    const states: Record<number, { count: number; triggered: boolean }> = {};
+    activeHoldings.forEach((holding) => {
+      const count = holdingRules.filter(
+        (rule) => rule.scope === "holding" && (rule.holdingId === holding.id || rule.symbol === holding.symbol)
+      ).length;
+      states[holding.id] = {
+        count,
+        triggered: triggeredSymbols.has(holding.symbol),
+      };
+    });
+    return states;
+  }, [activeHoldings, holdingRules, holdingAlerts]);
+
+  const openHoldingAlerts = (symbol?: string) => {
+    setFocusedAlertSymbol(symbol ?? null);
+    setAlertsPanelOpen(true);
+  };
+
   if (loading && holdings.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -408,7 +507,11 @@ export default function PortfolioPage() {
   return (
     <div className="container mx-auto py-8 px-4">
       {/* Header */}
-      <MainNav />
+      <MainNav
+        onOpenAlerts={() => openHoldingAlerts()}
+        alertCount={holdingAlerts.length}
+        hasTriggeredAlerts={holdingAlerts.length > 0}
+      />
 
       {/* Navigation Tabs */}
       <div className="space-y-6">
@@ -579,6 +682,14 @@ export default function PortfolioPage() {
                 </div>
               </div>
               <div className="flex items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAlertsPanelOpen(true)}
+                  className="bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-200 hover:bg-amber-500/20"
+                >
+                  Alerts
+                </Button>
                 {holdingsUpdatedAt && (
                   <span className="text-xs text-black/50 dark:text-white/50">
                     {formatUpdatedTime(holdingsUpdatedAt)}
@@ -608,6 +719,28 @@ export default function PortfolioPage() {
               </div>
             </div>
             <div className="p-6">
+              {holdingAlerts.length > 0 && (
+                <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div>
+                      <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                        {holdingAlerts.length} alert{holdingAlerts.length > 1 ? "s" : ""} triggered
+                      </p>
+                      <p className="text-xs text-amber-900/70 dark:text-amber-100/70">Holdings crossed your thresholds on the latest refresh.</p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => openHoldingAlerts()}>
+                      Review alerts
+                    </Button>
+                  </div>
+                  <ul className="mt-3 space-y-1.5 text-sm text-amber-900/80 dark:text-amber-100/80">
+                    {holdingAlerts.slice(0, 3).map((alert) => (
+                      <li key={alert.id}>
+                        <span className="font-semibold">{alert.symbol}</span> · {alert.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {holdingsView === "holdings" ? (
                 <HoldingsTable
                   holdings={activeHoldings}
@@ -615,6 +748,8 @@ export default function PortfolioPage() {
                   onDeleteHolding={handleDeleteHolding}
                   onAddTransaction={handleAddTransactionForSymbol}
                   storageKey={`portfolio_${portfolioId}`}
+                  alertStates={holdingAlertStates}
+                  onOpenAlerts={(symbol) => openHoldingAlerts(symbol)}
                 />
               ) : holdingsView === "performance" ? (
                 <PortfolioPerformanceTable
@@ -707,6 +842,23 @@ export default function PortfolioPage() {
       {activeTab === "performance" && (
         <PortfolioStats data={dashboardData} loading={dashboardLoading} />
       )}
+
+      <AlertsPanel
+        open={alertsPanelOpen}
+        scope="holding"
+        sourceOptions={holdingOptions}
+        rules={activeHoldingRules}
+        alerts={holdingAlerts}
+        history={holdingHistory}
+        focusSymbol={focusedAlertSymbol}
+        onClose={() => {
+          setAlertsPanelOpen(false);
+          setFocusedAlertSymbol(null);
+        }}
+        onCreateRule={handleCreateHoldingRule}
+        onDeleteRule={handleDeleteHoldingRule}
+        onResetRule={handleResetHoldingRule}
+      />
     </div>
   );
 }

@@ -11,6 +11,12 @@ import { getDefaultTab, type DefaultTab } from "@/components/settings/general-se
 
 export type Tab = "general" | "watchlist" | "portfolios";
 
+interface MainNavProps {
+  onOpenAlerts?: () => void;
+  alertCount?: number;
+  hasTriggeredAlerts?: boolean;
+}
+
 interface MainNavTabsProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
@@ -21,7 +27,7 @@ interface MainNavTabsProps {
   children?: React.ReactNode;
 }
 
-export function MainNav() {
+export function MainNav({ onOpenAlerts, alertCount = 0, hasTriggeredAlerts = false }: MainNavProps = {}) {
   return (
     <div className="mb-8 flex items-start justify-between">
       <div>
@@ -37,7 +43,29 @@ export function MainNav() {
         </Link>
         <p className="text-black/50 dark:text-white/50 text-sm">Track your investments with real-time data</p>
       </div>
-      <SettingsMenu />
+      <div className="flex items-center gap-2">
+        {onOpenAlerts && (
+          <button
+            onClick={onOpenAlerts}
+            className={`relative w-10 h-10 rounded-xl border transition-all flex items-center justify-center ${
+              hasTriggeredAlerts
+                ? "border-amber-500/50 bg-amber-500/15 text-amber-600 dark:text-amber-300 hover:bg-amber-500/25"
+                : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+            }`}
+            aria-label="Alerts"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {alertCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold text-center">
+                {alertCount}
+              </span>
+            )}
+          </button>
+        )}
+        <SettingsMenu />
+      </div>
     </div>
   );
 }

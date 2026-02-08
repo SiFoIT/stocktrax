@@ -142,3 +142,52 @@ export interface PortfolioDashboardData {
     topHoldings: BreakdownItem[];
   };
 }
+
+export type AlertScope = "watchlist" | "holding";
+export type AlertMetric =
+  | "daily_change_percent"
+  | "last_price"
+  | "price_vs_anchor"
+  | "holding_gain_percent";
+export type AlertOperator = "gte" | "lte";
+export type AlertResetStrategy = "manual" | "recovery" | "cooldown" | "baseline" | "end_of_day";
+
+export interface AlertRuleDTO {
+  id: number;
+  scope: AlertScope;
+  watchlistItemId?: number | null;
+  holdingId?: number | null;
+  symbol: string;
+  metric: AlertMetric;
+  operator: AlertOperator;
+  threshold: number;
+  resetStrategy: AlertResetStrategy;
+  anchorValue?: number | null;
+  cooldownMinutes?: number | null;
+  baselineValue?: number | null;
+  needsRecovery: boolean;
+  isMuted: boolean;
+  cooldownUntil?: string | null;
+  lastTriggeredAt?: string | null;
+  lastResetAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AlertHistoryEntry {
+  id: number;
+  ruleId: number;
+  scope: AlertScope;
+  symbol: string;
+  message: string;
+  metricValue?: number | null;
+  price?: number | null;
+  changePercent?: number | null;
+  triggeredAt: string;
+  acknowledgedAt?: string | null;
+  resetStrategy: AlertResetStrategy;
+  operator: AlertOperator;
+  threshold: number;
+}
+
+export type TriggeredAlertSummary = AlertHistoryEntry;

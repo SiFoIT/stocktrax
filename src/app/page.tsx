@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { WatchlistItem } from "@/lib/db/schema";
-import { WatchlistItemWithQuote, NewsArticle, PortfolioDashboardData } from "@/types";
+import {
+  WatchlistItemWithQuote,
+  NewsArticle,
+  PortfolioDashboardData,
+  AlertRuleDTO,
+  AlertHistoryEntry,
+  TriggeredAlertSummary,
+} from "@/types";
 import { AddSymbolForm } from "@/components/watchlist/add-symbol-form";
 import { WatchlistTable } from "@/components/watchlist/watchlist-table";
 import { DividendTable } from "@/components/watchlist/dividend-table";
@@ -13,6 +20,16 @@ import { PortfolioSummaryList } from "@/components/portfolio/portfolio-summary-l
 import { PortfolioStats } from "@/components/portfolio/portfolio-stats";
 import { MainNav, MainNavTabs, getInitialTab, getInitialWatchlistId, type Tab } from "@/components/layout/main-nav";
 import { formatUpdatedTime } from "@/lib/utils";
+import { AlertsPanel } from "@/components/alerts/alerts-panel";
+import {
+  triggerWatchlistAlerts,
+  fetchAlertRules,
+  createAlertRule,
+  deleteAlertRule,
+  resetAlertRule,
+  fetchAlertHistory,
+} from "@/lib/alerts/api";
+import type { CreateAlertRuleInput } from "@/lib/alerts/api";
 
 // Helper to get tab from URL on initial load
 function getTabFromUrl(): Tab {
@@ -53,6 +70,11 @@ export default function Dashboard() {
   const [watchlistView, setWatchlistView] = useState<"performance" | "dividend" | "news">("performance");
   const [watchlistNews, setWatchlistNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
+  const [watchlistAlerts, setWatchlistAlerts] = useState<TriggeredAlertSummary[]>([]);
+  const [watchlistRules, setWatchlistRules] = useState<AlertRuleDTO[]>([]);
+  const [watchlistHistory, setWatchlistHistory] = useState<AlertHistoryEntry[]>([]);
+  const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
+  const [focusedAlertSymbol, setFocusedAlertSymbol] = useState<string | null>(null);
 
   // Portfolio state for the list view
   const [portfolios, setPortfolios] = useState<{ id: number; name: string; currency: string; createdAt: string }[]>([]);
@@ -87,6 +109,16 @@ export default function Dashboard() {
     } finally {
       setDashboardLoading(false);
     }
+  }, []);
+
+  const refreshAlertRules = useCallback(async () => {
+    const data = await fetchAlertRules("watchlist");
+    setWatchlistRules(data);
+  }, []);
+
+  const refreshAlertHistory = useCallback(async () => {
+    const data = await fetchAlertHistory("watchlist", 40);
+    setWatchlistHistory(data);
   }, []);
 
   const fetchWatchlistItems = useCallback(async (watchlistId: number, refresh = false) => {
@@ -143,11 +175,16 @@ export default function Dashboard() {
 
       setWatchlistItems(itemsWithQuotes);
       setWatchlistUpdatedAt(new Date());
+      const triggered = await triggerWatchlistAlerts(itemsWithQuotes);
+      setWatchlistAlerts(triggered);
+      if (triggered.length > 0) {
+        refreshAlertHistory();
+      }
     } catch (error) {
     } finally {
       setWatchlistLoading(false);
     }
-  }, []);
+  }, [refreshAlertHistory]);
 
   // Fetch initial watchlist if we have a selected ID
   useEffect(() => {
@@ -182,6 +219,18 @@ export default function Dashboard() {
       fetchWatchlistItems(selectedWatchlistId);
     }
   }, [selectedWatchlistId, fetchWatchlistItems]);
+
+  useEffect(() => {
+    refreshAlertRules();
+    refreshAlertHistory();
+  }, [selectedWatchlistId, refreshAlertRules, refreshAlertHistory]);
+
+  useEffect(() => {
+    if (alertsPanelOpen) {
+      refreshAlertRules();
+      refreshAlertHistory();
+    }
+  }, [alertsPanelOpen, refreshAlertRules, refreshAlertHistory]);
 
   const fetchWatchlistNews = useCallback(async () => {
     if (watchlistItems.length === 0) {
@@ -225,10 +274,63 @@ export default function Dashboard() {
     }
   };
 
+  const handleCreateWatchlistRule = async (input: CreateAlertRuleInput) => {
+    const rule = await createAlertRule(input);
+    setWatchlistRules((prev) => [...prev, rule]);
+    refreshAlertHistory();
+  };
+
+  const handleDeleteWatchlistRule = async (id: number) => {
+    await deleteAlertRule(id);
+    setWatchlistRules((prev) => prev.filter((rule) => rule.id !== id));
+  };
+
+  const handleResetWatchlistRule = async (id: number) => {
+    await resetAlertRule(id);
+    setWatchlistRules((prev) =>
+      prev.map((rule) => (rule.id === id ? { ...rule, isMuted: false, needsRecovery: false, cooldownUntil: null } : rule))
+    );
+  };
+
+  const activeWatchlistRules = watchlistRules.filter((rule) =>
+    rule.scope === "watchlist" &&
+    watchlistItems.some((item) => item.id === rule.watchlistItemId || item.symbol === rule.symbol)
+  );
+
+  const watchlistOptions = watchlistItems.map((item) => ({
+    id: item.id,
+    label: item.shortName ?? item.symbol,
+    symbol: item.symbol,
+  }));
+
+  const watchlistAlertStates = useMemo(() => {
+    const triggeredSymbols = new Set(watchlistAlerts.map((alert) => alert.symbol));
+    const states: Record<number, { count: number; triggered: boolean }> = {};
+    watchlistItems.forEach((item) => {
+      const count = watchlistRules.filter(
+        (rule) => rule.scope === "watchlist" && (rule.watchlistItemId === item.id || rule.symbol === item.symbol)
+      ).length;
+      states[item.id] = {
+        count,
+        triggered: triggeredSymbols.has(item.symbol),
+      };
+    });
+    return states;
+  }, [watchlistItems, watchlistRules, watchlistAlerts]);
+
+  const openAlertsPanel = (symbol?: string) => {
+    setFocusedAlertSymbol(symbol ?? null);
+    setAlertsPanelOpen(true);
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
       {/* Header */}
-      <MainNav />
+      <MainNav
+        onOpenAlerts={() => openAlertsPanel()}
+        alertCount={watchlistAlerts.length}
+        hasTriggeredAlerts={watchlistAlerts.length > 0}
+      />
 
       {/* Tabs */}
       <div className="space-y-6">
@@ -335,6 +437,28 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="p-4">
+                    {watchlistAlerts.length > 0 && (
+                      <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                          <div>
+                            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                              {watchlistAlerts.length} alert{watchlistAlerts.length > 1 ? "s" : ""} triggered
+                            </p>
+                            <p className="text-xs text-amber-900/70 dark:text-amber-100/70">Based on the latest manual refresh.</p>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={() => openAlertsPanel()}>
+                            Review alerts
+                          </Button>
+                        </div>
+                        <ul className="mt-3 space-y-1.5 text-sm text-amber-900/80 dark:text-amber-100/80">
+                          {watchlistAlerts.slice(0, 3).map((alert) => (
+                            <li key={alert.id}>
+                              <span className="font-semibold">{alert.symbol}</span> · {alert.message}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                     {watchlistLoading ? (
                       <div className="flex items-center justify-center py-12">
                         <div className="flex flex-col items-center gap-3">
@@ -347,6 +471,8 @@ export default function Dashboard() {
                         items={watchlistItems}
                         onRemoveSymbol={handleRemoveSymbol}
                         storageKey={`watchlist_${selectedWatchlistId}`}
+                        alertStates={watchlistAlertStates}
+                        onOpenAlerts={(symbol) => openAlertsPanel(symbol)}
                       />
                     ) : watchlistView === "dividend" ? (
                       <DividendTable
@@ -388,6 +514,23 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      <AlertsPanel
+        open={alertsPanelOpen}
+        scope="watchlist"
+        sourceOptions={watchlistOptions}
+        rules={activeWatchlistRules}
+        alerts={watchlistAlerts}
+        history={watchlistHistory}
+        focusSymbol={focusedAlertSymbol}
+        onClose={() => {
+          setAlertsPanelOpen(false);
+          setFocusedAlertSymbol(null);
+        }}
+        onCreateRule={handleCreateWatchlistRule}
+        onDeleteRule={handleDeleteWatchlistRule}
+        onResetRule={handleResetWatchlistRule}
+      />
     </div>
   );
 }
