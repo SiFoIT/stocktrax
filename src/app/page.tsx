@@ -47,7 +47,6 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<Tab>(getTabFromUrl);
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
-  const [portfoliosLoading, setPortfoliosLoading] = useState(true);
 
   // Clean up URL and get watchlist ID after mount
   useEffect(() => {
@@ -77,25 +76,8 @@ export default function Dashboard() {
   const [focusedAlertSymbol, setFocusedAlertSymbol] = useState<string | null>(null);
 
   // Portfolio state for the list view
-  const [portfolios, setPortfolios] = useState<{ id: number; name: string; currency: string; createdAt: string }[]>([]);
   const [dashboardData, setDashboardData] = useState<PortfolioDashboardData | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
-
-  const fetchPortfolios = async () => {
-    try {
-      const response = await fetch("/api/portfolios");
-      const data = await response.json();
-      setPortfolios(data);
-
-      // Auto-select first portfolio if none selected
-      if (data.length > 0 && !selectedPortfolioId) {
-        setSelectedPortfolioId(data[0].id);
-      }
-    } catch (error) {
-    } finally {
-      setPortfoliosLoading(false);
-    }
-  };
 
   const fetchDashboardData = useCallback(async () => {
     setDashboardLoading(true);
@@ -203,10 +185,6 @@ export default function Dashboard() {
     };
     initWatchlist();
   }, [selectedWatchlistId]);
-
-  useEffect(() => {
-    fetchPortfolios();
-  }, []);
 
   useEffect(() => {
     if (activeTab === "portfolios") {

@@ -201,7 +201,7 @@ export async function GET() {
         }
 
         // End value = current market value for current year, or year-end for completed years
-        let endValue = marketValue; // current year
+        const endValue = marketValue; // current year (will be overwritten for completed years)
 
         // Track net flows during the year
         let netBuys = 0;

@@ -7,6 +7,12 @@ interface AllocationChartProps {
   holdings: HoldingWithQuote[];
 }
 
+interface AllocationTooltipProps {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number }>;
+  total: number;
+}
+
 // Modern gradient-friendly colors
 const COLORS = [
   "#3b82f6", // blue
@@ -18,6 +24,23 @@ const COLORS = [
   "#f97316", // orange
   "#6366f1", // indigo
 ];
+
+function AllocationTooltip({ active, payload, total }: AllocationTooltipProps) {
+  if (active && payload && payload.length) {
+    const item = payload[0];
+    const percent = total > 0 ? ((item.value / total) * 100).toFixed(1) : "0";
+    return (
+      <div className="bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-xl">
+        <p className="font-semibold text-white">{item.name}</p>
+        <p className="text-white/70 text-sm">
+          ${item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </p>
+        <p className="text-white/50 text-xs">{percent}% of portfolio</p>
+      </div>
+    );
+  }
+  return null;
+}
 
 export function AllocationChart({ holdings }: AllocationChartProps) {
   const data = holdings
@@ -44,23 +67,6 @@ export function AllocationChart({ holdings }: AllocationChartProps) {
     );
   }
 
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number }> }) => {
-    if (active && payload && payload.length) {
-      const item = payload[0];
-      const percent = ((item.value / total) * 100).toFixed(1);
-      return (
-        <div className="bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-xl">
-          <p className="font-semibold text-white">{item.name}</p>
-          <p className="text-white/70 text-sm">
-            ${item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-          <p className="text-white/50 text-xs">{percent}% of portfolio</p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="flex flex-col lg:flex-row items-center gap-8">
       {/* Chart */}
@@ -85,7 +91,7 @@ export function AllocationChart({ holdings }: AllocationChartProps) {
                 />
               ))}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<AllocationTooltip total={total} />} />
           </PieChart>
         </ResponsiveContainer>
       </div>

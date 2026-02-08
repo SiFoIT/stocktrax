@@ -12,6 +12,15 @@ import { formatPercentRaw, getDaysToExDiv, formatDaysToExDiv, getDaysToExDivColo
 type SortColumn = "symbol" | "price" | "dividendRate" | "dividendYield" | "exDividendDate" | "daysToExDiv" | "dividendDate" | "payoutRatio" | "sector" | "fiveYearAvgYield";
 type SortDirection = "asc" | "desc";
 
+interface HeaderCellProps {
+  column: SortColumn;
+  label: string;
+  align?: "left" | "right";
+  sortColumn: SortColumn | null;
+  sortDirection: SortDirection;
+  onSort: (column: SortColumn) => void;
+}
+
 interface DividendTableProps {
   items: WatchlistItemWithQuote[];
   onRemoveSymbol: (id: number) => void;
@@ -23,6 +32,18 @@ function SortIcon({ direction }: { direction: SortDirection | null }) {
     <span className={`ml-1 transition-opacity ${direction ? "opacity-100" : "opacity-30"}`}>
       {direction === "asc" ? "↑" : direction === "desc" ? "↓" : "↕"}
     </span>
+  );
+}
+
+function DividendHeaderCell({ column, label, align = "right", sortColumn, sortDirection, onSort }: HeaderCellProps) {
+  return (
+    <th
+      className={`px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
+      onClick={() => onSort(column)}
+    >
+      {label}
+      <SortIcon direction={sortColumn === column ? sortDirection : null} />
+    </th>
   );
 }
 
@@ -124,32 +145,22 @@ export function DividendTable({
     );
   }
 
-  const HeaderCell = ({ column, label, align = "right" }: { column: SortColumn; label: string; align?: "left" | "right" }) => (
-    <th
-      className={`px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
-      onClick={() => handleSort(column)}
-    >
-      {label}
-      <SortIcon direction={sortColumn === column ? sortDirection : null} />
-    </th>
-  );
-
   return (
     <>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-black/10 dark:border-white/10">
-              <HeaderCell column="symbol" label="Symbol" align="left" />
-              <HeaderCell column="sector" label="Sector" align="left" />
-              <HeaderCell column="price" label="Price" />
-              <HeaderCell column="dividendRate" label="Div Rate" />
-              <HeaderCell column="dividendYield" label="Yield" />
-              <HeaderCell column="payoutRatio" label="Payout" />
-              <HeaderCell column="exDividendDate" label="Ex-Div" />
-              <HeaderCell column="daysToExDiv" label="Days" />
-              <HeaderCell column="dividendDate" label="Pay Date" />
-              <HeaderCell column="fiveYearAvgYield" label="5Y Avg" />
+              <DividendHeaderCell column="symbol" label="Symbol" align="left" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <DividendHeaderCell column="sector" label="Sector" align="left" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <DividendHeaderCell column="price" label="Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <DividendHeaderCell column="dividendRate" label="Div Rate" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <DividendHeaderCell column="dividendYield" label="Yield" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <DividendHeaderCell column="payoutRatio" label="Payout" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <DividendHeaderCell column="exDividendDate" label="Ex-Div" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <DividendHeaderCell column="daysToExDiv" label="Days" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <DividendHeaderCell column="dividendDate" label="Pay Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <DividendHeaderCell column="fiveYearAvgYield" label="5Y Avg" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
             </tr>
           </thead>

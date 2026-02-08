@@ -59,11 +59,7 @@ interface GeneralSettingsModalProps {
 }
 
 export function GeneralSettingsModal({ onClose }: GeneralSettingsModalProps) {
-  const [selectedTab, setSelectedTab] = useState<DefaultTab>("general");
-
-  useEffect(() => {
-    setSelectedTab(getDefaultTab());
-  }, []);
+  const [selectedTab, setSelectedTab] = useState<DefaultTab>(() => getDefaultTab());
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {

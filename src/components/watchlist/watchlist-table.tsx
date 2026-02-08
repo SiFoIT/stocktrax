@@ -12,6 +12,27 @@ import { formatCurrency, formatPercent, getChangeColor, getChangeBg, formatTrade
 type SortColumn = "symbol" | "price" | "dayRange" | "52wRange" | "1D" | "5D" | "1M" | "3M" | "1Y" | "5Y";
 type SortDirection = "asc" | "desc";
 
+interface HeaderCellProps {
+  column: SortColumn;
+  label: string;
+  align?: "left" | "right";
+  sortColumn: SortColumn | null;
+  sortDirection: SortDirection;
+  onSort: (column: SortColumn) => void;
+}
+
+function HeaderCell({ column, label, align = "right", sortColumn, sortDirection, onSort }: HeaderCellProps) {
+  return (
+    <th
+      className={`px-3 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:text-white/80 transition-colors select-none ${align === "left" ? "text-left" : "text-right"}`}
+      onClick={() => onSort(column)}
+    >
+      {label}
+      <SortIcon direction={sortColumn === column ? sortDirection : null} />
+    </th>
+  );
+}
+
 interface WatchlistTableProps {
   items: WatchlistItemWithQuote[];
   onRemoveSymbol: (id: number) => void;
@@ -136,25 +157,15 @@ export function WatchlistTable({
     );
   }
 
-  const HeaderCell = ({ column, label, align = "right" }: { column: SortColumn; label: string; align?: "left" | "right" }) => (
-    <th
-      className={`px-3 py-3 text-xs font-semibold text-black/50 dark:text-black dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:text-white/80 transition-colors select-none ${align === "left" ? "text-left" : "text-right"}`}
-      onClick={() => handleSort(column)}
-    >
-      {label}
-      <SortIcon direction={sortColumn === column ? sortDirection : null} />
-    </th>
-  );
-
   return (
     <>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-black/10 dark:border-white/10">
-              <HeaderCell column="symbol" label="Symbol" align="left" />
-              <HeaderCell column="price" label="Price" />
-              <HeaderCell column="1D" label="Chg %" />
+              <HeaderCell column="symbol" label="Symbol" align="left" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <HeaderCell column="price" label="Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <HeaderCell column="1D" label="Chg %" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <th className="px-3 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-center cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none" onClick={() => handleSort("dayRange")}>
                 Day Range
                 <SortIcon direction={sortColumn === "dayRange" ? sortDirection : null} />
@@ -163,11 +174,11 @@ export function WatchlistTable({
                 52W Range
                 <SortIcon direction={sortColumn === "52wRange" ? sortDirection : null} />
               </th>
-              <HeaderCell column="5D" label="5D" />
-              <HeaderCell column="1M" label="1M" />
-              <HeaderCell column="3M" label="3M" />
-              <HeaderCell column="1Y" label="1Y" />
-              <HeaderCell column="5Y" label="5Y" />
+              <HeaderCell column="5D" label="5D" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <HeaderCell column="1M" label="1M" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <HeaderCell column="3M" label="3M" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <HeaderCell column="1Y" label="1Y" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <HeaderCell column="5Y" label="5Y" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <th className="px-3 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
             </tr>
           </thead>

@@ -68,11 +68,6 @@ export function TransactionsTable({
     }
   };
 
-  // Clear selection when transactions data changes (e.g. after delete)
-  useEffect(() => {
-    setSelectedIds(new Set());
-  }, [transactions]);
-
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
