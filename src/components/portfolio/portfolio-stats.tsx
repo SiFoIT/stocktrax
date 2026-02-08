@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { PortfolioDashboardData, BreakdownItem } from "@/types";
 import { formatCurrency, getChangeColor } from "@/lib/utils";
@@ -14,6 +15,56 @@ const COLORS = [
   "#f97316", // orange
   "#6366f1", // indigo
 ];
+
+function BreakdownTooltip({ active, payload, total }: { active?: boolean; payload?: Array<{ name: string; value: number }>; total: number }) {
+  if (active && payload && payload.length) {
+    const item = payload[0];
+    const percent = ((item.value / total) * 100).toFixed(1);
+    return (
+      <div className="bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-xl">
+        <p className="font-semibold text-white">{item.name}</p>
+        <p className="text-white/70 text-sm">{formatCurrency(item.value, "CAD")}</p>
+        <p className="text-white/50 text-xs">{percent}%</p>
+      </div>
+    );
+  }
+  return null;
+}
+
+function TopHoldingsTooltip({ active, payload, totalMarketValue }: { active?: boolean; payload?: Array<{ value: number; payload: BreakdownItem }>; totalMarketValue: number }) {
+  if (active && payload && payload.length) {
+    const pct = totalMarketValue > 0 ? ((payload[0].value / totalMarketValue) * 100).toFixed(1) : "0";
+    return (
+      <div className="bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-xl">
+        <p className="font-semibold text-white">{payload[0].payload.name}</p>
+        <p className="text-white/70 text-sm">{formatCurrency(payload[0].value, "CAD")}</p>
+        <p className="text-white/50 text-xs">{pct}%</p>
+      </div>
+    );
+  }
+  return null;
+}
+
+function renderBarLabel(totalMarketValue: number) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const LabelComponent = (props: any) => {
+    const { x, y, width, height, value } = props;
+    const pct = totalMarketValue > 0 ? ((value / totalMarketValue) * 100).toFixed(1) : "0";
+    return (
+      <text
+        x={(x ?? 0) + (width ?? 0) + 6}
+        y={(y ?? 0) + (height ?? 0) / 2}
+        dominantBaseline="central"
+        fontSize={11}
+        fill="rgba(128,128,128,0.7)"
+      >
+        {formatCurrency(value ?? 0, "CAD")} · {pct}%
+      </text>
+    );
+  };
+  LabelComponent.displayName = "BarLabel";
+  return LabelComponent;
+}
 
 interface PortfolioStatsProps {
   data: PortfolioDashboardData | null;
@@ -49,21 +100,6 @@ function BreakdownChart({ title, data, icon }: { title: string; data: BreakdownI
 
   const total = data.reduce((sum, d) => sum + d.value, 0);
 
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number }> }) => {
-    if (active && payload && payload.length) {
-      const item = payload[0];
-      const percent = ((item.value / total) * 100).toFixed(1);
-      return (
-        <div className="bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-xl">
-          <p className="font-semibold text-white">{item.name}</p>
-          <p className="text-white/70 text-sm">{formatCurrency(item.value, "CAD")}</p>
-          <p className="text-white/50 text-xs">{percent}%</p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
       <div className="flex items-center gap-2 mb-4">
@@ -92,7 +128,7 @@ function BreakdownChart({ title, data, icon }: { title: string; data: BreakdownI
                   />
                 ))}
               </Pie>
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<BreakdownTooltip total={total} />} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -122,38 +158,6 @@ function BreakdownChart({ title, data, icon }: { title: string; data: BreakdownI
 function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; totalMarketValue: number }) {
   if (data.length === 0) return null;
 
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ value: number; payload: BreakdownItem }> }) => {
-    if (active && payload && payload.length) {
-      const pct = totalMarketValue > 0 ? ((payload[0].value / totalMarketValue) * 100).toFixed(1) : "0";
-      return (
-        <div className="bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-xl">
-          <p className="font-semibold text-white">{payload[0].payload.name}</p>
-          <p className="text-white/70 text-sm">{formatCurrency(payload[0].value, "CAD")}</p>
-          <p className="text-white/50 text-xs">{pct}%</p>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  // Custom bar label showing both $ and %
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const renderBarLabel = (props: any) => {
-    const { x, y, width, height, value } = props;
-    const pct = totalMarketValue > 0 ? ((value / totalMarketValue) * 100).toFixed(1) : "0";
-    return (
-      <text
-        x={(x ?? 0) + (width ?? 0) + 6}
-        y={(y ?? 0) + (height ?? 0) / 2}
-        dominantBaseline="central"
-        fontSize={11}
-        fill="rgba(128,128,128,0.7)"
-      >
-        {formatCurrency(value ?? 0, "CAD")} · {pct}%
-      </text>
-    );
-  };
-
   return (
     <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
       <div className="flex items-center gap-2 mb-4">
@@ -177,8 +181,8 @@ function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; t
               axisLine={false}
               tickLine={false}
             />
-            <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24} label={renderBarLabel}>
+            <Tooltip content={<TopHoldingsTooltip totalMarketValue={totalMarketValue} />} />
+            <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={24} label={renderBarLabel(totalMarketValue)}>
               {data.map((_, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
@@ -191,6 +195,8 @@ function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; t
 }
 
 export function PortfolioStats({ data, loading }: PortfolioStatsProps) {
+  const [now] = useState(() => Date.now());
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -215,7 +221,7 @@ export function PortfolioStats({ data, loading }: PortfolioStatsProps) {
 
   // Compute CAGR date context
   const earliestDate = new Date(totals.earliestTransactionDate);
-  const yearsSince = (Date.now() - earliestDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+  const yearsSince = (now - earliestDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
   const cagrSubValue = `Since ${earliestDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })} (${yearsSince.toFixed(1)} yrs)`;
 
   return (

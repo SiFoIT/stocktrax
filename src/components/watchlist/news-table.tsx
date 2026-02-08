@@ -48,6 +48,7 @@ export function NewsTable({ articles, loading, emptyMessage }: NewsTableProps) {
           <div className="flex gap-4">
             {article.thumbnail && (
               <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-black/10 dark:bg-white/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={article.thumbnail}
                   alt=""

@@ -65,7 +65,7 @@ export async function getHistoricalChanges(symbol: string): Promise<HistoricalCh
       change1Y: calcChange(price1Y),
       change5Y: calcChange(price5Y),
     };
-  } catch (error) {
+  } catch {
     return {};
   }
 }
@@ -280,7 +280,7 @@ export async function getStockDetails(symbol: string): Promise<StockDetails | nu
       website: profile?.website,
       description: profile?.longBusinessSummary,
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -320,7 +320,7 @@ export async function getDividendInfo(symbol: string): Promise<DividendInfo> {
       fiveYearAvgDividendYield: detail?.fiveYearAvgDividendYield,
       sector: profile?.sector,
     };
-  } catch (error) {
+  } catch {
     return {};
   }
 }
@@ -371,7 +371,7 @@ export async function getQuote(symbol: string, includeRange = false): Promise<St
     }
 
     return baseQuote;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -406,7 +406,7 @@ export async function getHistoricalPrice(symbol: string, targetDate: Date): Prom
     }
 
     return closest.close ?? null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -475,7 +475,7 @@ export async function getTimeSeries(
         close: q.close ?? 0,
         volume: q.volume ?? 0,
       }));
-  } catch (error) {
+  } catch {
     return [];
   }
 }
@@ -516,7 +516,7 @@ export async function getNews(symbol: string, limit = 5): Promise<NewsArticle[]>
       thumbnail: item.thumbnail?.resolutions?.[0]?.url,
       relatedSymbols: item.relatedTickers || [symbol],
     }));
-  } catch (error) {
+  } catch {
     return [];
   }
 }
@@ -550,7 +550,7 @@ export async function getNewsForSymbols(
     );
 
     return dedupedNews;
-  } catch (error) {
+  } catch {
     return [];
   }
 }

@@ -93,7 +93,7 @@ export async function POST() {
       adjusted: results.filter((r) => r.action === "adjusted").length,
       results,
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to migrate transactions" },
       { status: 500 }

@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
       },
       settings: backup.settings,
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to import data" },
       { status: 500 }

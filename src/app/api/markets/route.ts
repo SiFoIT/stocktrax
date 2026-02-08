@@ -46,7 +46,7 @@ async function fetchCategoryData(category: Category, skipCache: boolean): Promis
           changePercent: quote?.changePercent ?? 0,
           sparklineData,
         };
-      } catch (error) {
+      } catch {
         return {
           symbol,
           name,

@@ -117,7 +117,7 @@ export function MainNavTabs({
         const portfoliosData = await portfoliosRes.json();
         setWatchlists(watchlistsData);
         setPortfolios(portfoliosData);
-      } catch (error) {
+      } catch {
       }
     };
     fetchData();
@@ -163,7 +163,7 @@ export function MainNavTabs({
         }
         setShowWatchlistDropdown(false);
       }
-    } catch (error) {
+    } catch {
       // silently handle fetch error
     } finally {
       setCreatingWatchlist(false);
@@ -182,7 +182,7 @@ export function MainNavTabs({
           onSelectWatchlist(remaining[0].id);
         }
       }
-    } catch (error) {
+    } catch {
       // silently handle fetch error
     }
   };
@@ -201,7 +201,7 @@ export function MainNavTabs({
       );
       setEditingWatchlistId(null);
       setEditingWatchlistName("");
-    } catch (error) {
+    } catch {
       // silently handle fetch error
     }
   };
@@ -231,7 +231,7 @@ export function MainNavTabs({
         }
         setShowPortfolioDropdown(false);
       }
-    } catch (error) {
+    } catch {
       // silently handle fetch error
     } finally {
       setCreatingPortfolio(false);
@@ -254,7 +254,7 @@ export function MainNavTabs({
       if (isSubPage && pathname === `/portfolio/${id}`) {
         window.location.href = "/?tab=portfolios";
       }
-    } catch (error) {
+    } catch {
       // silently handle fetch error
     }
   };
@@ -273,7 +273,7 @@ export function MainNavTabs({
       );
       setEditingPortfolioId(null);
       setEditingPortfolioName("");
-    } catch (error) {
+    } catch {
       // silently handle fetch error
     }
   };

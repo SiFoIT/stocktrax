@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { recomputeHolding } from "@/lib/holdings";
 import { stockTxnDedupKey, cashTxnDedupKey } from "@/lib/import/wealthsimple-parser";

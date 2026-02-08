@@ -87,7 +87,7 @@ export default function Dashboard() {
         const data = await response.json();
         setDashboardData(data);
       }
-    } catch (error) {
+    } catch {
     } finally {
       setDashboardLoading(false);
     }
@@ -162,7 +162,7 @@ export default function Dashboard() {
       if (triggered.length > 0) {
         refreshAlertHistory();
       }
-    } catch (error) {
+    } catch {
     } finally {
       setWatchlistLoading(false);
     }
@@ -179,7 +179,7 @@ export default function Dashboard() {
           if (watchlists.length > 0) {
             setSelectedWatchlistId(watchlists[0].id);
           }
-        } catch (error) {
+        } catch {
         }
       }
     };
@@ -224,7 +224,7 @@ export default function Dashboard() {
         const data = await response.json();
         setWatchlistNews(data);
       }
-    } catch (error) {
+    } catch {
     } finally {
       setNewsLoading(false);
     }
@@ -242,7 +242,7 @@ export default function Dashboard() {
       if (selectedWatchlistId) {
         fetchWatchlistItems(selectedWatchlistId);
       }
-    } catch (error) {
+    } catch {
     }
   };
 

@@ -49,7 +49,7 @@ export function CsvImportModal({
   const [acbEntries, setAcbEntries] = useState<AcbEntry[]>([]);
   const [acbPasteText, setAcbPasteText] = useState("");
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const [importing, setImporting] = useState(false);
+  const [, setImporting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);

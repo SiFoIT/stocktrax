@@ -54,14 +54,6 @@ export interface RuleStateUpdate {
   lastTriggeredAt?: Date | null;
 }
 
-interface EvaluationContext {
-  rule: AlertRule;
-  metricValue: number;
-  now: Date;
-  sourcePrice?: number | null;
-  sourceChangePercent?: number | null;
-}
-
 export function evaluateAlerts(
   payload: AlertRunPayload,
   rules: AlertRule[],

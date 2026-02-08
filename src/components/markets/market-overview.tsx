@@ -25,7 +25,7 @@ export function MarketOverview() {
         setMarketData(data);
         setUpdatedAt(new Date());
       }
-    } catch (error) {
+    } catch {
     } finally {
       setIsLoading(false);
     }

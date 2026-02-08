@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       }));
 
     return NextResponse.json(suggestions);
-  } catch (error) {
+  } catch {
     return NextResponse.json([]);
   }
 }

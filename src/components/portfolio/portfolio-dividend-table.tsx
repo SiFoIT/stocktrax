@@ -139,7 +139,7 @@ export function PortfolioDividendTable({
     );
   }
 
-  const HeaderCell = ({ column, label, align = "right" }: { column: SortColumn; label: string; align?: "left" | "right" }) => (
+  const headerCell = (column: SortColumn, label: string, align: "left" | "right" = "right") => (
     <th
       className={`px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
       onClick={() => handleSort(column)}
@@ -168,18 +168,18 @@ export function PortfolioDividendTable({
         <table className="w-full">
           <thead>
             <tr className="border-b border-black/10 dark:border-white/10">
-              <HeaderCell column="symbol" label="Symbol" align="left" />
-              <HeaderCell column="sector" label="Sector" align="left" />
-              <HeaderCell column="shares" label="Shares" />
-              <HeaderCell column="value" label="Value" />
-              <HeaderCell column="dividendRate" label="Div Rate" />
-              <HeaderCell column="dividendYield" label="Yield" />
-              <HeaderCell column="annualIncome" label="Annual $" />
-              <HeaderCell column="payoutRatio" label="Payout" />
-              <HeaderCell column="exDividendDate" label="Ex-Div" />
-              <HeaderCell column="daysToExDiv" label="Days" />
-              <HeaderCell column="dividendDate" label="Pay Date" />
-              <HeaderCell column="fiveYearAvgYield" label="5Y Avg" />
+              {headerCell("symbol", "Symbol", "left")}
+              {headerCell("sector", "Sector", "left")}
+              {headerCell("shares", "Shares")}
+              {headerCell("value", "Value")}
+              {headerCell("dividendRate", "Div Rate")}
+              {headerCell("dividendYield", "Yield")}
+              {headerCell("annualIncome", "Annual $")}
+              {headerCell("payoutRatio", "Payout")}
+              {headerCell("exDividendDate", "Ex-Div")}
+              {headerCell("daysToExDiv", "Days")}
+              {headerCell("dividendDate", "Pay Date")}
+              {headerCell("fiveYearAvgYield", "5Y Avg")}
             </tr>
           </thead>
           <tbody>

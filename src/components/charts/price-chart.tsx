@@ -17,7 +17,6 @@ import {
 } from "lightweight-charts";
 import { StockTimeSeries } from "@/types";
 import { toEasternTime, formatVolume } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 type TimeRange = "1D" | "5D" | "3M" | "1Y" | "5Y";
 type ChartType = "line" | "candle";
@@ -131,7 +130,7 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
         const result = await response.json();
         setData(result.timeSeries || []);
       }
-    } catch (error) {
+    } catch {
       setData([]);
     } finally {
       setLoading(false);

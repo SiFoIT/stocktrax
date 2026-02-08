@@ -610,6 +610,7 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                           className="flex gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors group"
                         >
                           {article.thumbnail ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
                             <img
                               src={article.thumbnail}
                               alt=""

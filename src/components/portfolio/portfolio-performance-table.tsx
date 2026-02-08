@@ -136,7 +136,7 @@ export function PortfolioPerformanceTable({
     );
   }
 
-  const HeaderCell = ({ column, label, align = "right" }: { column: SortColumn; label: string; align?: "left" | "right" }) => (
+  const headerCell = (column: SortColumn, label: string, align: "left" | "right" = "right") => (
     <th
       className={`px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none ${align === "left" ? "text-left" : "text-right"}`}
       onClick={() => handleSort(column)}
@@ -152,11 +152,11 @@ export function PortfolioPerformanceTable({
         <table className="w-full">
           <thead>
             <tr className="border-b border-black/10 dark:border-white/10">
-              <HeaderCell column="symbol" label="Symbol" align="left" />
-              <HeaderCell column="price" label="Price" />
-              <HeaderCell column="value" label="Value" />
-              <HeaderCell column="1D" label="Chg %" />
-              <HeaderCell column="volume" label="Volume" />
+              {headerCell("symbol", "Symbol", "left")}
+              {headerCell("price", "Price")}
+              {headerCell("value", "Value")}
+              {headerCell("1D", "Chg %")}
+              {headerCell("volume", "Volume")}
               <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-center cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none" onClick={() => handleSort("dayRange")}>
                 Day Range
                 <SortIcon direction={sortColumn === "dayRange" ? sortDirection : null} />
@@ -165,11 +165,11 @@ export function PortfolioPerformanceTable({
                 52W Range
                 <SortIcon direction={sortColumn === "52wRange" ? sortDirection : null} />
               </th>
-              <HeaderCell column="5D" label="5D" />
-              <HeaderCell column="1M" label="1M" />
-              <HeaderCell column="3M" label="3M" />
-              <HeaderCell column="1Y" label="1Y" />
-              <HeaderCell column="5Y" label="5Y" />
+              {headerCell("5D", "5D")}
+              {headerCell("1M", "1M")}
+              {headerCell("3M", "3M")}
+              {headerCell("1Y", "1Y")}
+              {headerCell("5Y", "5Y")}
             </tr>
           </thead>
           <tbody>

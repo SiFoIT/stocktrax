@@ -349,17 +349,7 @@ export function DividendReturnsTable({
     );
   }
 
-  const HeaderCell = ({
-    column,
-    label,
-    align = "right",
-    tooltip,
-  }: {
-    column: SortColumn;
-    label: string;
-    align?: "left" | "right";
-    tooltip?: string;
-  }) => (
+  const headerCell = (column: SortColumn, label: string, align: "left" | "right" = "right", tooltip?: string) => (
     <th
       className={`px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
       onClick={() => handleSort(column)}
@@ -504,13 +494,13 @@ export function DividendReturnsTable({
         <table className="w-full">
           <thead>
             <tr className="border-b border-black/10 dark:border-white/10">
-              <HeaderCell column="symbol" label="Symbol" align="left" />
-              <HeaderCell column="totalReceived" label="Total Received" tooltip="Sum of all dividend payments received for this stock." />
-              <HeaderCell column="yoc" label="YOC" tooltip="Yield on Cost — annual dividend rate divided by your average cost per share." />
-              <HeaderCell column="currentYield" label="Yield" tooltip="Current dividend yield based on today's market price." />
-              <HeaderCell column="annualDollar" label="Annual $" tooltip="Projected annual dividend income (shares x dividend rate)." />
-              <HeaderCell column="frequency" label="Frequency" tooltip="Estimated payment frequency inferred from transaction dates." />
-              <HeaderCell column="monthlyAvg" label="Mo. Avg" tooltip="Average monthly dividend income since your first payment for this stock." />
+              {headerCell("symbol", "Symbol", "left")}
+              {headerCell("totalReceived", "Total Received", "right", "Sum of all dividend payments received for this stock.")}
+              {headerCell("yoc", "YOC", "right", "Yield on Cost — annual dividend rate divided by your average cost per share.")}
+              {headerCell("currentYield", "Yield", "right", "Current dividend yield based on today's market price.")}
+              {headerCell("annualDollar", "Annual $", "right", "Projected annual dividend income (shares x dividend rate).")}
+              {headerCell("frequency", "Frequency", "right", "Estimated payment frequency inferred from transaction dates.")}
+              {headerCell("monthlyAvg", "Mo. Avg", "right", "Average monthly dividend income since your first payment for this stock.")}
             </tr>
           </thead>
           <tbody>

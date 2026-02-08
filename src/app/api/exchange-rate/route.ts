@@ -47,7 +47,7 @@ export async function GET() {
       });
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to fetch exchange rate" },
       { status: 500 }

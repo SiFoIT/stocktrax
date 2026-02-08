@@ -132,7 +132,7 @@ export default function PortfolioPage() {
                 avgVolume: quoteData.quote?.avgVolume,
               };
             }
-          } catch (error) {
+          } catch {
           }
 
           return holding;
@@ -146,7 +146,7 @@ export default function PortfolioPage() {
       if (triggered.length > 0) {
         refreshHoldingHistory();
       }
-    } catch (error) {
+    } catch {
     }
   }, [portfolioId, refreshHoldingHistory]);
 
@@ -156,7 +156,7 @@ export default function PortfolioPage() {
       const portfolios: Portfolio[] = await response.json();
       const found = portfolios.find((p) => p.id === portfolioId);
       setPortfolio(found || null);
-    } catch (error) {
+    } catch {
     }
   }, [portfolioId]);
 
@@ -174,7 +174,7 @@ export default function PortfolioPage() {
         const data = await response.json();
         setPortfolioNews(data);
       }
-    } catch (error) {
+    } catch {
     } finally {
       setNewsLoading(false);
     }
@@ -188,7 +188,7 @@ export default function PortfolioPage() {
         const data = await response.json();
         setTransactionsData(data);
       }
-    } catch (error) {
+    } catch {
     } finally {
       setTransactionsLoading(false);
     }
@@ -201,7 +201,7 @@ export default function PortfolioPage() {
         const data = await response.json();
         setUsdCadRate(data.rate);
       }
-    } catch (error) {
+    } catch {
     }
   }, []);
 
@@ -303,7 +303,7 @@ export default function PortfolioPage() {
         };
 
         setDashboardData(data);
-      } catch (error) {
+      } catch {
       } finally {
         setDashboardLoading(false);
       }
@@ -318,7 +318,7 @@ export default function PortfolioPage() {
     try {
       await fetch(`/api/holdings?id=${id}`, { method: "DELETE" });
       fetchHoldings();
-    } catch (error) {
+    } catch {
     }
   };
 
@@ -342,7 +342,7 @@ export default function PortfolioPage() {
       });
       fetchTransactions();
       fetchHoldings();
-    } catch (error) {
+    } catch {
     }
   };
 
@@ -353,7 +353,7 @@ export default function PortfolioPage() {
       await fetch(`/api/transactions?id=${id}`, { method: "DELETE" });
       fetchTransactions();
       fetchHoldings();
-    } catch (error) {
+    } catch {
     }
   };
 
@@ -368,7 +368,7 @@ export default function PortfolioPage() {
       });
       fetchTransactions();
       fetchHoldings();
-    } catch (error) {
+    } catch {
     }
   };
 
@@ -385,7 +385,7 @@ export default function PortfolioPage() {
       });
       fetchTransactions();
       fetchHoldings();
-    } catch (error) {
+    } catch {
     }
   };
 
@@ -526,14 +526,14 @@ export default function PortfolioPage() {
 
         {/* Portfolio Title */}
         <div className="flex items-center gap-4">
-          <a
+          <Link
             href="/?tab=portfolios"
             className="w-10 h-10 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-center text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-all"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-          </a>
+          </Link>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center">
               <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
