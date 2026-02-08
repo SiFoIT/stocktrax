@@ -171,26 +171,33 @@ export function DividendTable({
                 className={`border-b border-white/5 transition-all hover:bg-black/5 dark:hover:bg-white/5 ${index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}`}
               >
                 <td className="px-4 py-4">
-                  <div className="flex items-center gap-2">
-                    <button
-                      className="flex items-center gap-3 hover:text-blue-400 transition-colors"
-                      onClick={() => setDetailsSymbol(item.symbol)}
-                    >
-                      <StockIcon symbol={item.symbol} />
-                      <span className="font-semibold text-black dark:text-white">{item.symbol}</span>
-                    </button>
-                    <button
-                      className="text-black/30 dark:text-white/30 hover:text-blue-400 transition-colors p-1 rounded"
-                      onClick={() => {
-                        const idx = sortedItems.findIndex((i) => i.symbol === item.symbol);
-                        setChartIndex(idx >= 0 ? idx : 0);
-                      }}
-                      title="View chart"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16" />
-                      </svg>
-                    </button>
+                  <div className="flex items-center gap-3">
+                    <StockIcon symbol={item.symbol} />
+                    <div className="flex flex-col items-start">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          className="group/sym"
+                          onClick={() => setDetailsSymbol(item.symbol)}
+                        >
+                          <span className="font-semibold text-blue-400 group-hover/sym:text-blue-300 underline decoration-blue-400/40 group-hover/sym:decoration-blue-300 underline-offset-2 transition-colors">{item.symbol}</span>
+                        </button>
+                        <button
+                          className="text-white/30 hover:text-blue-400 hover:bg-blue-500/20 rounded p-0.5 transition-colors"
+                          onClick={() => {
+                            const idx = sortedItems.findIndex((i) => i.symbol === item.symbol);
+                            setChartIndex(idx >= 0 ? idx : 0);
+                          }}
+                          title="View chart"
+                        >
+                          <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12l4-5 3 3 7-8" />
+                          </svg>
+                        </button>
+                      </div>
+                      {item.shortName && (
+                        <span className="text-[11px] text-white/40 truncate max-w-[180px]">{item.shortName}</span>
+                      )}
+                    </div>
                   </div>
                 </td>
                 <td className="px-4 py-4">
