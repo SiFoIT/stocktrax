@@ -49,7 +49,7 @@ export function MainNav({ onOpenAlerts, alertCount = 0, hasTriggeredAlerts = fal
             onClick={onOpenAlerts}
             className={`relative w-10 h-10 rounded-xl border transition-all flex items-center justify-center ${
               hasTriggeredAlerts
-                ? "border-amber-500/50 bg-amber-500/15 text-amber-600 dark:text-amber-300 hover:bg-amber-500/25"
+                ? "border-red-500/60 bg-red-500/15 text-red-500 hover:bg-red-500/25"
                 : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
             }`}
             aria-label="Alerts"

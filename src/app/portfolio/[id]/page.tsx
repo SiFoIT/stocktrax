@@ -442,13 +442,13 @@ export default function PortfolioPage() {
 
   const holdingAlertStates = useMemo(() => {
     const triggeredSymbols = new Set(holdingAlerts.map((alert) => alert.symbol));
-    const states: Record<number, { count: number; triggered: boolean }> = {};
+    const states: Record<number, { hasRules: boolean; triggered: boolean }> = {};
     activeHoldings.forEach((holding) => {
-      const count = holdingRules.filter(
+      const hasRules = holdingRules.some(
         (rule) => rule.scope === "holding" && (rule.holdingId === holding.id || rule.symbol === holding.symbol)
-      ).length;
+      );
       states[holding.id] = {
-        count,
+        hasRules,
         triggered: triggeredSymbols.has(holding.symbol),
       };
     });

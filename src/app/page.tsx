@@ -283,13 +283,13 @@ export default function Dashboard() {
 
   const watchlistAlertStates = useMemo(() => {
     const triggeredSymbols = new Set(watchlistAlerts.map((alert) => alert.symbol));
-    const states: Record<number, { count: number; triggered: boolean }> = {};
+    const states: Record<number, { hasRules: boolean; triggered: boolean }> = {};
     watchlistItems.forEach((item) => {
-      const count = watchlistRules.filter(
+      const hasRules = watchlistRules.some(
         (rule) => rule.scope === "watchlist" && (rule.watchlistItemId === item.id || rule.symbol === item.symbol)
-      ).length;
+      );
       states[item.id] = {
-        count,
+        hasRules,
         triggered: triggeredSymbols.has(item.symbol),
       };
     });

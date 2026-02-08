@@ -24,7 +24,7 @@ interface HoldingsTableProps {
   onDeleteHolding: (id: number) => void;
   onAddTransaction?: (symbol: string) => void;
   storageKey?: string;
-  alertStates?: Record<number, { count: number; triggered: boolean }>;
+  alertStates?: Record<number, { hasRules: boolean; triggered: boolean }>;
   onOpenAlerts?: (symbol: string, id: number) => void;
 }
 
@@ -270,24 +270,18 @@ export function HoldingsTable({
                 <div className="flex items-center justify-end gap-1">
                   {onOpenAlerts && (
                     <button
-                      className={`relative p-2 rounded-lg transition-colors ${
-                        alertStates?.[holding.id]?.triggered
-                          ? "text-red-500 hover:bg-red-500/10"
-                          : alertStates?.[holding.id]?.count
-                          ? "text-amber-500 hover:bg-amber-500/10"
-                          : "text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
-                      }`}
+                      className={`p-2 rounded-lg transition-colors ${(() => {
+                        const state = alertStates?.[holding.id];
+                        if (state?.triggered) return "text-red-500 hover:bg-red-500/10";
+                        if (state?.hasRules) return "text-emerald-500 hover:bg-emerald-500/10";
+                        return "text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5";
+                      })()}`}
                       onClick={() => onOpenAlerts(holding.symbol, holding.id)}
                       aria-label="Manage alerts"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                       </svg>
-                      {alertStates?.[holding.id]?.count ? (
-                        <span className="absolute -top-1 -right-1 min-w-[16px] px-1 rounded-full bg-amber-500 text-white text-[9px] font-semibold">
-                          {alertStates[holding.id].count}
-                        </span>
-                      ) : null}
                     </button>
                   )}
                   <button
