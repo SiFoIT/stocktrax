@@ -29,6 +29,12 @@ export type AlertRunPayload =
   | { scope: "watchlist"; items: WatchlistAlertSource[] }
   | { scope: "holding"; holdings: HoldingAlertSource[] };
 
+type AlertSource = WatchlistAlertSource | HoldingAlertSource;
+
+function sourcePrice(source: AlertSource): number | null | undefined {
+  return "price" in source ? source.price : (source as HoldingAlertSource).currentPrice;
+}
+
 export interface TriggeredAlertEvent {
   rule: AlertRule;
   symbol: string;
@@ -87,8 +93,8 @@ export function evaluateAlerts(
       symbol: source.symbol,
       scope: rule.scope as AlertScope,
       metricValue,
-      price: "price" in source ? source.price ?? source.currentPrice : source.currentPrice,
-      changePercent: "changePercent" in source ? source.changePercent ?? null : source.gainLossPercent ?? null,
+      price: sourcePrice(source),
+      changePercent: "changePercent" in source ? (source as WatchlistAlertSource).changePercent ?? null : (source as HoldingAlertSource).gainLossPercent ?? null,
       message: buildMessage(rule, metricValue, source),
     });
 
@@ -123,9 +129,9 @@ function getMetricValue(
     case "daily_change_percent":
       return "changePercent" in source ? source.changePercent ?? null : null;
     case "last_price":
-      return "price" in source ? source.price ?? null : source.currentPrice ?? null;
+      return sourcePrice(source) ?? null;
     case "price_vs_anchor": {
-      const price = "price" in source ? source.price ?? null : source.currentPrice ?? null;
+      const price = sourcePrice(source) ?? null;
       const baseline = rule.baselineValue ?? rule.anchorValue ?? price;
       if (price === null || price === undefined || !baseline) return null;
       if (baseline === 0) return null;
@@ -202,7 +208,7 @@ function applyReset(
       break;
     }
     case "baseline": {
-      const nextBaseline = "price" in source ? source.price ?? null : source.currentPrice ?? null;
+      const nextBaseline = sourcePrice(source) ?? null;
       if (nextBaseline !== null && nextBaseline !== undefined) {
         update.baselineValue = nextBaseline;
       }
@@ -234,7 +240,7 @@ function buildMessage(rule: AlertRule, metricValue: number, source: WatchlistAle
       return `${symbol} holding gain ${metricValue.toFixed(2)}%`;
     case "last_price":
     default: {
-      const price = "price" in source ? source.price : source.currentPrice;
+      const price = sourcePrice(source);
       return `${symbol} price ${price !== undefined && price !== null ? price.toFixed(2) : "updated"}`;
     }
   }

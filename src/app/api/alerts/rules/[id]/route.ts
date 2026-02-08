@@ -15,9 +15,10 @@ const updateSchema = z.object({
   action: z.enum(["reset", "ack"]).optional(),
 });
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const id = parseInt(params.id, 10);
+    const { id: rawId } = await params;
+    const id = parseInt(rawId, 10);
     if (Number.isNaN(id)) {
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
@@ -56,8 +57,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
-  const id = parseInt(params.id, 10);
+export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id: rawId } = await params;
+  const id = parseInt(rawId, 10);
   if (Number.isNaN(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }

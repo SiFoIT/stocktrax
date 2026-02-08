@@ -32,7 +32,7 @@ export async function triggerHoldingAlerts(holdings: HoldingWithQuote[]) {
       id: holding.id,
       portfolioId: holding.portfolioId,
       symbol: holding.symbol,
-      currentPrice: holding.currentPrice ?? holding.price ?? null,
+      currentPrice: holding.currentPrice ?? null,
       gainLossPercent: holding.gainLossPercent ?? null,
       currency: holding.currency ?? null,
     })),
