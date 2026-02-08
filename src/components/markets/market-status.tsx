@@ -2,31 +2,12 @@
 
 import { Button } from "@/components/ui/button";
 import { formatUpdatedTime } from "@/lib/utils";
+import { isMarketOpen } from "@/lib/markets/calendar";
 
 interface MarketStatusProps {
   onRefresh: () => void;
   isLoading: boolean;
   updatedAt?: Date | null;
-}
-
-function isMarketOpen(): boolean {
-  const now = new Date();
-  const day = now.getDay();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const time = hours * 60 + minutes;
-
-  // Weekend check (0 = Sunday, 6 = Saturday)
-  if (day === 0 || day === 6) {
-    return false;
-  }
-
-  // US market hours: 9:30 AM - 4:00 PM ET
-  // This is a simplified check - doesn't account for holidays or user timezone
-  const marketOpen = 9 * 60 + 30; // 9:30 AM
-  const marketClose = 16 * 60; // 4:00 PM
-
-  return time >= marketOpen && time < marketClose;
 }
 
 export function MarketStatusIndicator() {

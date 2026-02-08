@@ -5,6 +5,7 @@ import {
   AlertOperator,
   AlertResetStrategy,
 } from "@/lib/alerts/config";
+import { isSameTradingDay } from "@/lib/markets/calendar";
 
 export interface WatchlistAlertSource {
   id: number;
@@ -220,14 +221,6 @@ function hasRecovered(operator: AlertOperator, metricValue: number, threshold: n
     return metricValue < threshold;
   }
   return metricValue > threshold;
-}
-
-function isSameTradingDay(prev: Date, current: Date) {
-  return (
-    prev.getFullYear() === current.getFullYear() &&
-    prev.getMonth() === current.getMonth() &&
-    prev.getDate() === current.getDate()
-  );
 }
 
 function buildMessage(rule: AlertRule, metricValue: number, source: WatchlistAlertSource | HoldingAlertSource) {
