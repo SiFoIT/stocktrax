@@ -240,8 +240,8 @@ export function AlertsPanel({
                 type="number"
                 step="0.1"
                 className={SELECT_CLASS}
-                value={threshold}
-                onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                value={isNaN(threshold) ? "" : threshold}
+                onChange={(e) => setThreshold(e.target.value === "" ? NaN : parseFloat(e.target.value))}
                 required
               />
 
@@ -266,8 +266,8 @@ export function AlertsPanel({
                     type="number"
                     min={5}
                     className={SELECT_CLASS}
-                    value={cooldownMinutes}
-                    onChange={(e) => setCooldownMinutes(parseInt(e.target.value, 10))}
+                    value={isNaN(cooldownMinutes) ? "" : cooldownMinutes}
+                    onChange={(e) => setCooldownMinutes(e.target.value === "" ? NaN : parseInt(e.target.value, 10))}
                   />
                 </div>
               )}
@@ -327,8 +327,8 @@ export function AlertsPanel({
                           type="number"
                           step="0.1"
                           className={SELECT_CLASS}
-                          value={editThreshold}
-                          onChange={(e) => setEditThreshold(parseFloat(e.target.value))}
+                          value={isNaN(editThreshold) ? "" : editThreshold}
+                          onChange={(e) => setEditThreshold(e.target.value === "" ? NaN : parseFloat(e.target.value))}
                           required
                         />
                       </div>
@@ -363,8 +363,8 @@ export function AlertsPanel({
                             type="number"
                             min={5}
                             className={SELECT_CLASS}
-                            value={editCooldownMinutes}
-                            onChange={(e) => setEditCooldownMinutes(parseInt(e.target.value, 10))}
+                            value={isNaN(editCooldownMinutes) ? "" : editCooldownMinutes}
+                            onChange={(e) => setEditCooldownMinutes(e.target.value === "" ? NaN : parseInt(e.target.value, 10))}
                           />
                         </div>
                       )}
