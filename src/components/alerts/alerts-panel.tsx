@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import type {
   AlertHistoryEntry,
@@ -23,12 +23,16 @@ interface AlertsPanelProps {
   focusSymbol?: string | null;
   onClose: () => void;
   onCreateRule: (input: CreateAlertRuleInput) => Promise<void>;
+  onUpdateRule: (id: number, updates: Partial<CreateAlertRuleInput>) => Promise<void>;
   onDeleteRule: (id: number) => Promise<void>;
   onResetRule: (id: number) => Promise<void>;
 }
 
 const WATCHLIST_METRICS: AlertMetric[] = ["daily_change_percent", "last_price", "price_vs_anchor"];
 const HOLDING_METRICS: AlertMetric[] = ["holding_gain_percent", "price_vs_anchor", "last_price"];
+
+const SELECT_CLASS = "w-full rounded-lg border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/30 px-3 py-2 text-sm";
+const LABEL_CLASS = "text-xs font-semibold text-black/60 dark:text-white/60 block";
 
 export function AlertsPanel({
   open,
@@ -40,6 +44,7 @@ export function AlertsPanel({
   focusSymbol,
   onClose,
   onCreateRule,
+  onUpdateRule,
   onDeleteRule,
   onResetRule,
 }: AlertsPanelProps) {
@@ -51,8 +56,29 @@ export function AlertsPanel({
   const [anchorValue, setAnchorValue] = useState<number | undefined>(undefined);
   const [cooldownMinutes, setCooldownMinutes] = useState<number>(60);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
+  const [editMetric, setEditMetric] = useState<AlertMetric>("daily_change_percent");
+  const [editOperator, setEditOperator] = useState<AlertOperator>("lte");
+  const [editThreshold, setEditThreshold] = useState<number>(0);
+  const [editResetStrategy, setEditResetStrategy] = useState<AlertResetStrategy>("recovery");
+  const [editAnchorValue, setEditAnchorValue] = useState<number | undefined>(undefined);
+  const [editCooldownMinutes, setEditCooldownMinutes] = useState<number>(60);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const metricOptions = scope === "watchlist" ? WATCHLIST_METRICS : HOLDING_METRICS;
+
+  // Escape key handler
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
 
   useEffect(() => {
     if (sourceOptions.length === 0) {
@@ -71,6 +97,42 @@ export function AlertsPanel({
       setSelectedSource(match.id);
     }
   }, [focusSymbol, sourceOptions]);
+
+  const startEditing = useCallback((rule: AlertRuleDTO) => {
+    setEditingRuleId(rule.id);
+    setEditMetric(rule.metric);
+    setEditOperator(rule.operator);
+    setEditThreshold(rule.threshold);
+    setEditResetStrategy(rule.resetStrategy);
+    setEditAnchorValue(rule.anchorValue != null ? rule.anchorValue : undefined);
+    setEditCooldownMinutes(rule.cooldownMinutes ?? 60);
+    setEditError(null);
+  }, []);
+
+  const cancelEditing = useCallback(() => {
+    setEditingRuleId(null);
+    setEditError(null);
+  }, []);
+
+  const handleEditSave = async (ruleId: number) => {
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      await onUpdateRule(ruleId, {
+        metric: editMetric,
+        operator: editOperator,
+        threshold: editThreshold,
+        resetStrategy: editResetStrategy,
+        anchorValue: Number.isFinite(editAnchorValue) ? editAnchorValue! : undefined,
+        cooldownMinutes: editCooldownMinutes,
+      });
+      setEditingRuleId(null);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to update rule");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +156,9 @@ export function AlertsPanel({
       });
       setThreshold(-5);
       setAnchorValue(undefined);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create alert");
     } finally {
       setSubmitting(false);
     }
@@ -106,8 +171,8 @@ export function AlertsPanel({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex justify-end">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col">
+    <div className="fixed inset-0 z-50 bg-black/40 flex justify-end" onClick={onClose}>
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">{scope === "watchlist" ? "Watchlist Alerts" : "Portfolio Alerts"}</h2>
@@ -122,9 +187,9 @@ export function AlertsPanel({
           <section>
             <h3 className="text-sm font-semibold mb-3">Create alert</h3>
             <form onSubmit={handleSubmit} className="space-y-3 bg-black/5 dark:bg-white/5 rounded-xl p-4">
-              <label className="text-xs font-semibold text-black/60 dark:text-white/60 block">Target</label>
+              <label className={LABEL_CLASS}>Target</label>
               <select
-                className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/30 px-3 py-2 text-sm"
+                className={SELECT_CLASS}
                 value={selectedSource ?? ""}
                 onChange={(e) => setSelectedSource(Number(e.target.value))}
                 required
@@ -141,9 +206,9 @@ export function AlertsPanel({
 
               <div className="flex gap-3">
                 <div className="w-1/2">
-                  <label className="text-xs font-semibold text-black/60 dark:text-white/60 block">Metric</label>
+                  <label className={LABEL_CLASS}>Metric</label>
                   <select
-                    className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/30 px-3 py-2 text-sm"
+                    className={SELECT_CLASS}
                     value={metric}
                     onChange={(e) => setMetric(e.target.value as AlertMetric)}
                   >
@@ -155,9 +220,9 @@ export function AlertsPanel({
                   </select>
                 </div>
                 <div className="w-1/2">
-                  <label className="text-xs font-semibold text-black/60 dark:text-white/60 block">Operator</label>
+                  <label className={LABEL_CLASS}>Operator</label>
                   <select
-                    className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/30 px-3 py-2 text-sm"
+                    className={SELECT_CLASS}
                     value={operator}
                     onChange={(e) => setOperator(e.target.value as AlertOperator)}
                   >
@@ -170,11 +235,11 @@ export function AlertsPanel({
                 </div>
               </div>
 
-              <label className="text-xs font-semibold text-black/60 dark:text-white/60 block">Threshold</label>
+              <label className={LABEL_CLASS}>Threshold</label>
               <input
                 type="number"
                 step="0.1"
-                className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/30 px-3 py-2 text-sm"
+                className={SELECT_CLASS}
                 value={threshold}
                 onChange={(e) => setThreshold(parseFloat(e.target.value))}
                 required
@@ -182,11 +247,11 @@ export function AlertsPanel({
 
               {metric === "price_vs_anchor" && (
                 <div>
-                  <label className="text-xs font-semibold text-black/60 dark:text-white/60 block">Anchor price</label>
+                  <label className={LABEL_CLASS}>Anchor price</label>
                   <input
                     type="number"
                     step="0.01"
-                    className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/30 px-3 py-2 text-sm"
+                    className={SELECT_CLASS}
                     value={anchorValue ?? ""}
                     onChange={(e) => setAnchorValue(e.target.value ? parseFloat(e.target.value) : undefined)}
                     placeholder="Leave blank to use current price"
@@ -196,20 +261,20 @@ export function AlertsPanel({
 
               {resetStrategy === "cooldown" && (
                 <div>
-                  <label className="text-xs font-semibold text-black/60 dark:text-white/60 block">Cooldown (minutes)</label>
+                  <label className={LABEL_CLASS}>Cooldown (minutes)</label>
                   <input
                     type="number"
                     min={5}
-                    className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/30 px-3 py-2 text-sm"
+                    className={SELECT_CLASS}
                     value={cooldownMinutes}
                     onChange={(e) => setCooldownMinutes(parseInt(e.target.value, 10))}
                   />
                 </div>
               )}
 
-              <label className="text-xs font-semibold text-black/60 dark:text-white/60 block">Reset</label>
+              <label className={LABEL_CLASS}>Reset</label>
               <select
-                className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/30 px-3 py-2 text-sm"
+                className={SELECT_CLASS}
                 value={resetStrategy}
                 onChange={(e) => setResetStrategy(e.target.value as AlertResetStrategy)}
               >
@@ -223,6 +288,7 @@ export function AlertsPanel({
               <Button type="submit" disabled={submitting} className="w-full">
                 {submitting ? "Saving..." : "Create alert"}
               </Button>
+              {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
             </form>
           </section>
 
@@ -232,23 +298,112 @@ export function AlertsPanel({
               {rules.length === 0 && <p className="text-sm text-black/50 dark:text-white/50">No alert rules yet.</p>}
               {rules.map((rule) => (
                 <div key={rule.id} className="rounded-xl border border-black/10 dark:border-white/10 p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
+                  {editingRuleId === rule.id ? (
+                    /* Edit mode */
+                    <div className="space-y-3">
                       <p className="text-sm font-semibold">{rule.symbol}</p>
-                      <p className="text-xs text-black/50 dark:text-white/50">
-                        {ALERT_METRIC_LABELS[rule.metric]} {ALERT_OPERATOR_LABELS[rule.operator]} {rule.threshold}
-                      </p>
-                      <p className="text-xs text-black/40 dark:text-white/40">{ALERT_RESET_LABELS[rule.resetStrategy]}</p>
+                      <div className="flex gap-3">
+                        <div className="w-1/2">
+                          <label className={LABEL_CLASS}>Metric</label>
+                          <select className={SELECT_CLASS} value={editMetric} onChange={(e) => setEditMetric(e.target.value as AlertMetric)}>
+                            {metricOptions.map((opt) => (
+                              <option key={opt} value={opt}>{ALERT_METRIC_LABELS[opt]}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="w-1/2">
+                          <label className={LABEL_CLASS}>Operator</label>
+                          <select className={SELECT_CLASS} value={editOperator} onChange={(e) => setEditOperator(e.target.value as AlertOperator)}>
+                            {(["gte", "lte"] as AlertOperator[]).map((opt) => (
+                              <option key={opt} value={opt}>{ALERT_OPERATOR_LABELS[opt]}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={LABEL_CLASS}>Threshold</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className={SELECT_CLASS}
+                          value={editThreshold}
+                          onChange={(e) => setEditThreshold(parseFloat(e.target.value))}
+                          required
+                        />
+                      </div>
+
+                      {editMetric === "price_vs_anchor" && (
+                        <div>
+                          <label className={LABEL_CLASS}>Anchor price</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            className={SELECT_CLASS}
+                            value={editAnchorValue ?? ""}
+                            onChange={(e) => setEditAnchorValue(e.target.value ? parseFloat(e.target.value) : undefined)}
+                            placeholder="Leave blank to use current price"
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className={LABEL_CLASS}>Reset</label>
+                        <select className={SELECT_CLASS} value={editResetStrategy} onChange={(e) => setEditResetStrategy(e.target.value as AlertResetStrategy)}>
+                          {(["manual", "recovery", "cooldown", "baseline", "end_of_day"] as AlertResetStrategy[]).map((opt) => (
+                            <option key={opt} value={opt}>{ALERT_RESET_LABELS[opt]}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {editResetStrategy === "cooldown" && (
+                        <div>
+                          <label className={LABEL_CLASS}>Cooldown (minutes)</label>
+                          <input
+                            type="number"
+                            min={5}
+                            className={SELECT_CLASS}
+                            value={editCooldownMinutes}
+                            onChange={(e) => setEditCooldownMinutes(parseInt(e.target.value, 10))}
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" onClick={() => handleEditSave(rule.id)} disabled={editSubmitting}>
+                          {editSubmitting ? "Saving..." : "Save"}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={cancelEditing} disabled={editSubmitting}>
+                          Cancel
+                        </Button>
+                      </div>
+                      {editError && <p className="text-sm text-red-500">{editError}</p>}
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => onResetRule(rule.id)}>
-                        Reset
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => onDeleteRule(rule.id)}>
-                        Remove
-                      </Button>
+                  ) : (
+                    /* Read-only mode */
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold">{rule.symbol}</p>
+                        <p className="text-xs text-black/50 dark:text-white/50">
+                          {ALERT_METRIC_LABELS[rule.metric]} {ALERT_OPERATOR_LABELS[rule.operator]} {rule.threshold}
+                        </p>
+                        <p className="text-xs text-black/40 dark:text-white/40">{ALERT_RESET_LABELS[rule.resetStrategy]}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="ghost" onClick={() => startEditing(rule)} title="Edit rule">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => onResetRule(rule.id)}>
+                          Reset
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => onDeleteRule(rule.id)}>
+                          Remove
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>

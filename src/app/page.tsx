@@ -25,6 +25,7 @@ import {
   triggerWatchlistAlerts,
   fetchAlertRules,
   createAlertRule,
+  updateAlertRule,
   deleteAlertRule,
   resetAlertRule,
   fetchAlertHistory,
@@ -256,6 +257,11 @@ export default function Dashboard() {
     const rule = await createAlertRule(input);
     setWatchlistRules((prev) => [...prev, rule]);
     refreshAlertHistory();
+  };
+
+  const handleUpdateWatchlistRule = async (id: number, updates: Partial<CreateAlertRuleInput>) => {
+    const updated = await updateAlertRule(id, updates);
+    setWatchlistRules((prev) => prev.map((rule) => (rule.id === id ? updated : rule)));
   };
 
   const handleDeleteWatchlistRule = async (id: number) => {
@@ -506,6 +512,7 @@ export default function Dashboard() {
           setFocusedAlertSymbol(null);
         }}
         onCreateRule={handleCreateWatchlistRule}
+        onUpdateRule={handleUpdateWatchlistRule}
         onDeleteRule={handleDeleteWatchlistRule}
         onResetRule={handleResetWatchlistRule}
       />

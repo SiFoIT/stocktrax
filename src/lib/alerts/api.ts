@@ -73,13 +73,28 @@ export async function createAlertRule(input: CreateAlertRuleInput) {
     body: JSON.stringify(input),
   });
   if (!response.ok) {
-    throw new Error("Failed to create alert rule");
+    const body = await response.json().catch(() => null);
+    console.error("Create alert rule failed:", response.status, body);
+    throw new Error(body?.error ?? "Failed to create alert rule");
   }
   return (await response.json()) as AlertRuleDTO;
 }
 
 export async function deleteAlertRule(id: number) {
   await fetch(`/api/alerts/rules/${id}`, { method: "DELETE" });
+}
+
+export async function updateAlertRule(id: number, updates: Partial<CreateAlertRuleInput>) {
+  const response = await fetch(`/api/alerts/rules/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.error ?? "Failed to update alert rule");
+  }
+  return (await response.json()) as AlertRuleDTO;
 }
 
 export async function resetAlertRule(id: number) {

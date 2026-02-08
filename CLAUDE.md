@@ -60,6 +60,8 @@ Tables defined in `src/lib/db/schema.ts`:
 
 After schema changes, run: `npx drizzle-kit push`
 
+**WARNING: After ANY schema change to `src/lib/db/schema.ts`, you MUST run `npx drizzle-kit push` before restarting the dev server. New tables will not exist in SQLite until this is done.**
+
 ## Development
 
 ```bash

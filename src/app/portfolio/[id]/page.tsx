@@ -31,6 +31,7 @@ import {
   triggerHoldingAlerts,
   fetchAlertRules,
   createAlertRule,
+  updateAlertRule,
   deleteAlertRule,
   resetAlertRule,
   fetchAlertHistory,
@@ -416,6 +417,11 @@ export default function PortfolioPage() {
     const rule = await createAlertRule(input);
     setHoldingRules((prev) => [...prev, rule]);
     refreshHoldingHistory();
+  };
+
+  const handleUpdateHoldingRule = async (id: number, updates: Partial<CreateAlertRuleInput>) => {
+    const updated = await updateAlertRule(id, updates);
+    setHoldingRules((prev) => prev.map((rule) => (rule.id === id ? updated : rule)));
   };
 
   const handleDeleteHoldingRule = async (id: number) => {
@@ -856,6 +862,7 @@ export default function PortfolioPage() {
           setFocusedAlertSymbol(null);
         }}
         onCreateRule={handleCreateHoldingRule}
+        onUpdateRule={handleUpdateHoldingRule}
         onDeleteRule={handleDeleteHoldingRule}
         onResetRule={handleResetHoldingRule}
       />
