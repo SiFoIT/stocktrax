@@ -763,14 +763,6 @@ export default function PortfolioPage() {
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAlertsPanelOpen(true)}
-                  className="bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-200 hover:bg-amber-500/20"
-                >
-                  Alerts
-                </Button>
                 {holdingsUpdatedAt && (
                   <span className="text-xs text-black/50 dark:text-white/50">
                     {formatUpdatedTime(holdingsUpdatedAt)}
