@@ -69,6 +69,9 @@ function renderBarLabel(totalMarketValue: number) {
 interface PortfolioStatsProps {
   data: PortfolioDashboardData | null;
   loading: boolean;
+  includeDividends?: boolean;
+  onToggleDividends?: (value: boolean) => void;
+  dividendsCadTotal?: number;
 }
 
 function StatCard({ label, value, subValue, colorClass }: { label: string; value: string; subValue?: string; colorClass?: string }) {
@@ -194,7 +197,7 @@ function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; t
   );
 }
 
-export function PortfolioStats({ data, loading }: PortfolioStatsProps) {
+export function PortfolioStats({ data, loading, includeDividends, onToggleDividends, dividendsCadTotal }: PortfolioStatsProps) {
   const [now] = useState(() => Date.now());
 
   if (loading) {
@@ -217,7 +220,14 @@ export function PortfolioStats({ data, loading }: PortfolioStatsProps) {
   if (!data || data.portfolios.length === 0) return null;
 
   const { totals, breakdowns } = data;
-  const gainColor = getChangeColor(totals.gainLoss);
+
+  const hasDividendToggle = includeDividends !== undefined && onToggleDividends !== undefined;
+  // For portfolio detail page, use dividendsCadTotal prop; for main page, use API data
+  const divTotal = hasDividendToggle ? (dividendsCadTotal ?? 0) : (totals.totalDividends ?? 0);
+  const showDividends = hasDividendToggle ? includeDividends : true;
+  const adjustedGainLoss = totals.gainLoss + (showDividends ? divTotal : 0);
+  const adjustedGainLossPercent = totals.costBasis > 0 ? (adjustedGainLoss / totals.costBasis) * 100 : 0;
+  const gainColor = getChangeColor(adjustedGainLoss);
 
   // Compute CAGR date context
   const earliestDate = new Date(totals.earliestTransactionDate);
@@ -228,12 +238,36 @@ export function PortfolioStats({ data, loading }: PortfolioStatsProps) {
     <div className="space-y-4">
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard
-          label="Total Return"
-          value={formatCurrency(totals.gainLoss, "CAD")}
-          subValue={`${totals.gainLossPercent >= 0 ? "+" : ""}${totals.gainLossPercent.toFixed(2)}%`}
-          colorClass={gainColor}
-        />
+        {hasDividendToggle ? (
+          <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider">Total Return</p>
+              <label className="flex items-center gap-1 cursor-pointer select-none" title={includeDividends ? "Including dividends" : "Excluding dividends"}>
+                <input
+                  type="checkbox"
+                  checked={includeDividends}
+                  onChange={(e) => onToggleDividends(e.target.checked)}
+                  className="w-3 h-3 rounded accent-emerald-500 cursor-pointer"
+                />
+                <span className="text-[10px] font-medium text-black/40 dark:text-white/40">Div</span>
+              </label>
+            </div>
+            <p className={`text-xl font-bold ${gainColor}`}>{formatCurrency(adjustedGainLoss, "CAD")}</p>
+            <p className={`text-sm mt-0.5 ${gainColor}`}>
+              {`${adjustedGainLossPercent >= 0 ? "+" : ""}${adjustedGainLossPercent.toFixed(2)}%`}
+              {includeDividends && divTotal > 0 ? ` · incl. ${formatCurrency(divTotal, "CAD")} div` : ""}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
+            <p className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider mb-1">Total Return</p>
+            <p className={`text-xl font-bold ${gainColor}`}>{formatCurrency(adjustedGainLoss, "CAD")}</p>
+            <p className={`text-sm mt-0.5 ${gainColor}`}>
+              {`${adjustedGainLossPercent >= 0 ? "+" : ""}${adjustedGainLossPercent.toFixed(2)}%`}
+              {divTotal > 0 ? ` · incl. ${formatCurrency(divTotal, "CAD")} div` : ""}
+            </p>
+          </div>
+        )}
         <StatCard
           label="CAGR"
           value={`${totals.cagr >= 0 ? "+" : ""}${totals.cagr.toFixed(2)}%`}

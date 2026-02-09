@@ -134,6 +134,7 @@ export interface PortfolioDashboardData {
     todayReturnPercent: number;
     cagr: number;
     earliestTransactionDate: string;
+    totalDividends?: number;
   };
   breakdowns: {
     assetType: BreakdownItem[];

@@ -286,6 +286,15 @@ export async function GET() {
       ? (totalTodayReturn / (totalMarketValue - totalTodayReturn)) * 100
       : 0;
 
+    // Total dividends across all portfolios (already computed in CAD during per-portfolio loop)
+    let allPortfolioDividends = 0;
+    for (const txn of allTransactions) {
+      if (txn.type !== "dividend") continue;
+      const holding = holdingById.get(txn.holdingId);
+      if (!holding) continue;
+      allPortfolioDividends += toCAD(txn.shares * txn.price, holdingCurrency(holding));
+    }
+
     // CAGR
     const daysSinceStart = (Date.now() - earliestTxDate.getTime()) / (1000 * 60 * 60 * 24);
     const yearsSinceStart = daysSinceStart / 365.25;
@@ -376,6 +385,7 @@ export async function GET() {
         todayReturnPercent: totalTodayReturnPercent,
         cagr,
         earliestTransactionDate: earliestTxDate.toISOString(),
+        totalDividends: allPortfolioDividends,
       },
       breakdowns: {
         assetType,

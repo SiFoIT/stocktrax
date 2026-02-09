@@ -305,6 +305,12 @@ export default function PortfolioPage() {
           currencyMap.set(h.currency, (currencyMap.get(h.currency) ?? 0) + mv);
         }
 
+        // Include cash balance in asset type breakdown
+        const cashTotal = cashBalance.cad + cashBalance.usd * (usdCadRate || 1);
+        if (cashTotal > 0) {
+          assetTypeMap.set("Cash", cashTotal);
+        }
+
         const toSorted = (map: Map<string, number>): BreakdownItem[] =>
           [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
@@ -933,7 +939,7 @@ export default function PortfolioPage() {
       )}
 
       {activeTab === "performance" && (
-        <PortfolioStats data={dashboardData} loading={dashboardLoading} />
+        <PortfolioStats data={dashboardData} loading={dashboardLoading} includeDividends={includeDividends} onToggleDividends={setIncludeDividends} dividendsCadTotal={dividendsCadTotal} />
       )}
 
       <AlertsPanel
