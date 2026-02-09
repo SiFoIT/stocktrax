@@ -66,7 +66,8 @@ export default function PortfolioPage() {
   const [holdingHistory, setHoldingHistory] = useState<AlertHistoryEntry[]>([]);
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
   const [focusedAlertSymbol, setFocusedAlertSymbol] = useState<string | null>(null);
-  const [cashBalance, setCashBalance] = useState<{ cad: number; usd: number }>({ cad: 0, usd: 0 });
+  const [cashBalance, setCashBalance] = useState<{ cad: number; usd: number; totalDividends: { cad: number; usd: number } }>({ cad: 0, usd: 0, totalDividends: { cad: 0, usd: 0 } });
+  const [includeDividends, setIncludeDividends] = useState(true);
 
   // State for MainNavTabs (used for dropdown highlighting)
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
@@ -470,7 +471,8 @@ export default function PortfolioPage() {
   const totalCost = cadCost + usdCost * rate;
   const cashCadTotal = cashBalance.cad + cashBalance.usd * rate;
   const totalValue = holdingsValue + cashCadTotal;
-  const totalGainLoss = holdingsValue - totalCost;
+  const dividendsCadTotal = cashBalance.totalDividends.cad + cashBalance.totalDividends.usd * rate;
+  const totalGainLoss = (holdingsValue - totalCost) + (includeDividends ? dividendsCadTotal : 0);
   const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
 
   const handleCreateHoldingRule = async (input: CreateAlertRuleInput) => {
@@ -625,12 +627,28 @@ export default function PortfolioPage() {
           value={`C$${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           subValue={hasMixedCurrencies ? `US$${usdCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} + C$${cadCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : undefined}
         />
-        <StatCard
-          label="Total Gain/Loss"
-          value={`${totalGainLoss >= 0 ? "+" : "-"}C$${Math.abs(totalGainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          subValue={hasMixedCurrencies ? `${totalGainLoss >= 0 ? "+" : "-"}${Math.abs(totalGainLossPercent).toFixed(2)}% · 1 USD = ${rate.toFixed(4)} CAD` : `${totalGainLoss >= 0 ? "+" : "-"}${Math.abs(totalGainLossPercent).toFixed(2)}%`}
-          colorClass={totalGainLoss >= 0 ? "text-emerald-400" : "text-red-400"}
-        />
+        <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-5">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-sm font-medium text-black/50 dark:text-white/50">Total Gain/Loss</p>
+            <label className="flex items-center gap-1 cursor-pointer select-none" title={includeDividends ? "Including dividends" : "Excluding dividends"}>
+              <input
+                type="checkbox"
+                checked={includeDividends}
+                onChange={(e) => setIncludeDividends(e.target.checked)}
+                className="w-3 h-3 rounded accent-emerald-500 cursor-pointer"
+              />
+              <span className="text-[10px] font-medium text-black/40 dark:text-white/40">Div</span>
+            </label>
+          </div>
+          <p className={`text-2xl font-bold ${totalGainLoss >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            {`${totalGainLoss >= 0 ? "+" : "-"}C$${Math.abs(totalGainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          </p>
+          <p className={`text-sm mt-1 ${totalGainLoss >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            {`${totalGainLoss >= 0 ? "+" : "-"}${Math.abs(totalGainLossPercent).toFixed(2)}%`}
+            {includeDividends && dividendsCadTotal > 0 ? ` · incl. C$${dividendsCadTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} div` : ""}
+            {hasMixedCurrencies ? ` · 1 USD = ${rate.toFixed(4)} CAD` : ""}
+          </p>
+        </div>
         <StatCard
           label="Holdings"
           value={activeHoldings.length.toString()}

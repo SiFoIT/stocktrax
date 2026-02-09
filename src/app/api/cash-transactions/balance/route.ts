@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
     .groupBy(schema.holdings.currency);
 
   const result: Record<string, number> = { cad: 0, usd: 0 };
+  const totalDividends: Record<string, number> = { cad: 0, usd: 0 };
 
   for (const row of cashRows) {
     const key = row.currency.toLowerCase();
@@ -54,8 +55,9 @@ export async function GET(request: NextRequest) {
       result[key] -= row.buys ?? 0;
       result[key] += row.sells ?? 0;
       result[key] += row.dividends ?? 0;
+      totalDividends[key] += row.dividends ?? 0;
     }
   }
 
-  return NextResponse.json(result);
+  return NextResponse.json({ ...result, totalDividends });
 }
