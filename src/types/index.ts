@@ -191,3 +191,28 @@ export interface AlertHistoryEntry {
 }
 
 export type TriggeredAlertSummary = AlertHistoryEntry;
+
+export interface StockTransactionRow {
+  kind: "stock";
+  id: number;
+  holdingId: number;
+  type: "buy" | "sell" | "dividend" | "transfer_in";
+  shares: number;
+  price: number;
+  date: string;
+  symbol: string;
+  currency: string;
+}
+
+export interface CashTransactionRow {
+  kind: "cash";
+  id: number;
+  portfolioId: number;
+  type: "contribution" | "deposit" | "refund" | "referral" | "transfer_in" | "transfer_out";
+  description: string;
+  amount: number;
+  date: string;
+  currency: string;
+}
+
+export type UnifiedTransaction = StockTransactionRow | CashTransactionRow;

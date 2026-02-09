@@ -2,14 +2,29 @@
 
 import { useState, useEffect, useRef } from "react";
 import { StockIcon } from "@/components/ui/stock-icon";
-import { TransactionWithSymbol } from "@/types";
+import { UnifiedTransaction, StockTransactionRow } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
+type SelectionKey = string; // "${kind}-${id}"
+
+function selKey(txn: UnifiedTransaction): SelectionKey {
+  return `${txn.kind}-${txn.id}`;
+}
+
+function parseSelKey(key: SelectionKey): { kind: "stock" | "cash"; id: number } {
+  const [kind, idStr] = key.split("-", 2);
+  return { kind: kind as "stock" | "cash", id: parseInt(idStr) };
+}
+
 interface TransactionsTableProps {
-  transactions: TransactionWithSymbol[];
-  onEditTransaction: (id: number, data: { shares?: number; price?: number; date?: string; type?: string }) => void;
-  onDeleteTransaction: (id: number) => void;
-  onDeleteTransactions: (ids: number[]) => void;
+  transactions: UnifiedTransaction[];
+  onEditTransaction: (
+    kind: "stock" | "cash",
+    id: number,
+    data: { shares?: number; price?: number; date?: string; type?: string; amount?: number; description?: string }
+  ) => void;
+  onDeleteTransaction: (kind: "stock" | "cash", id: number) => void;
+  onDeleteTransactions: (items: { kind: "stock" | "cash"; id: number }[]) => void;
   onDeleteAllTransactions: () => void;
 }
 
@@ -28,15 +43,33 @@ function getTypeBadge(type: string) {
       return "bg-amber-500/15 text-amber-400 border-amber-500/20";
     case "transfer_in":
       return "bg-blue-500/15 text-blue-400 border-blue-500/20";
+    case "contribution":
+      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/20";
+    case "deposit":
+      return "bg-teal-500/15 text-teal-400 border-teal-500/20";
+    case "refund":
+      return "bg-cyan-500/15 text-cyan-400 border-cyan-500/20";
+    case "referral":
+      return "bg-purple-500/15 text-purple-400 border-purple-500/20";
+    case "transfer_out":
+      return "bg-red-500/15 text-red-400 border-red-500/20";
     default:
       return "bg-white/10 text-white/70 border-white/10";
   }
 }
 
+function formatTypeLabel(type: string): string {
+  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getGroupKey(txn: UnifiedTransaction): string {
+  return txn.kind === "stock" ? txn.symbol : "Cash";
+}
+
 interface ContextMenu {
   x: number;
   y: number;
-  transactionId: number;
+  selectionKey: SelectionKey;
 }
 
 export function TransactionsTable({
@@ -47,17 +80,19 @@ export function TransactionsTable({
   onDeleteAllTransactions,
 }: TransactionsTableProps) {
   const [viewMode, setViewMode] = useState<"chronological" | "bySymbol">("chronological");
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingKey, setEditingKey] = useState<SelectionKey | null>(null);
   const [editShares, setEditShares] = useState("");
   const [editPrice, setEditPrice] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const [editDate, setEditDate] = useState("");
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
-  const [collapsedSymbols, setCollapsedSymbols] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<"date" | "symbol" | "type" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [selectedKeys, setSelectedKeys] = useState<Set<SelectionKey>>(new Set());
 
   const toggleSort = (key: "date" | "symbol" | "type") => {
     if (sortKey === key) {
@@ -77,7 +112,7 @@ export function TransactionsTable({
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setContextMenu(null);
-        if (editingId !== null) setEditingId(null);
+        if (editingKey !== null) setEditingKey(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -86,27 +121,40 @@ export function TransactionsTable({
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [editingId]);
+  }, [editingKey]);
 
-  const startEditing = (txn: TransactionWithSymbol) => {
-    setEditingId(txn.id);
-    setEditShares(txn.shares.toString());
-    setEditPrice(txn.price.toString());
+  const startEditing = (txn: UnifiedTransaction) => {
+    const key = selKey(txn);
+    setEditingKey(key);
     setEditDate(toInputDate(txn.date));
+    if (txn.kind === "stock") {
+      setEditShares(txn.shares.toString());
+      setEditPrice(txn.price.toString());
+    } else {
+      setEditAmount(txn.amount.toString());
+      setEditDescription(txn.description);
+    }
     setContextMenu(null);
   };
 
   const cancelEditing = () => {
-    setEditingId(null);
+    setEditingKey(null);
   };
 
   const saveEditing = () => {
-    if (editingId === null) return;
-    const shares = parseFloat(editShares);
-    const price = parseFloat(editPrice);
-    if (isNaN(shares) || shares <= 0 || isNaN(price) || price <= 0) return;
-    onEditTransaction(editingId, { shares, price, date: editDate });
-    setEditingId(null);
+    if (editingKey === null) return;
+    const { kind, id } = parseSelKey(editingKey);
+    if (kind === "stock") {
+      const shares = parseFloat(editShares);
+      const price = parseFloat(editPrice);
+      if (isNaN(shares) || shares <= 0 || isNaN(price) || price <= 0) return;
+      onEditTransaction(kind, id, { shares, price, date: editDate });
+    } else {
+      const amount = parseFloat(editAmount);
+      if (isNaN(amount)) return;
+      onEditTransaction(kind, id, { amount, description: editDescription, date: editDate });
+    }
+    setEditingKey(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -118,63 +166,70 @@ export function TransactionsTable({
     }
   };
 
-  const handleContextMenu = (e: React.MouseEvent, transactionId: number) => {
+  const handleContextMenu = (e: React.MouseEvent, key: SelectionKey) => {
     e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, transactionId });
+    setContextMenu({ x: e.clientX, y: e.clientY, selectionKey: key });
   };
 
-  const toggleSelect = (id: number) => {
-    setSelectedIds((prev) => {
+  const toggleSelect = (key: SelectionKey) => {
+    setSelectedKeys((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
 
-  const toggleSelectAll = (visibleIds: number[]) => {
-    const allSelected = visibleIds.every((id) => selectedIds.has(id));
+  const toggleSelectAll = (visibleKeys: SelectionKey[]) => {
+    const allSelected = visibleKeys.every((key) => selectedKeys.has(key));
     if (allSelected) {
-      setSelectedIds((prev) => {
+      setSelectedKeys((prev) => {
         const next = new Set(prev);
-        visibleIds.forEach((id) => next.delete(id));
+        visibleKeys.forEach((key) => next.delete(key));
         return next;
       });
     } else {
-      setSelectedIds((prev) => {
+      setSelectedKeys((prev) => {
         const next = new Set(prev);
-        visibleIds.forEach((id) => next.add(id));
+        visibleKeys.forEach((key) => next.add(key));
         return next;
       });
     }
   };
 
   const handleDeleteSelected = () => {
-    onDeleteTransactions([...selectedIds]);
+    onDeleteTransactions([...selectedKeys].map(parseSelKey));
   };
 
-  const toggleSymbolCollapse = (symbol: string) => {
-    setCollapsedSymbols((prev) => {
+  const toggleGroupCollapse = (group: string) => {
+    setCollapsedGroups((prev) => {
       const next = new Set(prev);
-      if (next.has(symbol)) next.delete(symbol);
-      else next.add(symbol);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
       return next;
     });
   };
 
   const filteredUnsorted = search
-    ? transactions.filter((txn) =>
-        txn.symbol.toLowerCase().includes(search.toLowerCase()) ||
-        txn.type.toLowerCase().includes(search.toLowerCase())
-      )
+    ? transactions.filter((txn) => {
+        const s = search.toLowerCase();
+        if (txn.type.toLowerCase().includes(s)) return true;
+        if (formatTypeLabel(txn.type).toLowerCase().includes(s)) return true;
+        if (txn.kind === "stock" && txn.symbol.toLowerCase().includes(s)) return true;
+        if (txn.kind === "cash" && txn.description.toLowerCase().includes(s)) return true;
+        return false;
+      })
     : transactions;
 
   const filtered = sortKey
     ? [...filteredUnsorted].sort((a, b) => {
         let cmp = 0;
         if (sortKey === "date") cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
-        else if (sortKey === "symbol") cmp = a.symbol.localeCompare(b.symbol);
-        else if (sortKey === "type") cmp = a.type.localeCompare(b.type);
+        else if (sortKey === "symbol") {
+          const aLabel = a.kind === "stock" ? a.symbol : "Cash";
+          const bLabel = b.kind === "stock" ? b.symbol : "Cash";
+          cmp = aLabel.localeCompare(bLabel);
+        } else if (sortKey === "type") cmp = a.type.localeCompare(b.type);
         return sortDir === "asc" ? cmp : -cmp;
       })
     : filteredUnsorted;
@@ -193,133 +248,184 @@ export function TransactionsTable({
     );
   }
 
-  const renderRow = (txn: TransactionWithSymbol, index: number, showSymbol = true) => (
-    <tr
-      key={txn.id}
-      className={`border-b border-white/5 transition-all hover:bg-black/5 dark:hover:bg-white/5 ${
-        selectedIds.has(txn.id) ? "bg-blue-500/10 dark:bg-blue-500/10" : index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""
-      }`}
-      onContextMenu={(e) => handleContextMenu(e, txn.id)}
-    >
-      <td className="px-4 py-3 w-10">
-        <input
-          type="checkbox"
-          checked={selectedIds.has(txn.id)}
-          onChange={() => toggleSelect(txn.id)}
-          className="w-4 h-4 rounded border-black/20 dark:border-white/20 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
-        />
-      </td>
-      <td className="px-4 py-3 text-sm">
-        {editingId === txn.id ? (
+  const renderRow = (txn: UnifiedTransaction, index: number, showSymbol = true) => {
+    const key = selKey(txn);
+    const isEditing = editingKey === key;
+    const isCash = txn.kind === "cash";
+
+    return (
+      <tr
+        key={key}
+        className={`border-b border-white/5 transition-all hover:bg-black/5 dark:hover:bg-white/5 ${
+          selectedKeys.has(key) ? "bg-blue-500/10 dark:bg-blue-500/10" : index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""
+        }`}
+        onContextMenu={(e) => handleContextMenu(e, key)}
+      >
+        <td className="px-4 py-3 w-10">
           <input
-            type="date"
-            value={editDate}
-            onChange={(e) => setEditDate(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="w-32 px-2 py-1 text-sm rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            type="checkbox"
+            checked={selectedKeys.has(key)}
+            onChange={() => toggleSelect(key)}
+            className="w-4 h-4 rounded border-black/20 dark:border-white/20 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
           />
-        ) : (
-          <span className="text-black/70 dark:text-white/70">{formatDate(txn.date)}</span>
+        </td>
+        <td className="px-4 py-3 text-sm">
+          {isEditing ? (
+            <input
+              type="date"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-32 px-2 py-1 text-sm rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          ) : (
+            <span className="text-black/70 dark:text-white/70">{formatDate(txn.date)}</span>
+          )}
+        </td>
+        {showSymbol && (
+          <td className="px-4 py-3">
+            {isCash ? (
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="w-40 px-2 py-1 text-sm rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <span className="text-sm text-black/70 dark:text-white/70 truncate max-w-[200px]" title={txn.description}>
+                    {txn.description}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <StockIcon symbol={txn.symbol} size="sm" />
+                <span className="font-semibold text-sm text-black dark:text-white">{txn.symbol}</span>
+              </div>
+            )}
+          </td>
         )}
-      </td>
-      {showSymbol && (
         <td className="px-4 py-3">
-          <div className="flex items-center gap-2">
-            <StockIcon symbol={txn.symbol} size="sm" />
-            <span className="font-semibold text-sm text-black dark:text-white">{txn.symbol}</span>
+          <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-semibold uppercase border ${getTypeBadge(txn.type)}`}>
+            {formatTypeLabel(txn.type)}
+          </span>
+        </td>
+        <td className="px-4 py-3 text-right">
+          {isCash ? (
+            <span className="text-black/30 dark:text-white/30">&mdash;</span>
+          ) : isEditing ? (
+            <input
+              type="number"
+              value={editShares}
+              onChange={(e) => setEditShares(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-20 px-2 py-1 text-right text-sm font-mono rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              min="0"
+              step="any"
+              autoFocus
+            />
+          ) : (
+            <span className="font-mono text-sm text-black dark:text-white">{txn.shares.toLocaleString()}</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-right">
+          {isCash ? (
+            <span className="text-black/30 dark:text-white/30">&mdash;</span>
+          ) : isEditing ? (
+            <input
+              type="number"
+              value={editPrice}
+              onChange={(e) => setEditPrice(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-24 px-2 py-1 text-right text-sm font-mono rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              min="0"
+              step="any"
+            />
+          ) : (
+            <span className="font-mono text-sm text-black/70 dark:text-white/70">{formatCurrency(txn.price, txn.currency)}</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-right">
+          {isCash ? (
+            isEditing ? (
+              <input
+                type="number"
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-24 px-2 py-1 text-right text-sm font-mono rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                step="any"
+                autoFocus
+              />
+            ) : (
+              <span className={`font-mono text-sm font-semibold ${txn.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {formatCurrency(Math.abs(txn.amount), txn.currency)}
+              </span>
+            )
+          ) : (
+            <span className="font-mono text-sm font-semibold text-black dark:text-white">
+              {formatCurrency((txn as StockTransactionRow).shares * (txn as StockTransactionRow).price, txn.currency)}
+            </span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-right">
+          <div className="flex items-center justify-end gap-1">
+            {isEditing ? (
+              <>
+                <button
+                  className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 p-2 rounded-lg transition-all"
+                  onClick={saveEditing}
+                  title="Save"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+                <button
+                  className="text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10 p-2 rounded-lg transition-all"
+                  onClick={cancelEditing}
+                  title="Cancel"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className="text-black/40 dark:text-white/40 hover:text-blue-400 hover:bg-blue-500/10 p-2 rounded-lg transition-all"
+                  onClick={() => startEditing(txn)}
+                  title="Edit"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+                <button
+                  className="text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all"
+                  onClick={() => onDeleteTransaction(txn.kind, txn.id)}
+                  title="Delete"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
         </td>
-      )}
-      <td className="px-4 py-3">
-        <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-semibold uppercase border ${getTypeBadge(txn.type)}`}>
-          {txn.type === "transfer_in" ? "Transfer In" : txn.type}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-right">
-        {editingId === txn.id ? (
-          <input
-            type="number"
-            value={editShares}
-            onChange={(e) => setEditShares(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="w-20 px-2 py-1 text-right text-sm font-mono rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            min="0"
-            step="any"
-            autoFocus
-          />
-        ) : (
-          <span className="font-mono text-sm text-black dark:text-white">{txn.shares.toLocaleString()}</span>
-        )}
-      </td>
-      <td className="px-4 py-3 text-right">
-        {editingId === txn.id ? (
-          <input
-            type="number"
-            value={editPrice}
-            onChange={(e) => setEditPrice(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="w-24 px-2 py-1 text-right text-sm font-mono rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            min="0"
-            step="any"
-          />
-        ) : (
-          <span className="font-mono text-sm text-black/70 dark:text-white/70">{formatCurrency(txn.price, txn.currency)}</span>
-        )}
-      </td>
-      <td className="px-4 py-3 text-right">
-        <span className="font-mono text-sm font-semibold text-black dark:text-white">
-          {formatCurrency(txn.shares * txn.price, txn.currency)}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-right">
-        <div className="flex items-center justify-end gap-1">
-          {editingId === txn.id ? (
-            <>
-              <button
-                className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 p-2 rounded-lg transition-all"
-                onClick={saveEditing}
-                title="Save"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-              <button
-                className="text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10 p-2 rounded-lg transition-all"
-                onClick={cancelEditing}
-                title="Cancel"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                className="text-black/40 dark:text-white/40 hover:text-blue-400 hover:bg-blue-500/10 p-2 rounded-lg transition-all"
-                onClick={() => startEditing(txn)}
-                title="Edit"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-              </button>
-              <button
-                className="text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all"
-                onClick={() => onDeleteTransaction(txn.id)}
-                title="Delete"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            </>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
+      </tr>
+    );
+  };
 
   const sortArrow = (key: "date" | "symbol" | "type") => {
     if (sortKey !== key) return null;
@@ -333,14 +439,14 @@ export function TransactionsTable({
   const sortableThClass = "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left cursor-pointer select-none transition-colors hover:text-black dark:hover:text-white";
   const staticThClass = "px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right";
 
-  const tableHeaders = (showSymbol = true, visibleIds: number[] = []) => (
+  const tableHeaders = (showSymbol = true, visibleKeys: SelectionKey[] = []) => (
     <thead>
       <tr className="border-b border-black/10 dark:border-white/10">
         <th className="px-4 py-3 w-10">
           <input
             type="checkbox"
-            checked={visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id))}
-            onChange={() => toggleSelectAll(visibleIds)}
+            checked={visibleKeys.length > 0 && visibleKeys.every((key) => selectedKeys.has(key))}
+            onChange={() => toggleSelectAll(visibleKeys)}
             className="w-4 h-4 rounded border-black/20 dark:border-white/20 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
           />
         </th>
@@ -363,12 +469,20 @@ export function TransactionsTable({
     </thead>
   );
 
-  // Group filtered transactions by symbol
-  const grouped = filtered.reduce<Record<string, TransactionWithSymbol[]>>((acc, txn) => {
-    if (!acc[txn.symbol]) acc[txn.symbol] = [];
-    acc[txn.symbol].push(txn);
+  // Group filtered transactions by symbol / "Cash"
+  const grouped = filtered.reduce<Record<string, UnifiedTransaction[]>>((acc, txn) => {
+    const group = getGroupKey(txn);
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(txn);
     return acc;
   }, {});
+
+  // Sort groups: stock symbols alphabetically, "Cash" last
+  const sortedGroupEntries = Object.entries(grouped).sort(([a], [b]) => {
+    if (a === "Cash") return 1;
+    if (b === "Cash") return -1;
+    return a.localeCompare(b);
+  });
 
   return (
     <div>
@@ -397,13 +511,13 @@ export function TransactionsTable({
               By Symbol
             </button>
           </div>
-          {selectedIds.size > 0 && (
+          {selectedKeys.size > 0 && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
               <span className="text-xs font-medium text-blue-400">
-                {selectedIds.size} selected
+                {selectedKeys.size} selected
               </span>
               <button
-                onClick={() => setSelectedIds(new Set())}
+                onClick={() => setSelectedKeys(new Set())}
                 className="text-xs text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white transition-colors"
               >
                 Deselect
@@ -427,8 +541,8 @@ export function TransactionsTable({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Filter by symbol or type..."
-              className="w-56 pl-9 pr-8 py-1.5 text-sm rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              placeholder="Filter by symbol, type, or description..."
+              className="w-64 pl-9 pr-8 py-1.5 text-sm rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             />
             {search && (
               <button
@@ -441,7 +555,7 @@ export function TransactionsTable({
               </button>
             )}
           </div>
-          {selectedIds.size === 0 && (
+          {selectedKeys.size === 0 && (
             <button
               onClick={onDeleteAllTransactions}
               className="px-3 py-1.5 text-xs font-medium rounded-lg text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
@@ -460,7 +574,7 @@ export function TransactionsTable({
       ) : viewMode === "chronological" ? (
         <div className="overflow-x-auto">
           <table className="w-full">
-            {tableHeaders(true, filtered.map((t) => t.id))}
+            {tableHeaders(true, filtered.map(selKey))}
             <tbody>
               {filtered.map((txn, i) => renderRow(txn, i, true))}
             </tbody>
@@ -468,45 +582,52 @@ export function TransactionsTable({
         </div>
       ) : (
         <div className="space-y-4">
-          {Object.entries(grouped)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([symbol, txns]) => {
-              const isCollapsed = collapsedSymbols.has(symbol);
-              return (
-                <div key={symbol} className="rounded-xl border border-black/10 dark:border-white/10 overflow-hidden">
-                  <button
-                    onClick={() => toggleSymbolCollapse(symbol)}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-black/[0.03] dark:bg-white/[0.03] hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+          {sortedGroupEntries.map(([group, txns]) => {
+            const isCollapsed = collapsedGroups.has(group);
+            const isCashGroup = group === "Cash";
+            return (
+              <div key={group} className="rounded-xl border border-black/10 dark:border-white/10 overflow-hidden">
+                <button
+                  onClick={() => toggleGroupCollapse(group)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-black/[0.03] dark:bg-white/[0.03] hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    {isCashGroup ? (
+                      <div className="w-6 h-6 rounded-md bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <StockIcon symbol={group} size="sm" />
+                    )}
+                    <span className="font-semibold text-black dark:text-white">{group}</span>
+                    <span className="text-xs text-black/50 dark:text-white/50">
+                      {txns.length} transaction{txns.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <svg
+                    className={`w-4 h-4 text-black/40 dark:text-white/40 transition-transform ${isCollapsed ? "" : "rotate-180"}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <div className="flex items-center gap-3">
-                      <StockIcon symbol={symbol} size="sm" />
-                      <span className="font-semibold text-black dark:text-white">{symbol}</span>
-                      <span className="text-xs text-black/50 dark:text-white/50">
-                        {txns.length} transaction{txns.length !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                    <svg
-                      className={`w-4 h-4 text-black/40 dark:text-white/40 transition-transform ${isCollapsed ? "" : "rotate-180"}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {!isCollapsed && (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        {tableHeaders(false, txns.map((t) => t.id))}
-                        <tbody>
-                          {txns.map((txn, i) => renderRow(txn, i, false))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {!isCollapsed && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      {tableHeaders(false, txns.map(selKey))}
+                      <tbody>
+                        {txns.map((txn, i) => renderRow(txn, i, false))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -520,7 +641,7 @@ export function TransactionsTable({
           <button
             className="w-full px-4 py-2.5 text-left text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-3 transition-colors"
             onClick={() => {
-              const txn = transactions.find((t) => t.id === contextMenu.transactionId);
+              const txn = transactions.find((t) => selKey(t) === contextMenu.selectionKey);
               if (txn) startEditing(txn);
             }}
           >
@@ -532,7 +653,8 @@ export function TransactionsTable({
           <button
             className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-3 transition-colors"
             onClick={() => {
-              onDeleteTransaction(contextMenu.transactionId);
+              const { kind, id } = parseSelKey(contextMenu.selectionKey);
+              onDeleteTransaction(kind, id);
               setContextMenu(null);
             }}
           >

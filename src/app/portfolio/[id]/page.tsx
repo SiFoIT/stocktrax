@@ -24,6 +24,9 @@ import {
   AlertRuleDTO,
   AlertHistoryEntry,
   TriggeredAlertSummary,
+  UnifiedTransaction,
+  StockTransactionRow,
+  CashTransactionRow,
 } from "@/types";
 import { formatUpdatedTime } from "@/lib/utils";
 import { AlertsPanel } from "@/components/alerts/alerts-panel";
@@ -53,6 +56,7 @@ export default function PortfolioPage() {
   const [portfolioNews, setPortfolioNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const [transactionsData, setTransactionsData] = useState<TransactionWithSymbol[]>([]);
+  const [unifiedTransactions, setUnifiedTransactions] = useState<UnifiedTransaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [prefillSymbol, setPrefillSymbol] = useState<string | null>(null);
   const [showCsvImport, setShowCsvImport] = useState(false);
@@ -184,11 +188,23 @@ export default function PortfolioPage() {
   const fetchTransactions = useCallback(async () => {
     setTransactionsLoading(true);
     try {
-      const response = await fetch(`/api/transactions?portfolioId=${portfolioId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setTransactionsData(data);
-      }
+      const [stockRes, cashRes] = await Promise.all([
+        fetch(`/api/transactions?portfolioId=${portfolioId}`),
+        fetch(`/api/cash-transactions?portfolioId=${portfolioId}`),
+      ]);
+
+      const stockData: TransactionWithSymbol[] = stockRes.ok ? await stockRes.json() : [];
+      const cashData: CashTransactionRow[] = cashRes.ok
+        ? (await cashRes.json()).map((c: Omit<CashTransactionRow, "kind">) => ({ ...c, kind: "cash" as const }))
+        : [];
+
+      setTransactionsData(stockData);
+
+      const stockUnified: StockTransactionRow[] = stockData.map((t) => ({ ...t, kind: "stock" as const }));
+      const merged: UnifiedTransaction[] = [...stockUnified, ...cashData].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      setUnifiedTransactions(merged);
     } catch {
     } finally {
       setTransactionsLoading(false);
@@ -334,56 +350,81 @@ export default function PortfolioPage() {
     setHoldingsView("transactions");
   };
 
-  const handleEditTransaction = async (id: number, data: { shares?: number; price?: number; date?: string; type?: string }) => {
+  const handleEditTransaction = async (
+    kind: "stock" | "cash",
+    id: number,
+    data: { shares?: number; price?: number; date?: string; type?: string; amount?: number; description?: string }
+  ) => {
     try {
-      await fetch(`/api/transactions?id=${id}`, {
+      const endpoint = kind === "cash" ? "/api/cash-transactions" : "/api/transactions";
+      await fetch(`${endpoint}?id=${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       fetchTransactions();
-      fetchHoldings();
+      if (kind === "stock") fetchHoldings();
     } catch {
     }
   };
 
-  const handleDeleteTransaction = async (id: number) => {
+  const handleDeleteTransaction = async (kind: "stock" | "cash", id: number) => {
     if (!confirm("Are you sure you want to delete this transaction?")) return;
 
     try {
-      await fetch(`/api/transactions?id=${id}`, { method: "DELETE" });
+      const endpoint = kind === "cash" ? "/api/cash-transactions" : "/api/transactions";
+      await fetch(`${endpoint}?id=${id}`, { method: "DELETE" });
       fetchTransactions();
-      fetchHoldings();
+      if (kind === "stock") fetchHoldings();
     } catch {
     }
   };
 
-  const handleDeleteTransactions = async (ids: number[]) => {
-    if (!confirm(`Delete ${ids.length} transaction${ids.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+  const handleDeleteTransactions = async (items: { kind: "stock" | "cash"; id: number }[]) => {
+    if (!confirm(`Delete ${items.length} transaction${items.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
 
     try {
-      await fetch("/api/transactions", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
+      const stockIds = items.filter((i) => i.kind === "stock").map((i) => i.id);
+      const cashIds = items.filter((i) => i.kind === "cash").map((i) => i.id);
+
+      const promises: Promise<Response>[] = [];
+      if (stockIds.length > 0) {
+        promises.push(
+          fetch("/api/transactions", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: stockIds }),
+          })
+        );
+      }
+      if (cashIds.length > 0) {
+        promises.push(
+          fetch("/api/cash-transactions", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: cashIds }),
+          })
+        );
+      }
+      await Promise.all(promises);
       fetchTransactions();
-      fetchHoldings();
+      if (stockIds.length > 0) fetchHoldings();
     } catch {
     }
   };
 
   const handleDeleteAllTransactions = async () => {
-    const count = transactionsData.length;
+    const count = unifiedTransactions.length;
     if (!confirm(`Delete ALL ${count} transactions in this portfolio? This cannot be undone.`)) return;
 
     const typed = prompt(`Type DELETE to confirm removing all ${count} transactions`);
     if (typed !== "DELETE") return;
 
     try {
-      await fetch(`/api/transactions?portfolioId=${portfolioId}&all=true`, {
-        method: "DELETE",
-      });
+      await Promise.all([
+        fetch(`/api/transactions?portfolioId=${portfolioId}&all=true`, { method: "DELETE" }),
+        fetch(`/api/cash-transactions?portfolioId=${portfolioId}&all=true`, { method: "DELETE" }),
+      ]);
       fetchTransactions();
       fetchHoldings();
     } catch {
@@ -826,7 +867,7 @@ export default function PortfolioPage() {
                     </div>
                   ) : (
                     <TransactionsTable
-                      transactions={transactionsData}
+                      transactions={unifiedTransactions}
                       onEditTransaction={handleEditTransaction}
                       onDeleteTransaction={handleDeleteTransaction}
                       onDeleteTransactions={handleDeleteTransactions}
