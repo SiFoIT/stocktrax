@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
+import { InfoTip } from "@/components/ui/info-tip";
 import { HoldingWithQuote, TransactionWithSymbol } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -37,19 +38,6 @@ function SortIcon({ direction }: { direction: SortDirection | null }) {
       className={`ml-1 transition-opacity ${direction ? "opacity-100" : "opacity-30"}`}
     >
       {direction === "asc" ? "↑" : direction === "desc" ? "↓" : "↕"}
-    </span>
-  );
-}
-
-function InfoTip({ text }: { text: string }) {
-  return (
-    <span className="group/tip relative inline-flex ml-1 align-middle">
-      <svg className="w-3.5 h-3.5 text-black/30 dark:text-white/30 group-hover/tip:text-black/60 dark:group-hover/tip:text-white/60 transition-colors cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 hidden group-hover/tip:block w-48 rounded-lg bg-zinc-800 border border-white/10 px-3 py-2 text-xs text-white/80 leading-relaxed shadow-xl text-left font-normal normal-case tracking-normal">
-        {text}
-      </span>
     </span>
   );
 }

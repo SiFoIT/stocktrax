@@ -12,6 +12,7 @@ import type {
 } from "@/types";
 import { CreateAlertRuleInput } from "@/lib/alerts/api";
 import { ALERT_METRIC_LABELS, ALERT_OPERATOR_LABELS, ALERT_RESET_LABELS } from "@/lib/alerts/config";
+import { InfoTip } from "@/components/ui/info-tip";
 
 interface AlertsPanelProps {
   open: boolean;
@@ -187,7 +188,7 @@ export function AlertsPanel({
           <section>
             <h3 className="text-sm font-semibold mb-3">Create alert</h3>
             <form onSubmit={handleSubmit} className="space-y-3 bg-black/5 dark:bg-white/5 rounded-xl p-4">
-              <label className={LABEL_CLASS}>Target</label>
+              <label className={LABEL_CLASS}>Target <InfoTip text="The symbol this alert watches." /></label>
               <select
                 className={SELECT_CLASS}
                 value={selectedSource ?? ""}
@@ -206,7 +207,7 @@ export function AlertsPanel({
 
               <div className="flex gap-3">
                 <div className="w-1/2">
-                  <label className={LABEL_CLASS}>Metric</label>
+                  <label className={LABEL_CLASS}>Metric <InfoTip text="The value to monitor: daily move %, quote price, % from an anchor price, or holding gain/loss %." /></label>
                   <select
                     className={SELECT_CLASS}
                     value={metric}
@@ -220,7 +221,7 @@ export function AlertsPanel({
                   </select>
                 </div>
                 <div className="w-1/2">
-                  <label className={LABEL_CLASS}>Operator</label>
+                  <label className={LABEL_CLASS}>Operator <InfoTip text="Direction of the trigger. 'At or above' fires when the value reaches or exceeds the threshold. 'At or below' fires when it drops to or past it." /></label>
                   <select
                     className={SELECT_CLASS}
                     value={operator}
@@ -235,7 +236,7 @@ export function AlertsPanel({
                 </div>
               </div>
 
-              <label className={LABEL_CLASS}>Threshold</label>
+              <label className={LABEL_CLASS}>Threshold <InfoTip text="The boundary value. Use negative numbers for drops (e.g. -5 for a 5% decline)." /></label>
               <input
                 type="number"
                 step="0.1"
@@ -247,7 +248,7 @@ export function AlertsPanel({
 
               {metric === "price_vs_anchor" && (
                 <div>
-                  <label className={LABEL_CLASS}>Anchor price</label>
+                  <label className={LABEL_CLASS}>Anchor price <InfoTip text="Reference price for comparison. Leave blank to use the current price at creation." /></label>
                   <input
                     type="number"
                     step="0.01"
@@ -261,7 +262,7 @@ export function AlertsPanel({
 
               {resetStrategy === "cooldown" && (
                 <div>
-                  <label className={LABEL_CLASS}>Cooldown (minutes)</label>
+                  <label className={LABEL_CLASS}>Cooldown (minutes) <InfoTip text="Minutes to wait before this alert can fire again." /></label>
                   <input
                     type="number"
                     min={5}
@@ -272,7 +273,7 @@ export function AlertsPanel({
                 </div>
               )}
 
-              <label className={LABEL_CLASS}>Reset</label>
+              <label className={LABEL_CLASS}>Reset <InfoTip text="How the alert re-arms. Recovery: resets when value crosses back. Cooldown: waits a set time. Manual: stays muted until you reset." /></label>
               <select
                 className={SELECT_CLASS}
                 value={resetStrategy}
@@ -304,7 +305,7 @@ export function AlertsPanel({
                       <p className="text-sm font-semibold">{rule.symbol}</p>
                       <div className="flex gap-3">
                         <div className="w-1/2">
-                          <label className={LABEL_CLASS}>Metric</label>
+                          <label className={LABEL_CLASS}>Metric <InfoTip text="The value to monitor: daily move %, quote price, % from an anchor price, or holding gain/loss %." /></label>
                           <select className={SELECT_CLASS} value={editMetric} onChange={(e) => setEditMetric(e.target.value as AlertMetric)}>
                             {metricOptions.map((opt) => (
                               <option key={opt} value={opt}>{ALERT_METRIC_LABELS[opt]}</option>
@@ -312,7 +313,7 @@ export function AlertsPanel({
                           </select>
                         </div>
                         <div className="w-1/2">
-                          <label className={LABEL_CLASS}>Operator</label>
+                          <label className={LABEL_CLASS}>Operator <InfoTip text="Direction of the trigger. 'At or above' fires when the value reaches or exceeds the threshold. 'At or below' fires when it drops to or past it." /></label>
                           <select className={SELECT_CLASS} value={editOperator} onChange={(e) => setEditOperator(e.target.value as AlertOperator)}>
                             {(["gte", "lte"] as AlertOperator[]).map((opt) => (
                               <option key={opt} value={opt}>{ALERT_OPERATOR_LABELS[opt]}</option>
@@ -322,7 +323,7 @@ export function AlertsPanel({
                       </div>
 
                       <div>
-                        <label className={LABEL_CLASS}>Threshold</label>
+                        <label className={LABEL_CLASS}>Threshold <InfoTip text="The boundary value. Use negative numbers for drops (e.g. -5 for a 5% decline)." /></label>
                         <input
                           type="number"
                           step="0.1"
@@ -335,7 +336,7 @@ export function AlertsPanel({
 
                       {editMetric === "price_vs_anchor" && (
                         <div>
-                          <label className={LABEL_CLASS}>Anchor price</label>
+                          <label className={LABEL_CLASS}>Anchor price <InfoTip text="Reference price for comparison. Leave blank to use the current price at creation." /></label>
                           <input
                             type="number"
                             step="0.01"
@@ -348,7 +349,7 @@ export function AlertsPanel({
                       )}
 
                       <div>
-                        <label className={LABEL_CLASS}>Reset</label>
+                        <label className={LABEL_CLASS}>Reset <InfoTip text="How the alert re-arms. Recovery: resets when value crosses back. Cooldown: waits a set time. Manual: stays muted until you reset." /></label>
                         <select className={SELECT_CLASS} value={editResetStrategy} onChange={(e) => setEditResetStrategy(e.target.value as AlertResetStrategy)}>
                           {(["manual", "recovery", "cooldown", "baseline", "end_of_day"] as AlertResetStrategy[]).map((opt) => (
                             <option key={opt} value={opt}>{ALERT_RESET_LABELS[opt]}</option>
@@ -358,7 +359,7 @@ export function AlertsPanel({
 
                       {editResetStrategy === "cooldown" && (
                         <div>
-                          <label className={LABEL_CLASS}>Cooldown (minutes)</label>
+                          <label className={LABEL_CLASS}>Cooldown (minutes) <InfoTip text="Minutes to wait before this alert can fire again." /></label>
                           <input
                             type="number"
                             min={5}
@@ -385,7 +386,7 @@ export function AlertsPanel({
                       <div>
                         <p className="text-sm font-semibold">{rule.symbol}</p>
                         <p className="text-xs text-black/50 dark:text-white/50">
-                          {ALERT_METRIC_LABELS[rule.metric]} {ALERT_OPERATOR_LABELS[rule.operator]} {rule.threshold}
+                          {ALERT_METRIC_LABELS[rule.metric]} · {ALERT_OPERATOR_LABELS[rule.operator]} {rule.threshold}
                         </p>
                         <p className="text-xs text-black/40 dark:text-white/40">{ALERT_RESET_LABELS[rule.resetStrategy]}</p>
                       </div>

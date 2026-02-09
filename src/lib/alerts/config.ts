@@ -35,6 +35,6 @@ export const ALERT_RESET_LABELS: Record<AlertResetStrategy, string> = {
 };
 
 export const ALERT_OPERATOR_LABELS: Record<AlertOperator, string> = {
-  gte: "≥",
-  lte: "≤",
+  gte: "at or above",
+  lte: "at or below",
 };
