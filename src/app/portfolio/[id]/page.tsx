@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { HoldingsTable } from "@/components/portfolio/holdings-table";
 import { PortfolioPerformanceTable } from "@/components/portfolio/portfolio-performance-table";
@@ -43,6 +43,7 @@ import type { CreateAlertRuleInput } from "@/lib/alerts/api";
 
 export default function PortfolioPage() {
   const params = useParams();
+  const router = useRouter();
   const portfolioId = parseInt(params.id as string);
 
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -602,14 +603,17 @@ export default function PortfolioPage() {
 
         {/* Portfolio Title */}
         <div className="flex items-center gap-4">
-          <Link
-            href="/?tab=portfolios"
+          <button
+            onClick={() => {
+              sessionStorage.setItem("navigateToTab", "portfolios");
+              router.push("/");
+            }}
             className="w-10 h-10 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-center text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-all"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-          </Link>
+          </button>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center">
               <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
