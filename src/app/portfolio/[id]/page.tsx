@@ -466,9 +466,11 @@ export default function PortfolioPage() {
   const rate = usdCadRate || 1;
   const hasMixedCurrencies = cadHoldings.length > 0 && usdHoldings.length > 0;
 
-  const totalValue = cadValue + usdValue * rate;
+  const holdingsValue = cadValue + usdValue * rate;
   const totalCost = cadCost + usdCost * rate;
-  const totalGainLoss = totalValue - totalCost;
+  const cashCadTotal = cashBalance.cad + cashBalance.usd * rate;
+  const totalValue = holdingsValue + cashCadTotal;
+  const totalGainLoss = holdingsValue - totalCost;
   const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
 
   const handleCreateHoldingRule = async (input: CreateAlertRuleInput) => {
@@ -635,7 +637,6 @@ export default function PortfolioPage() {
           subValue={hasMixedCurrencies ? `${usdHoldings.length} USD · ${cadHoldings.length} CAD` : undefined}
         />
         {(() => {
-          const cashCadTotal = cashBalance.cad + cashBalance.usd * rate;
           const hasBothCash = cashBalance.cad !== 0 && cashBalance.usd !== 0;
           const hasCash = cashBalance.cad !== 0 || cashBalance.usd !== 0;
           return (
