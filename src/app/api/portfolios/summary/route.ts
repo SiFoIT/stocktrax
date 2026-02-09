@@ -386,6 +386,7 @@ export async function GET() {
         cagr,
         earliestTransactionDate: earliestTxDate.toISOString(),
         totalDividends: allPortfolioDividends,
+        totalCash,
       },
       breakdowns: {
         assetType,

@@ -237,7 +237,7 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, totalValue }:
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <StatCard
           label="Total Value"
-          value={formatCurrency(totalValue ?? totals.marketValue, "CAD")}
+          value={formatCurrency(totalValue ?? (totals.marketValue + (totals.totalCash ?? 0)), "CAD")}
         />
         <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
           <p className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider mb-1">Total Return</p>
