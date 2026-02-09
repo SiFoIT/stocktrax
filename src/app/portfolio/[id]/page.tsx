@@ -1048,7 +1048,7 @@ export default function PortfolioPage() {
       )}
 
       {activeTab === "performance" && (
-        <PortfolioStats data={dashboardData} loading={dashboardLoading} dividendsCadTotal={dividendsCadTotal} totalValue={totalValue} />
+        <PortfolioStats data={dashboardData} loading={dashboardLoading} dividendsCadTotal={dividendsCadTotal} showTotalValue={false} />
       )}
 
       <AlertsPanel

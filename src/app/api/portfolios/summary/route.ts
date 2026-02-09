@@ -313,14 +313,23 @@ export async function GET() {
       const type = quote.quoteType === "ETF" ? "ETFs" : "Stocks";
       assetTypeMap.set(type, (assetTypeMap.get(type) ?? 0) + mv);
     }
-    // Add cash from cash_transactions
+    // Compute true cash balance (matching /api/cash-transactions/balance logic)
+    // Cash transaction amounts are already signed (negative for transfer_out)
     let totalCash = 0;
     for (const ct of allCashTransactions) {
-      const amount = toCAD(ct.amount, ct.currency);
-      if (["contribution", "deposit", "refund", "referral", "transfer_in"].includes(ct.type)) {
-        totalCash += amount;
-      } else if (ct.type === "transfer_out") {
-        totalCash -= amount;
+      totalCash += toCAD(ct.amount, ct.currency);
+    }
+    // Subtract stock buys, add stock sells + dividends
+    for (const txn of allTransactions) {
+      const holding = holdingById.get(txn.holdingId);
+      if (!holding) continue;
+      const value = toCAD(txn.shares * txn.price, holdingCurrency(holding));
+      if (txn.type === "buy") {
+        totalCash -= value;
+      } else if (txn.type === "sell") {
+        totalCash += value;
+      } else if (txn.type === "dividend") {
+        totalCash += value;
       }
     }
     if (totalCash > 0) {

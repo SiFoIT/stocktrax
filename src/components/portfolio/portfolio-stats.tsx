@@ -70,7 +70,7 @@ interface PortfolioStatsProps {
   data: PortfolioDashboardData | null;
   loading: boolean;
   dividendsCadTotal?: number;
-  totalValue?: number;
+  showTotalValue?: boolean;
 }
 
 function StatCard({ label, value, subValue, colorClass }: { label: string; value: string; subValue?: string; colorClass?: string }) {
@@ -196,14 +196,14 @@ function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; t
   );
 }
 
-export function PortfolioStats({ data, loading, dividendsCadTotal, totalValue }: PortfolioStatsProps) {
+export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValue = true }: PortfolioStatsProps) {
   const [now] = useState(() => Date.now());
 
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <div className={`grid grid-cols-2 ${showTotalValue ? "lg:grid-cols-5" : "lg:grid-cols-4"} gap-3`}>
+          {Array.from({ length: showTotalValue ? 5 : 4 }, (_, i) => (
             <div key={i} className="h-24 rounded-xl bg-black/5 dark:bg-white/5 animate-pulse" />
           ))}
         </div>
@@ -234,11 +234,13 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, totalValue }:
   return (
     <div className="space-y-4">
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <StatCard
-          label="Total Value"
-          value={formatCurrency(totalValue ?? (totals.marketValue + (totals.totalCash ?? 0)), "CAD")}
-        />
+      <div className={`grid grid-cols-2 ${showTotalValue ? "lg:grid-cols-5" : "lg:grid-cols-4"} gap-3`}>
+        {showTotalValue && (
+          <StatCard
+            label="Total Value"
+            value={formatCurrency(totals.marketValue + (totals.totalCash ?? 0), "CAD")}
+          />
+        )}
         <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
           <p className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider mb-1">Total Return</p>
           <p className={`text-xl font-bold ${gainColor}`}>{formatCurrency(adjustedGainLoss, "CAD")}</p>
