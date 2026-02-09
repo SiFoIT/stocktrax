@@ -66,6 +66,7 @@ export default function PortfolioPage() {
   const [holdingHistory, setHoldingHistory] = useState<AlertHistoryEntry[]>([]);
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
   const [focusedAlertSymbol, setFocusedAlertSymbol] = useState<string | null>(null);
+  const [cashBalance, setCashBalance] = useState<{ cad: number; usd: number }>({ cad: 0, usd: 0 });
 
   // State for MainNavTabs (used for dropdown highlighting)
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
@@ -222,14 +223,25 @@ export default function PortfolioPage() {
     }
   }, []);
 
+  const fetchCashBalance = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/cash-transactions/balance?portfolioId=${portfolioId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCashBalance(data);
+      }
+    } catch {
+    }
+  }, [portfolioId]);
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchPortfolio(), fetchHoldings(), fetchExchangeRate()]);
+      await Promise.all([fetchPortfolio(), fetchHoldings(), fetchExchangeRate(), fetchCashBalance()]);
       setLoading(false);
     };
     loadData();
-  }, [fetchPortfolio, fetchHoldings, fetchExchangeRate]);
+  }, [fetchPortfolio, fetchHoldings, fetchExchangeRate, fetchCashBalance]);
 
   useEffect(() => {
     refreshHoldingRules();
@@ -342,6 +354,7 @@ export default function PortfolioPage() {
   const handleTransactionAdded = () => {
     fetchHoldings();
     fetchTransactions();
+    fetchCashBalance();
     setPrefillSymbol(null);
   };
 
@@ -364,6 +377,7 @@ export default function PortfolioPage() {
       });
       fetchTransactions();
       if (kind === "stock") fetchHoldings();
+      if (kind === "cash") fetchCashBalance();
     } catch {
     }
   };
@@ -376,6 +390,7 @@ export default function PortfolioPage() {
       await fetch(`${endpoint}?id=${id}`, { method: "DELETE" });
       fetchTransactions();
       if (kind === "stock") fetchHoldings();
+      if (kind === "cash") fetchCashBalance();
     } catch {
     }
   };
@@ -409,6 +424,7 @@ export default function PortfolioPage() {
       await Promise.all(promises);
       fetchTransactions();
       if (stockIds.length > 0) fetchHoldings();
+      if (cashIds.length > 0) fetchCashBalance();
     } catch {
     }
   };
@@ -427,6 +443,7 @@ export default function PortfolioPage() {
       ]);
       fetchTransactions();
       fetchHoldings();
+      fetchCashBalance();
     } catch {
     }
   };
@@ -595,7 +612,7 @@ export default function PortfolioPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-4 mt-8 mb-8">
+      <div className="grid gap-4 md:grid-cols-5 mt-8 mb-8">
         <StatCard
           label="Total Value"
           value={`C$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -617,6 +634,21 @@ export default function PortfolioPage() {
           value={activeHoldings.length.toString()}
           subValue={hasMixedCurrencies ? `${usdHoldings.length} USD · ${cadHoldings.length} CAD` : undefined}
         />
+        {(() => {
+          const cashCadTotal = cashBalance.cad + cashBalance.usd * rate;
+          const hasBothCash = cashBalance.cad !== 0 && cashBalance.usd !== 0;
+          const hasCash = cashBalance.cad !== 0 || cashBalance.usd !== 0;
+          return (
+            <StatCard
+              label="Cash Balance"
+              value={`C$${cashCadTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              subValue={hasBothCash
+                ? `US$${cashBalance.usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} + C$${cashBalance.cad.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : undefined}
+              colorClass={hasCash ? (cashCadTotal >= 0 ? "text-emerald-400" : "text-red-400") : undefined}
+            />
+          );
+        })()}
       </div>
 
       {/* Tabs */}
@@ -854,6 +886,7 @@ export default function PortfolioPage() {
                       onImportComplete={() => {
                         fetchTransactions();
                         fetchHoldings();
+                        fetchCashBalance();
                       }}
                       onClose={() => setShowCsvImport(false)}
                     />

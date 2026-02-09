@@ -252,6 +252,7 @@ export function TransactionsTable({
     const key = selKey(txn);
     const isEditing = editingKey === key;
     const isCash = txn.kind === "cash";
+    const isDividend = !isCash && txn.type === "dividend";
 
     return (
       <tr
@@ -319,7 +320,7 @@ export function TransactionsTable({
           </span>
         </td>
         <td className="px-4 py-3 text-right">
-          {isCash ? (
+          {isCash || isDividend ? (
             <span className="text-black/30 dark:text-white/30">&mdash;</span>
           ) : isEditing ? (
             <input
@@ -337,7 +338,7 @@ export function TransactionsTable({
           )}
         </td>
         <td className="px-4 py-3 text-right">
-          {isCash ? (
+          {isCash || isDividend ? (
             <span className="text-black/30 dark:text-white/30">&mdash;</span>
           ) : isEditing ? (
             <input
@@ -370,6 +371,10 @@ export function TransactionsTable({
                 {formatCurrency(Math.abs(txn.amount), txn.currency)}
               </span>
             )
+          ) : isDividend ? (
+            <span className="font-mono text-sm font-semibold text-emerald-400">
+              {formatCurrency((txn as StockTransactionRow).shares * (txn as StockTransactionRow).price, txn.currency)}
+            </span>
           ) : (
             <span className="font-mono text-sm font-semibold text-black dark:text-white">
               {formatCurrency((txn as StockTransactionRow).shares * (txn as StockTransactionRow).price, txn.currency)}

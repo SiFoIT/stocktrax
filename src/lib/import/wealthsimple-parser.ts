@@ -421,17 +421,18 @@ export function parseAcbTable(
 
 /**
  * Build dedup key for stock transactions.
- * Key: date(YYYY-MM-DD)|symbol|type|shares
+ * Key: date(YYYY-MM-DD)|symbol|type|shares|price
  */
 export function stockTxnDedupKey(
   date: string | Date,
   symbol: string,
   type: string,
-  shares: number
+  shares: number,
+  price: number
 ): string {
   const d = date instanceof Date ? date : new Date(date);
   const dateStr = d.toISOString().split("T")[0];
-  return `${dateStr}|${symbol}|${type}|${shares}`;
+  return `${dateStr}|${symbol}|${type}|${shares}|${price}`;
 }
 
 /**

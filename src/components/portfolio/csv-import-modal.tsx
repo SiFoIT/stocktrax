@@ -69,7 +69,7 @@ export function CsvImportModal({
   const existingKeys = useCallback(() => {
     const keys = new Set<string>();
     for (const txn of existingTransactions) {
-      keys.add(stockTxnDedupKey(txn.date, txn.symbol, txn.type, txn.shares));
+      keys.add(stockTxnDedupKey(txn.date, txn.symbol, txn.type, txn.shares, txn.price));
     }
     return keys;
   }, [existingTransactions]);
@@ -83,7 +83,7 @@ export function CsvImportModal({
       const keys = existingKeys();
       let dupes = 0;
       const newStock = result.stockTransactions.filter((txn) => {
-        const key = stockTxnDedupKey(txn.date, txn.symbol, txn.type, txn.shares);
+        const key = stockTxnDedupKey(txn.date, txn.symbol, txn.type, txn.shares, txn.price);
         if (keys.has(key)) {
           dupes++;
           return false;

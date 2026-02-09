@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
             ? txn.date.toISOString()
             : new Date(txn.date).toISOString();
         existingStockKeys.add(
-          stockTxnDedupKey(dateStr, holding.symbol, txn.type, txn.shares)
+          stockTxnDedupKey(dateStr, holding.symbol, txn.type, txn.shares, txn.price)
         );
       }
     }
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     // Filter out duplicate stock transactions
     let stockDuplicates = 0;
     const newStockTxns = validated.stockTransactions.filter((txn) => {
-      const key = stockTxnDedupKey(txn.date, txn.symbol, txn.type, txn.shares);
+      const key = stockTxnDedupKey(txn.date, txn.symbol, txn.type, txn.shares, txn.price);
       if (existingStockKeys.has(key)) {
         stockDuplicates++;
         return false;
