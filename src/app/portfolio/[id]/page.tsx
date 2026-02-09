@@ -528,6 +528,8 @@ export default function PortfolioPage() {
           onSelectWatchlist={setSelectedWatchlistId}
           selectedPortfolioId={portfolioId}
           onSelectPortfolio={() => {}}
+          selectedScreenId={null}
+          onSelectScreen={() => {}}
         />
 
         {/* Portfolio Title */}

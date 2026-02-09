@@ -162,3 +162,20 @@ export type AlertRule = typeof alertRules.$inferSelect;
 export type NewAlertRule = typeof alertRules.$inferInsert;
 export type Alert = typeof alerts.$inferSelect;
 export type NewAlert = typeof alerts.$inferInsert;
+
+export const screens = sqliteTable("screens", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  source: text("source").notNull().default("all"),
+  rules: text("rules").notNull().default("[]"),
+  match: text("match", { enum: ["all", "any"] }).notNull().default("all"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export type Screen = typeof screens.$inferSelect;
+export type NewScreen = typeof screens.$inferInsert;

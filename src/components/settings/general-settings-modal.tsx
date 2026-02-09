@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
-export type DefaultTab = "general" | "watchlist" | "portfolios";
+export type DefaultTab = "general" | "watchlist" | "portfolios" | "screens";
 
 const TAB_OPTIONS: { value: DefaultTab; label: string; icon: React.ReactNode; color: string }[] = [
   {
@@ -37,6 +37,16 @@ const TAB_OPTIONS: { value: DefaultTab; label: string; icon: React.ReactNode; co
     ),
     color: "text-emerald-400",
   },
+  {
+    value: "screens",
+    label: "Screens",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+      </svg>
+    ),
+    color: "text-violet-400",
+  },
 ];
 
 const STORAGE_KEY = "stocktrax_default_tab";
@@ -44,7 +54,7 @@ const STORAGE_KEY = "stocktrax_default_tab";
 export function getDefaultTab(): DefaultTab {
   if (typeof window === "undefined") return "general";
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "general" || stored === "watchlist" || stored === "portfolios") {
+  if (stored === "general" || stored === "watchlist" || stored === "portfolios" || stored === "screens") {
     return stored;
   }
   return "general";

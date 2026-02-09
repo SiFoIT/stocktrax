@@ -18,7 +18,9 @@ import { NewsTable } from "@/components/watchlist/news-table";
 import { MarketOverview } from "@/components/markets/market-overview";
 import { PortfolioSummaryList } from "@/components/portfolio/portfolio-summary-list";
 import { PortfolioStats } from "@/components/portfolio/portfolio-stats";
-import { MainNav, MainNavTabs, getInitialTab, getInitialWatchlistId, type Tab } from "@/components/layout/main-nav";
+import { MainNav, MainNavTabs, getInitialTab, getInitialWatchlistId, getInitialScreenId, type Tab } from "@/components/layout/main-nav";
+import { ScreenContent } from "@/components/screener/screen-content";
+import { fetchScreens, type ScreenDTO } from "@/lib/screener/api";
 import { formatUpdatedTime } from "@/lib/utils";
 import { AlertsPanel } from "@/components/alerts/alerts-panel";
 import {
@@ -37,7 +39,7 @@ function getTabFromUrl(): Tab {
   if (typeof window === "undefined") return "general";
   const params = new URLSearchParams(window.location.search);
   const tab = params.get("tab");
-  if (tab && ["general", "watchlist", "portfolios"].includes(tab)) {
+  if (tab && ["general", "watchlist", "portfolios", "screens"].includes(tab)) {
     return tab as Tab;
   }
   return getInitialTab();
@@ -48,6 +50,9 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<Tab>(getTabFromUrl);
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
+  const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null);
+  const [screens, setScreens] = useState<ScreenDTO[]>([]);
+  const [currentScreen, setCurrentScreen] = useState<ScreenDTO | null>(null);
 
   // Clean up URL and get watchlist ID after mount
   useEffect(() => {
@@ -60,6 +65,11 @@ export default function Dashboard() {
     const initialWatchlistId = getInitialWatchlistId();
     if (initialWatchlistId) {
       setSelectedWatchlistId(initialWatchlistId);
+    }
+
+    const initialScreenId = getInitialScreenId();
+    if (initialScreenId) {
+      setSelectedScreenId(initialScreenId);
     }
   }, []);
 
@@ -211,6 +221,30 @@ export default function Dashboard() {
     }
   }, [alertsPanelOpen, refreshAlertRules, refreshAlertHistory]);
 
+  // Screens: fetch list and initialize selection
+  useEffect(() => {
+    if (activeTab === "screens") {
+      const loadScreens = async () => {
+        const data = await fetchScreens();
+        setScreens(data);
+        if (!selectedScreenId && data.length > 0) {
+          setSelectedScreenId(data[0].id);
+        }
+      };
+      loadScreens();
+    }
+  }, [activeTab, selectedScreenId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Screens: update currentScreen when selection changes
+  useEffect(() => {
+    if (selectedScreenId && screens.length > 0) {
+      const found = screens.find((s) => s.id === selectedScreenId);
+      setCurrentScreen(found ?? null);
+    } else {
+      setCurrentScreen(null);
+    }
+  }, [selectedScreenId, screens]);
+
   const fetchWatchlistNews = useCallback(async () => {
     if (watchlistItems.length === 0) {
       setWatchlistNews([]);
@@ -325,6 +359,8 @@ export default function Dashboard() {
           onSelectWatchlist={setSelectedWatchlistId}
           selectedPortfolioId={selectedPortfolioId}
           onSelectPortfolio={setSelectedPortfolioId}
+          selectedScreenId={selectedScreenId}
+          onSelectScreen={setSelectedScreenId}
         >
           {activeTab === "watchlist" && selectedWatchlistId && (
             <AddSymbolForm
@@ -496,6 +532,17 @@ export default function Dashboard() {
             <PortfolioSummaryList data={dashboardData} loading={dashboardLoading} />
             <PortfolioStats data={dashboardData} loading={dashboardLoading} />
           </div>
+        )}
+
+        {/* Screens Content */}
+        {activeTab === "screens" && (
+          <ScreenContent
+            screen={currentScreen}
+            onScreenUpdated={(updated) => {
+              setScreens((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+              setCurrentScreen(updated);
+            }}
+          />
         )}
       </div>
 

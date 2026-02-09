@@ -6,10 +6,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SettingsMenu } from "@/components/settings/settings-menu";
-import { Portfolio, Watchlist } from "@/lib/db/schema";
+import { Portfolio, Watchlist, Screen } from "@/lib/db/schema";
 import { getDefaultTab, type DefaultTab } from "@/components/settings/general-settings-modal";
 
-export type Tab = "general" | "watchlist" | "portfolios";
+export type Tab = "general" | "watchlist" | "portfolios" | "screens";
 
 interface MainNavProps {
   onOpenAlerts?: () => void;
@@ -24,6 +24,8 @@ interface MainNavTabsProps {
   onSelectWatchlist: (id: number) => void;
   selectedPortfolioId: number | null;
   onSelectPortfolio: (id: number) => void;
+  selectedScreenId: number | null;
+  onSelectScreen: (id: number) => void;
   children?: React.ReactNode;
 }
 
@@ -77,6 +79,8 @@ export function MainNavTabs({
   onSelectWatchlist,
   selectedPortfolioId,
   onSelectPortfolio,
+  selectedScreenId,
+  onSelectScreen,
   children,
 }: MainNavTabsProps) {
   const pathname = usePathname();
@@ -86,37 +90,47 @@ export function MainNavTabs({
   // Data state
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
+  const [screens, setScreens] = useState<Screen[]>([]);
 
   // Dropdown state
   const [showWatchlistDropdown, setShowWatchlistDropdown] = useState(false);
   const [showPortfolioDropdown, setShowPortfolioDropdown] = useState(false);
+  const [showScreenDropdown, setShowScreenDropdown] = useState(false);
   const watchlistDropdownRef = useRef<HTMLDivElement>(null);
   const portfolioDropdownRef = useRef<HTMLDivElement>(null);
+  const screenDropdownRef = useRef<HTMLDivElement>(null);
 
   // Create state
   const [newWatchlistName, setNewWatchlistName] = useState("");
   const [creatingWatchlist, setCreatingWatchlist] = useState(false);
   const [newPortfolioName, setNewPortfolioName] = useState("");
   const [creatingPortfolio, setCreatingPortfolio] = useState(false);
+  const [newScreenName, setNewScreenName] = useState("");
+  const [creatingScreen, setCreatingScreen] = useState(false);
 
   // Edit state
   const [editingWatchlistId, setEditingWatchlistId] = useState<number | null>(null);
   const [editingWatchlistName, setEditingWatchlistName] = useState("");
   const [editingPortfolioId, setEditingPortfolioId] = useState<number | null>(null);
   const [editingPortfolioName, setEditingPortfolioName] = useState("");
+  const [editingScreenId, setEditingScreenId] = useState<number | null>(null);
+  const [editingScreenName, setEditingScreenName] = useState("");
 
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [watchlistsRes, portfoliosRes] = await Promise.all([
+        const [watchlistsRes, portfoliosRes, screensRes] = await Promise.all([
           fetch("/api/watchlists"),
           fetch("/api/portfolios"),
+          fetch("/api/screens"),
         ]);
         const watchlistsData = await watchlistsRes.json();
         const portfoliosData = await portfoliosRes.json();
+        const screensData = await screensRes.json();
         setWatchlists(watchlistsData);
         setPortfolios(portfoliosData);
+        setScreens(screensData);
       } catch {
       }
     };
@@ -131,6 +145,9 @@ export function MainNavTabs({
       }
       if (portfolioDropdownRef.current && !portfolioDropdownRef.current.contains(e.target as Node)) {
         setShowPortfolioDropdown(false);
+      }
+      if (screenDropdownRef.current && !screenDropdownRef.current.contains(e.target as Node)) {
+        setShowScreenDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -278,6 +295,86 @@ export function MainNavTabs({
     }
   };
 
+  // Screen handlers
+  const handleCreateScreen = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newScreenName.trim()) return;
+
+    setCreatingScreen(true);
+    try {
+      const response = await fetch("/api/screens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newScreenName }),
+      });
+
+      if (response.ok) {
+        const newScreen = await response.json();
+        setNewScreenName("");
+        setScreens((prev) => [...prev, newScreen]);
+        if (isSubPage) {
+          sessionStorage.setItem("selectedScreenId", newScreen.id.toString());
+          window.location.href = "/?tab=screens";
+        } else {
+          onSelectScreen(newScreen.id);
+          onTabChange("screens");
+        }
+        setShowScreenDropdown(false);
+      }
+    } catch {
+      // silently handle fetch error
+    } finally {
+      setCreatingScreen(false);
+    }
+  };
+
+  const handleDeleteScreen = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this screen?")) return;
+
+    try {
+      await fetch(`/api/screens?id=${id}`, { method: "DELETE" });
+      setScreens((prev) => prev.filter((s) => s.id !== id));
+      if (selectedScreenId === id) {
+        const remaining = screens.filter((s) => s.id !== id);
+        if (remaining.length > 0) {
+          onSelectScreen(remaining[0].id);
+        }
+      }
+    } catch {
+      // silently handle fetch error
+    }
+  };
+
+  const handleRenameScreen = async (id: number) => {
+    if (!editingScreenName.trim()) return;
+
+    try {
+      await fetch(`/api/screens?id=${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editingScreenName }),
+      });
+      setScreens((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, name: editingScreenName } : s))
+      );
+      setEditingScreenId(null);
+      setEditingScreenName("");
+    } catch {
+      // silently handle fetch error
+    }
+  };
+
+  const handleSelectScreenItem = (id: number) => {
+    if (isSubPage) {
+      sessionStorage.setItem("selectedScreenId", id.toString());
+      window.location.href = "/?tab=screens";
+    } else {
+      onSelectScreen(id);
+      onTabChange("screens");
+    }
+    setShowScreenDropdown(false);
+  };
+
   const handleSelectWatchlistItem = (id: number) => {
     if (isSubPage) {
       sessionStorage.setItem("selectedWatchlistId", id.toString());
@@ -303,6 +400,7 @@ export function MainNavTabs({
     }
     setShowWatchlistDropdown(false);
     setShowPortfolioDropdown(false);
+    setShowScreenDropdown(false);
   };
 
   return (
@@ -577,6 +675,134 @@ export function MainNavTabs({
             </div>
           )}
         </div>
+
+        {/* Screens Tab with Dropdown */}
+        <div className="relative" ref={screenDropdownRef}>
+          <div
+            className={`flex items-center rounded-lg transition-all ${
+              activeTab === "screens"
+                ? "bg-gradient-to-r from-violet-500/20 to-purple-500/20 text-black dark:text-white"
+                : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+            }`}
+          >
+            <button
+              onClick={() => handleTabClick("screens")}
+              className="flex items-center gap-2 pl-4 pr-1 py-2"
+            >
+              <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              Screens
+            </button>
+            <button
+              onClick={() => {
+                setShowScreenDropdown(!showScreenDropdown);
+                setShowWatchlistDropdown(false);
+                setShowPortfolioDropdown(false);
+              }}
+              className="px-2 py-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-r-lg transition-colors"
+            >
+              <svg className={`w-4 h-4 text-black/50 dark:text-white/50 transition-transform ${showScreenDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+
+          {showScreenDropdown && (
+            <div className="absolute top-full left-0 mt-2 w-72 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
+              <div className="p-3 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-violet-500/10 to-transparent">
+                <form onSubmit={handleCreateScreen} className="flex gap-2">
+                  <Input
+                    placeholder="New screen name"
+                    value={newScreenName}
+                    onChange={(e) => setNewScreenName(e.target.value)}
+                    className="h-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:border-violet-500/50"
+                  />
+                  <Button type="submit" size="sm" disabled={creatingScreen} className="bg-violet-500 hover:bg-violet-600">
+                    Add
+                  </Button>
+                </form>
+              </div>
+              <div className="max-h-64 overflow-auto">
+                {screens.length === 0 ? (
+                  <p className="p-4 text-sm text-black/50 dark:text-white/50 text-center">No screens yet</p>
+                ) : (
+                  screens.map((screen) => (
+                    <div
+                      key={screen.id}
+                      className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-all ${
+                        screen.id === selectedScreenId
+                          ? "bg-gradient-to-r from-violet-500/20 to-transparent border-l-2 border-violet-500"
+                          : "hover:bg-black/5 dark:hover:bg-white/5"
+                      }`}
+                      onClick={() => {
+                        if (editingScreenId !== screen.id) {
+                          handleSelectScreenItem(screen.id);
+                        }
+                      }}
+                    >
+                      {editingScreenId === screen.id ? (
+                        <form
+                          className="flex gap-2 flex-1 mr-2"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            handleRenameScreen(screen.id);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Input
+                            value={editingScreenName}
+                            onChange={(e) => setEditingScreenName(e.target.value)}
+                            className="h-7 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                setEditingScreenId(null);
+                                setEditingScreenName("");
+                              }
+                            }}
+                          />
+                          <Button type="submit" size="sm" className="h-7 px-2 bg-violet-500 hover:bg-violet-600">
+                            Save
+                          </Button>
+                        </form>
+                      ) : (
+                        <span className="text-sm font-medium">{screen.name}</span>
+                      )}
+                      {editingScreenId !== screen.id && (
+                        <div className="flex gap-1">
+                          <button
+                            className="p-1.5 rounded-lg text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-all"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingScreenId(screen.id);
+                              setEditingScreenName(screen.name);
+                            }}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            className="p-1.5 rounded-lg text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteScreen(screen.id);
+                            }}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
       {children}
     </div>
@@ -588,7 +814,7 @@ export function getInitialTab(): DefaultTab {
   if (typeof window === "undefined") return "general";
 
   const tabFromStorage = sessionStorage.getItem("navigateToTab") as DefaultTab | null;
-  if (tabFromStorage && ["general", "watchlist", "portfolios"].includes(tabFromStorage)) {
+  if (tabFromStorage && ["general", "watchlist", "portfolios", "screens"].includes(tabFromStorage)) {
     sessionStorage.removeItem("navigateToTab");
     return tabFromStorage;
   }
@@ -602,6 +828,18 @@ export function getInitialWatchlistId(): number | null {
   const idFromStorage = sessionStorage.getItem("selectedWatchlistId");
   if (idFromStorage) {
     sessionStorage.removeItem("selectedWatchlistId");
+    return parseInt(idFromStorage);
+  }
+  return null;
+}
+
+// Helper to get initial screen ID from sessionStorage
+export function getInitialScreenId(): number | null {
+  if (typeof window === "undefined") return null;
+
+  const idFromStorage = sessionStorage.getItem("selectedScreenId");
+  if (idFromStorage) {
+    sessionStorage.removeItem("selectedScreenId");
     return parseInt(idFromStorage);
   }
   return null;
