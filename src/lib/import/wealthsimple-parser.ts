@@ -267,7 +267,10 @@ export function parseWealthSimpleCsv(csvText: string, fileName?: string): Wealth
   }
 
   for (const row of rows) {
-    const wsType = row.Type;
+    const wsType = (row.Type || "").trim();
+
+    // Skip blank/empty type rows
+    if (!wsType) continue;
 
     // Skip intentionally ignored types
     if (SKIP_TYPES.has(wsType)) {

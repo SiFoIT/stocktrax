@@ -463,9 +463,9 @@ export function CsvImportModal({
                     <div className="px-3 py-2 max-h-40 overflow-y-auto">
                       {parseResult.unrecognized.map((row, i) => (
                         <div key={i} className="text-xs text-black/50 dark:text-white/50 py-1 border-b border-black/5 dark:border-white/5 last:border-0">
-                          <span className="font-mono text-orange-400">{row.wsType}</span>
-                          {" — "}
-                          <span className="truncate">{row.description}</span>
+                          <span className="font-mono text-orange-400">{row.wsType || "(unknown)"}</span>
+                          {row.description ? ` — ${row.description}` : ""}
+                          {row.amount ? ` · ${row.amount}` : ""}
                         </div>
                       ))}
                     </div>
