@@ -72,6 +72,7 @@ interface PortfolioStatsProps {
   dividendsCadTotal?: number;
   showTotalValue?: boolean;
   showTotalReturn?: boolean;
+  showDividends?: boolean;
 }
 
 function StatCard({ label, value, subValue, colorClass }: { label: string; value: string; subValue?: string; colorClass?: string }) {
@@ -197,10 +198,10 @@ function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; t
   );
 }
 
-export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValue = true, showTotalReturn = true }: PortfolioStatsProps) {
+export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValue = true, showTotalReturn = true, showDividends = false }: PortfolioStatsProps) {
   const [now] = useState(() => Date.now());
 
-  const cardCount = 3 + (showTotalValue ? 1 : 0) + (showTotalReturn ? 1 : 0);
+  const cardCount = 3 + (showTotalValue ? 1 : 0) + (showTotalReturn ? 1 : 0) + (showDividends ? 1 : 0);
   const gridCols = cardCount <= 3 ? "lg:grid-cols-3" : cardCount === 4 ? "lg:grid-cols-4" : "lg:grid-cols-5";
 
   if (loading) {
@@ -254,6 +255,13 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
               {divTotal > 0 ? ` · incl. ${formatCurrency(divTotal, "CAD")} div` : ""}
             </p>
           </div>
+        )}
+        {showDividends && (
+          <StatCard
+            label="Dividends"
+            value={formatCurrency(divTotal, "CAD")}
+            colorClass={divTotal > 0 ? "text-emerald-400" : undefined}
+          />
         )}
         <StatCard
           label="CAGR"
