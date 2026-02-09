@@ -733,6 +733,9 @@ export default function PortfolioPage() {
               <p className={`text-2xl font-bold ${totalGainLoss >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                 {totalGainLoss >= 0 ? "+" : "-"}{formatCurrency(Math.abs(totalGainLoss), "CAD")}
               </p>
+              <p className={`text-sm mt-0.5 ${totalGainLoss >= 0 ? "text-emerald-400/70" : "text-red-400/70"}`}>
+                {totalGainLossPercent >= 0 ? "+" : ""}{totalGainLossPercent.toFixed(2)}%{dividendsCadTotal > 0 ? ` · incl. ${formatCurrency(dividendsCadTotal, "CAD")} div` : ""}
+              </p>
             </div>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-72">
@@ -1048,7 +1051,7 @@ export default function PortfolioPage() {
       )}
 
       {activeTab === "performance" && (
-        <PortfolioStats data={dashboardData} loading={dashboardLoading} dividendsCadTotal={dividendsCadTotal} showTotalValue={false} />
+        <PortfolioStats data={dashboardData} loading={dashboardLoading} dividendsCadTotal={dividendsCadTotal} showTotalValue={false} showTotalReturn={false} />
       )}
 
       <AlertsPanel

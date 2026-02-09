@@ -71,6 +71,7 @@ interface PortfolioStatsProps {
   loading: boolean;
   dividendsCadTotal?: number;
   showTotalValue?: boolean;
+  showTotalReturn?: boolean;
 }
 
 function StatCard({ label, value, subValue, colorClass }: { label: string; value: string; subValue?: string; colorClass?: string }) {
@@ -196,14 +197,17 @@ function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; t
   );
 }
 
-export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValue = true }: PortfolioStatsProps) {
+export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValue = true, showTotalReturn = true }: PortfolioStatsProps) {
   const [now] = useState(() => Date.now());
+
+  const cardCount = 3 + (showTotalValue ? 1 : 0) + (showTotalReturn ? 1 : 0);
+  const gridCols = cardCount <= 3 ? "lg:grid-cols-3" : cardCount === 4 ? "lg:grid-cols-4" : "lg:grid-cols-5";
 
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className={`grid grid-cols-2 ${showTotalValue ? "lg:grid-cols-5" : "lg:grid-cols-4"} gap-3`}>
-          {Array.from({ length: showTotalValue ? 5 : 4 }, (_, i) => (
+        <div className={`grid grid-cols-2 ${gridCols} gap-3`}>
+          {Array.from({ length: cardCount }, (_, i) => (
             <div key={i} className="h-24 rounded-xl bg-black/5 dark:bg-white/5 animate-pulse" />
           ))}
         </div>
@@ -234,21 +238,23 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
   return (
     <div className="space-y-4">
       {/* Stat cards */}
-      <div className={`grid grid-cols-2 ${showTotalValue ? "lg:grid-cols-5" : "lg:grid-cols-4"} gap-3`}>
+      <div className={`grid grid-cols-2 ${gridCols} gap-3`}>
         {showTotalValue && (
           <StatCard
             label="Total Value"
             value={formatCurrency(totals.marketValue + (totals.totalCash ?? 0), "CAD")}
           />
         )}
-        <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
-          <p className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider mb-1">Total Return</p>
-          <p className={`text-xl font-bold ${gainColor}`}>{formatCurrency(adjustedGainLoss, "CAD")}</p>
-          <p className={`text-sm mt-0.5 ${gainColor}`}>
-            {`${adjustedGainLossPercent >= 0 ? "+" : ""}${adjustedGainLossPercent.toFixed(2)}%`}
-            {divTotal > 0 ? ` · incl. ${formatCurrency(divTotal, "CAD")} div` : ""}
-          </p>
-        </div>
+        {showTotalReturn && (
+          <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
+            <p className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider mb-1">Total Return</p>
+            <p className={`text-xl font-bold ${gainColor}`}>{formatCurrency(adjustedGainLoss, "CAD")}</p>
+            <p className={`text-sm mt-0.5 ${gainColor}`}>
+              {`${adjustedGainLossPercent >= 0 ? "+" : ""}${adjustedGainLossPercent.toFixed(2)}%`}
+              {divTotal > 0 ? ` · incl. ${formatCurrency(divTotal, "CAD")} div` : ""}
+            </p>
+          </div>
+        )}
         <StatCard
           label="CAGR"
           value={`${totals.cagr >= 0 ? "+" : ""}${totals.cagr.toFixed(2)}%`}
