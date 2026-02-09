@@ -12,6 +12,7 @@ import { TransactionsTable } from "@/components/portfolio/transactions-table";
 import { DividendReturnsTable } from "@/components/portfolio/dividend-returns-table";
 import { CsvImportModal } from "@/components/portfolio/csv-import-modal";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { MainNav, MainNavTabs } from "@/components/layout/main-nav";
 import { Portfolio, Holding } from "@/lib/db/schema";
 import { PortfolioStats } from "@/components/portfolio/portfolio-stats";
@@ -28,7 +29,7 @@ import {
   StockTransactionRow,
   CashTransactionRow,
 } from "@/types";
-import { formatUpdatedTime } from "@/lib/utils";
+import { formatUpdatedTime, formatCurrency } from "@/lib/utils";
 import { AlertsPanel } from "@/components/alerts/alerts-panel";
 import {
   triggerHoldingAlerts,
@@ -68,7 +69,6 @@ export default function PortfolioPage() {
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
   const [focusedAlertSymbol, setFocusedAlertSymbol] = useState<string | null>(null);
   const [cashBalance, setCashBalance] = useState<{ cad: number; usd: number; totalDividends: { cad: number; usd: number } }>({ cad: 0, usd: 0, totalDividends: { cad: 0, usd: 0 } });
-  const [includeDividends, setIncludeDividends] = useState(true);
 
   // State for MainNavTabs (used for dropdown highlighting)
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
@@ -479,8 +479,16 @@ export default function PortfolioPage() {
   const cashCadTotal = cashBalance.cad + cashBalance.usd * rate;
   const totalValue = holdingsValue + cashCadTotal;
   const dividendsCadTotal = cashBalance.totalDividends.cad + cashBalance.totalDividends.usd * rate;
-  const totalGainLoss = (holdingsValue - totalCost) + (includeDividends ? dividendsCadTotal : 0);
+  const unrealizedGainLoss = holdingsValue - totalCost;
+  const totalGainLoss = unrealizedGainLoss + dividendsCadTotal;
   const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
+  const unrealizedPercent = totalCost > 0 ? (unrealizedGainLoss / totalCost) * 100 : 0;
+
+  // Today's change
+  const todayChangeCAD = cadHoldings.reduce((s, h) => s + (h.change || 0) * h.shares, 0);
+  const todayChangeUSD = usdHoldings.reduce((s, h) => s + (h.change || 0) * h.shares, 0);
+  const todayChangeCadTotal = todayChangeCAD + todayChangeUSD * rate;
+  const todayChangePercent = holdingsValue > 0 ? (todayChangeCadTotal / (holdingsValue - todayChangeCadTotal)) * 100 : 0;
 
   const handleCreateHoldingRule = async (input: CreateAlertRuleInput) => {
     const rule = await createAlertRule(input);
@@ -627,38 +635,135 @@ export default function PortfolioPage() {
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-5 mt-8 mb-8">
-        <StatCard
-          label="Total Value"
-          value={`C$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          subValue={hasMixedCurrencies ? `US$${usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} + C$${cadValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : undefined}
-        />
-        <StatCard
-          label="Total Cost"
-          value={`C$${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          subValue={hasMixedCurrencies ? `US$${usdCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} + C$${cadCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : undefined}
-        />
-        <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-5">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-sm font-medium text-black/50 dark:text-white/50">Total Gain/Loss</p>
-            <label className="flex items-center gap-1 cursor-pointer select-none" title={includeDividends ? "Including dividends" : "Excluding dividends"}>
-              <input
-                type="checkbox"
-                checked={includeDividends}
-                onChange={(e) => setIncludeDividends(e.target.checked)}
-                className="w-3 h-3 rounded accent-emerald-500 cursor-pointer"
-              />
-              <span className="text-[10px] font-medium text-black/40 dark:text-white/40">Div</span>
-            </label>
-          </div>
-          <p className={`text-2xl font-bold ${totalGainLoss >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-            {`${totalGainLoss >= 0 ? "+" : "-"}C$${Math.abs(totalGainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          </p>
-          <p className={`text-sm mt-1 ${totalGainLoss >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-            {`${totalGainLoss >= 0 ? "+" : "-"}${Math.abs(totalGainLossPercent).toFixed(2)}%`}
-            {includeDividends && dividendsCadTotal > 0 ? ` · incl. C$${dividendsCadTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} div` : ""}
-            {hasMixedCurrencies ? ` · 1 USD = ${rate.toFixed(4)} CAD` : ""}
-          </p>
-        </div>
+        {/* Total Value — popover */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20 cursor-pointer transition-all p-5 relative group">
+              <svg className="absolute top-3 right-3 w-3.5 h-3.5 text-black/20 dark:text-white/20 group-hover:text-black/40 dark:group-hover:text-white/40 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p className="text-sm font-medium text-black/50 dark:text-white/50 mb-1">Total Value</p>
+              <p className="text-2xl font-bold text-black dark:text-white">{formatCurrency(totalValue, "CAD")}</p>
+            </div>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72">
+            <p className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-3">Value Breakdown</p>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5">
+                <span className="text-sm text-white/50">Investments (CAD)</span>
+                <span className="text-sm font-medium text-white">{formatCurrency(cadValue, "CAD")}</span>
+              </div>
+              {usdHoldings.length > 0 && (
+                <div className="flex justify-between items-center py-1.5 border-b border-white/5">
+                  <span className="text-sm text-white/50">Investments (USD)</span>
+                  <div className="text-right">
+                    <span className="text-sm font-medium text-white">{formatCurrency(usdValue, "USD")}</span>
+                    <p className="text-[11px] text-white/30">{formatCurrency(usdValue * rate, "CAD")}</p>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5">
+                <span className="text-sm text-white/50">Cash (CAD)</span>
+                <span className="text-sm font-medium text-white">{formatCurrency(cashBalance.cad, "CAD")}</span>
+              </div>
+              {cashBalance.usd !== 0 && (
+                <div className="flex justify-between items-center py-1.5 border-b border-white/5">
+                  <span className="text-sm text-white/50">Cash (USD)</span>
+                  <div className="text-right">
+                    <span className="text-sm font-medium text-white">{formatCurrency(cashBalance.usd, "USD")}</span>
+                    <p className="text-[11px] text-white/30">{formatCurrency(cashBalance.usd * rate, "CAD")}</p>
+                  </div>
+                </div>
+              )}
+              {hasMixedCurrencies && (
+                <div className="flex justify-between items-center py-1.5 border-b border-white/5">
+                  <span className="text-sm text-white/50">Exchange Rate</span>
+                  <span className="text-sm font-medium text-white/70">1 USD = {rate.toFixed(4)} CAD</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center py-1.5">
+                <span className="text-sm text-white/50">Today&apos;s Change</span>
+                <span className={`text-sm font-medium ${todayChangeCadTotal >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {todayChangeCadTotal >= 0 ? "+" : ""}{formatCurrency(todayChangeCadTotal, "CAD")} ({todayChangePercent >= 0 ? "+" : ""}{todayChangePercent.toFixed(2)}%)
+                </span>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Total Cost — popover */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20 cursor-pointer transition-all p-5 relative group">
+              <svg className="absolute top-3 right-3 w-3.5 h-3.5 text-black/20 dark:text-white/20 group-hover:text-black/40 dark:group-hover:text-white/40 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p className="text-sm font-medium text-black/50 dark:text-white/50 mb-1">Total Cost</p>
+              <p className="text-2xl font-bold text-black dark:text-white">{formatCurrency(totalCost, "CAD")}</p>
+            </div>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72">
+            <p className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-3">Cost Breakdown</p>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5">
+                <span className="text-sm text-white/50">Cost (CAD)</span>
+                <span className="text-sm font-medium text-white">{formatCurrency(cadCost, "CAD")}</span>
+              </div>
+              {usdHoldings.length > 0 && (
+                <div className="flex justify-between items-center py-1.5 border-b border-white/5">
+                  <span className="text-sm text-white/50">Cost (USD)</span>
+                  <div className="text-right">
+                    <span className="text-sm font-medium text-white">{formatCurrency(usdCost, "USD")}</span>
+                    <p className="text-[11px] text-white/30">{formatCurrency(usdCost * rate, "CAD")}</p>
+                  </div>
+                </div>
+              )}
+              {hasMixedCurrencies && (
+                <div className="flex justify-between items-center py-1.5">
+                  <span className="text-sm text-white/50">Exchange Rate</span>
+                  <span className="text-sm font-medium text-white/70">1 USD = {rate.toFixed(4)} CAD</span>
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Total Gain/Loss — popover */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20 cursor-pointer transition-all p-5 relative group">
+              <svg className="absolute top-3 right-3 w-3.5 h-3.5 text-black/20 dark:text-white/20 group-hover:text-black/40 dark:group-hover:text-white/40 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p className="text-sm font-medium text-black/50 dark:text-white/50 mb-1">Total Gain/Loss</p>
+              <p className={`text-2xl font-bold ${totalGainLoss >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {totalGainLoss >= 0 ? "+" : "-"}{formatCurrency(Math.abs(totalGainLoss), "CAD")}
+              </p>
+            </div>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72">
+            <p className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-3">Return Breakdown</p>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5">
+                <span className="text-sm text-white/50">Unrealized P&L</span>
+                <span className={`text-sm font-medium ${unrealizedGainLoss >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {unrealizedGainLoss >= 0 ? "+" : ""}{formatCurrency(unrealizedGainLoss, "CAD")} ({unrealizedPercent >= 0 ? "+" : ""}{unrealizedPercent.toFixed(2)}%)
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5">
+                <span className="text-sm text-white/50">Dividends</span>
+                <span className="text-sm font-medium text-emerald-400">+{formatCurrency(dividendsCadTotal, "CAD")}</span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-white/5">
+                <span className="text-sm text-white/50">Total Return</span>
+                <span className={`text-sm font-medium ${totalGainLoss >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {totalGainLoss >= 0 ? "+" : ""}{formatCurrency(totalGainLoss, "CAD")} ({totalGainLossPercent >= 0 ? "+" : ""}{totalGainLossPercent.toFixed(2)}%)
+                </span>
+              </div>
+              {hasMixedCurrencies && (
+                <div className="flex justify-between items-center py-1.5">
+                  <span className="text-sm text-white/50">Exchange Rate</span>
+                  <span className="text-sm font-medium text-white/70">1 USD = {rate.toFixed(4)} CAD</span>
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
         <StatCard
           label="Holdings"
           value={activeHoldings.length.toString()}
@@ -943,7 +1048,7 @@ export default function PortfolioPage() {
       )}
 
       {activeTab === "performance" && (
-        <PortfolioStats data={dashboardData} loading={dashboardLoading} includeDividends={includeDividends} onToggleDividends={setIncludeDividends} dividendsCadTotal={dividendsCadTotal} />
+        <PortfolioStats data={dashboardData} loading={dashboardLoading} dividendsCadTotal={dividendsCadTotal} />
       )}
 
       <AlertsPanel
