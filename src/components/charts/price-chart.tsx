@@ -50,10 +50,14 @@ interface ChartPrefs {
   type: ChartType;
   show50SMA: boolean;
   show200SMA: boolean;
+  showEMA12: boolean;
+  showEMA26: boolean;
+  showBB: boolean;
 }
 
 function loadChartPrefs(key: string | undefined): ChartPrefs {
-  if (!key || typeof window === "undefined") return { range: "3M", type: "candle", show50SMA: false, show200SMA: false };
+  const defaults: ChartPrefs = { range: "3M", type: "candle", show50SMA: false, show200SMA: false, showEMA12: false, showEMA26: false, showBB: false };
+  if (!key || typeof window === "undefined") return defaults;
   try {
     const stored = localStorage.getItem(`chart_prefs_${key}`);
     if (stored) {
@@ -63,12 +67,15 @@ function loadChartPrefs(key: string | undefined): ChartPrefs {
         type: prefs.type || "candle",
         show50SMA: prefs.show50SMA ?? false,
         show200SMA: prefs.show200SMA ?? false,
+        showEMA12: prefs.showEMA12 ?? false,
+        showEMA26: prefs.showEMA26 ?? false,
+        showBB: prefs.showBB ?? false,
       };
     }
   } catch {
     // Ignore errors
   }
-  return { range: "3M", type: "candle", show50SMA: false, show200SMA: false };
+  return defaults;
 }
 
 function saveChartPrefs(key: string | undefined, prefs: ChartPrefs) {
@@ -113,6 +120,11 @@ interface LegendData {
   time: string;
   sma50?: number;
   sma200?: number;
+  ema12?: number;
+  ema26?: number;
+  bbUpper?: number;
+  bbMiddle?: number;
+  bbLower?: number;
 }
 
 function computeSMA(data: { time: Time; close: number }[], period: number): LineData<Time>[] {
@@ -130,6 +142,40 @@ function computeSMA(data: { time: Time; close: number }[], period: number): Line
   return result;
 }
 
+function computeEMA(data: { time: Time; close: number }[], period: number): LineData<Time>[] {
+  if (data.length < period) return [];
+  const result: LineData<Time>[] = [];
+  const k = 2 / (period + 1);
+  // Seed with SMA of first `period` values
+  let sum = 0;
+  for (let i = 0; i < period; i++) sum += data[i].close;
+  let ema = sum / period;
+  result.push({ time: data[period - 1].time, value: ema });
+  for (let i = period; i < data.length; i++) {
+    ema = data[i].close * k + ema * (1 - k);
+    result.push({ time: data[i].time, value: ema });
+  }
+  return result;
+}
+
+function computeBollingerBands(data: { time: Time; close: number }[], period = 20, mult = 2): { upper: LineData<Time>[]; middle: LineData<Time>[]; lower: LineData<Time>[] } {
+  const upper: LineData<Time>[] = [];
+  const middle: LineData<Time>[] = [];
+  const lower: LineData<Time>[] = [];
+  for (let i = period - 1; i < data.length; i++) {
+    let sum = 0;
+    for (let j = i - period + 1; j <= i; j++) sum += data[j].close;
+    const mean = sum / period;
+    let sqSum = 0;
+    for (let j = i - period + 1; j <= i; j++) sqSum += (data[j].close - mean) ** 2;
+    const stddev = Math.sqrt(sqSum / period);
+    middle.push({ time: data[i].time, value: mean });
+    upper.push({ time: data[i].time, value: mean + mult * stddev });
+    lower.push({ time: data[i].time, value: mean - mult * stddev });
+  }
+  return { upper, middle, lower };
+}
+
 export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges }: PriceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -138,14 +184,17 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
   const [chartType, setChartType] = useState<ChartType>(initialPrefs.current.type);
   const [show50SMA, setShow50SMA] = useState(initialPrefs.current.show50SMA);
   const [show200SMA, setShow200SMA] = useState(initialPrefs.current.show200SMA);
+  const [showEMA12, setShowEMA12] = useState(initialPrefs.current.showEMA12);
+  const [showEMA26, setShowEMA26] = useState(initialPrefs.current.showEMA26);
+  const [showBB, setShowBB] = useState(initialPrefs.current.showBB);
   const [data, setData] = useState<StockTimeSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [legendData, setLegendData] = useState<LegendData | null>(null);
 
   // Save preferences when they change
   useEffect(() => {
-    saveChartPrefs(storageKey, { range: activeRange, type: chartType, show50SMA, show200SMA });
-  }, [storageKey, activeRange, chartType, show50SMA, show200SMA]);
+    saveChartPrefs(storageKey, { range: activeRange, type: chartType, show50SMA, show200SMA, showEMA12, showEMA26, showBB });
+  }, [storageKey, activeRange, chartType, show50SMA, show200SMA, showEMA12, showEMA26, showBB]);
 
   const fetchData = useCallback(async (range: TimeRange) => {
     setLoading(true);
@@ -296,9 +345,14 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
     });
     volumeSeries.setData(volumeData);
 
-    // Add SMA series (only on daily+ timeframes)
+    // Add indicator series (only on daily+ timeframes)
     const sma50DataMap = new Map<string | number, number>();
     const sma200DataMap = new Map<string | number, number>();
+    const ema12DataMap = new Map<string | number, number>();
+    const ema26DataMap = new Map<string | number, number>();
+    const bbUpperDataMap = new Map<string | number, number>();
+    const bbMiddleDataMap = new Map<string | number, number>();
+    const bbLowerDataMap = new Map<string | number, number>();
 
     if (!isIntraday) {
       if (show50SMA) {
@@ -323,6 +377,55 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
         sma200Series.setData(sma200Data);
         sma200Data.forEach((d) => sma200DataMap.set(d.time as string | number, d.value));
       }
+      if (showEMA12) {
+        const ema12Data = computeEMA(finalData, 12);
+        const ema12Series = chart.addSeries(LineSeries, {
+          color: "#06b6d4",
+          lineWidth: 2,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        ema12Series.setData(ema12Data);
+        ema12Data.forEach((d) => ema12DataMap.set(d.time as string | number, d.value));
+      }
+      if (showEMA26) {
+        const ema26Data = computeEMA(finalData, 26);
+        const ema26Series = chart.addSeries(LineSeries, {
+          color: "#ec4899",
+          lineWidth: 2,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        ema26Series.setData(ema26Data);
+        ema26Data.forEach((d) => ema26DataMap.set(d.time as string | number, d.value));
+      }
+      if (showBB) {
+        const bb = computeBollingerBands(finalData);
+        const bbUpperSeries = chart.addSeries(LineSeries, {
+          color: "rgba(99, 102, 241, 0.4)",
+          lineWidth: 1,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        bbUpperSeries.setData(bb.upper);
+        bb.upper.forEach((d) => bbUpperDataMap.set(d.time as string | number, d.value));
+        const bbMiddleSeries = chart.addSeries(LineSeries, {
+          color: "rgba(99, 102, 241, 0.8)",
+          lineWidth: 1,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        bbMiddleSeries.setData(bb.middle);
+        bb.middle.forEach((d) => bbMiddleDataMap.set(d.time as string | number, d.value));
+        const bbLowerSeries = chart.addSeries(LineSeries, {
+          color: "rgba(99, 102, 241, 0.4)",
+          lineWidth: 1,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        bbLowerSeries.setData(bb.lower);
+        bb.lower.forEach((d) => bbLowerDataMap.set(d.time as string | number, d.value));
+      }
     }
 
     // Create a map for fast lookup of bar data by time
@@ -338,7 +441,7 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
       });
     });
 
-    // Helper to build legend with optional SMA values
+    // Helper to build legend with optional indicator values
     const buildLegend = (bar: typeof finalData[0], volume: number, time: Time): LegendData => ({
       open: bar.open,
       high: bar.high,
@@ -348,6 +451,11 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
       time: formatLegendTime(time, isIntraday),
       sma50: sma50DataMap.get(time as string | number),
       sma200: sma200DataMap.get(time as string | number),
+      ema12: ema12DataMap.get(time as string | number),
+      ema26: ema26DataMap.get(time as string | number),
+      bbUpper: bbUpperDataMap.get(time as string | number),
+      bbMiddle: bbMiddleDataMap.get(time as string | number),
+      bbLower: bbLowerDataMap.get(time as string | number),
     });
 
     // Set initial legend to last bar
@@ -377,6 +485,11 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
             time: formatLegendTime(param.time, isIntraday),
             sma50: sma50DataMap.get(param.time as string | number),
             sma200: sma200DataMap.get(param.time as string | number),
+            ema12: ema12DataMap.get(param.time as string | number),
+            ema26: ema26DataMap.get(param.time as string | number),
+            bbUpper: bbUpperDataMap.get(param.time as string | number),
+            bbMiddle: bbMiddleDataMap.get(param.time as string | number),
+            bbLower: bbLowerDataMap.get(param.time as string | number),
           });
         }
       }
@@ -422,7 +535,7 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [data, height, activeRange, chartType, show50SMA, show200SMA]);
+  }, [data, height, activeRange, chartType, show50SMA, show200SMA, showEMA12, showEMA26, showBB]);
 
   const handleRangeChange = (range: TimeRange) => {
     setActiveRange(range);
@@ -478,6 +591,36 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
                 }`}
               >
                 MA200
+              </button>
+              <button
+                onClick={() => setShowEMA12((v) => !v)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  showEMA12
+                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                }`}
+              >
+                EMA12
+              </button>
+              <button
+                onClick={() => setShowEMA26((v) => !v)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  showEMA26
+                    ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
+                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                }`}
+              >
+                EMA26
+              </button>
+              <button
+                onClick={() => setShowBB((v) => !v)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  showBB
+                    ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                }`}
+              >
+                BB
               </button>
             </div>
           )}
@@ -571,6 +714,21 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
                   {show200SMA && legendData.sma200 !== undefined && (
                     <span className="text-black/50 dark:text-white/50">
                       MA200: <span className="text-purple-500">{legendData.sma200.toFixed(2)}</span>
+                    </span>
+                  )}
+                  {showEMA12 && legendData.ema12 !== undefined && (
+                    <span className="text-black/50 dark:text-white/50">
+                      EMA12: <span className="text-cyan-500">{legendData.ema12.toFixed(2)}</span>
+                    </span>
+                  )}
+                  {showEMA26 && legendData.ema26 !== undefined && (
+                    <span className="text-black/50 dark:text-white/50">
+                      EMA26: <span className="text-pink-500">{legendData.ema26.toFixed(2)}</span>
+                    </span>
+                  )}
+                  {showBB && legendData.bbUpper !== undefined && legendData.bbMiddle !== undefined && legendData.bbLower !== undefined && (
+                    <span className="text-black/50 dark:text-white/50">
+                      BB: <span className="text-indigo-400">{legendData.bbUpper.toFixed(2)} / {legendData.bbMiddle.toFixed(2)} / {legendData.bbLower.toFixed(2)}</span>
                     </span>
                   )}
                 </div>
