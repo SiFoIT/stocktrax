@@ -45,8 +45,15 @@ const rangeConfig: Record<TimeRange, { period: string; interval: string; showDay
   "5Y": { period: "10y", interval: "1wk", showDays: 1825 }, // Fetch 10 years, show 5 years
 };
 
-function loadChartPrefs(key: string | undefined): { range: TimeRange; type: ChartType } {
-  if (!key || typeof window === "undefined") return { range: "3M", type: "candle" };
+interface ChartPrefs {
+  range: TimeRange;
+  type: ChartType;
+  show50SMA: boolean;
+  show200SMA: boolean;
+}
+
+function loadChartPrefs(key: string | undefined): ChartPrefs {
+  if (!key || typeof window === "undefined") return { range: "3M", type: "candle", show50SMA: false, show200SMA: false };
   try {
     const stored = localStorage.getItem(`chart_prefs_${key}`);
     if (stored) {
@@ -54,18 +61,20 @@ function loadChartPrefs(key: string | undefined): { range: TimeRange; type: Char
       return {
         range: prefs.range || "3M",
         type: prefs.type || "candle",
+        show50SMA: prefs.show50SMA ?? false,
+        show200SMA: prefs.show200SMA ?? false,
       };
     }
   } catch {
     // Ignore errors
   }
-  return { range: "3M", type: "candle" };
+  return { range: "3M", type: "candle", show50SMA: false, show200SMA: false };
 }
 
-function saveChartPrefs(key: string | undefined, range: TimeRange, type: ChartType) {
+function saveChartPrefs(key: string | undefined, prefs: ChartPrefs) {
   if (!key || typeof window === "undefined") return;
   try {
-    localStorage.setItem(`chart_prefs_${key}`, JSON.stringify({ range, type }));
+    localStorage.setItem(`chart_prefs_${key}`, JSON.stringify(prefs));
   } catch {
     // Ignore errors
   }
@@ -102,6 +111,23 @@ interface LegendData {
   close: number;
   volume: number;
   time: string;
+  sma50?: number;
+  sma200?: number;
+}
+
+function computeSMA(data: { time: Time; close: number }[], period: number): LineData<Time>[] {
+  const result: LineData<Time>[] = [];
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) {
+    sum += data[i].close;
+    if (i >= period) {
+      sum -= data[i - period].close;
+    }
+    if (i >= period - 1) {
+      result.push({ time: data[i].time, value: sum / period });
+    }
+  }
+  return result;
 }
 
 export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges }: PriceChartProps) {
@@ -110,14 +136,16 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
   const initialPrefs = useRef(loadChartPrefs(storageKey));
   const [activeRange, setActiveRange] = useState<TimeRange>(initialPrefs.current.range);
   const [chartType, setChartType] = useState<ChartType>(initialPrefs.current.type);
+  const [show50SMA, setShow50SMA] = useState(initialPrefs.current.show50SMA);
+  const [show200SMA, setShow200SMA] = useState(initialPrefs.current.show200SMA);
   const [data, setData] = useState<StockTimeSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [legendData, setLegendData] = useState<LegendData | null>(null);
 
   // Save preferences when they change
   useEffect(() => {
-    saveChartPrefs(storageKey, activeRange, chartType);
-  }, [storageKey, activeRange, chartType]);
+    saveChartPrefs(storageKey, { range: activeRange, type: chartType, show50SMA, show200SMA });
+  }, [storageKey, activeRange, chartType, show50SMA, show200SMA]);
 
   const fetchData = useCallback(async (range: TimeRange) => {
     setLoading(true);
@@ -268,6 +296,35 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
     });
     volumeSeries.setData(volumeData);
 
+    // Add SMA series (only on daily+ timeframes)
+    const sma50DataMap = new Map<string | number, number>();
+    const sma200DataMap = new Map<string | number, number>();
+
+    if (!isIntraday) {
+      if (show50SMA) {
+        const sma50Data = computeSMA(finalData, 50);
+        const sma50Series = chart.addSeries(LineSeries, {
+          color: "#f59e0b",
+          lineWidth: 2,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        sma50Series.setData(sma50Data);
+        sma50Data.forEach((d) => sma50DataMap.set(d.time as string | number, d.value));
+      }
+      if (show200SMA) {
+        const sma200Data = computeSMA(finalData, 200);
+        const sma200Series = chart.addSeries(LineSeries, {
+          color: "#a855f7",
+          lineWidth: 2,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        sma200Series.setData(sma200Data);
+        sma200Data.forEach((d) => sma200DataMap.set(d.time as string | number, d.value));
+      }
+    }
+
     // Create a map for fast lookup of bar data by time
     const barDataMap = new Map<string | number, { open: number; high: number; low: number; close: number; volume: number }>();
     finalData.forEach((d) => {
@@ -281,30 +338,28 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
       });
     });
 
+    // Helper to build legend with optional SMA values
+    const buildLegend = (bar: typeof finalData[0], volume: number, time: Time): LegendData => ({
+      open: bar.open,
+      high: bar.high,
+      low: bar.low,
+      close: bar.close,
+      volume,
+      time: formatLegendTime(time, isIntraday),
+      sma50: sma50DataMap.get(time as string | number),
+      sma200: sma200DataMap.get(time as string | number),
+    });
+
     // Set initial legend to last bar
     const lastBar = finalData[finalData.length - 1];
     const lastOriginalData = data[lastBar.originalIndex];
-    setLegendData({
-      open: lastBar.open,
-      high: lastBar.high,
-      low: lastBar.low,
-      close: lastBar.close,
-      volume: lastOriginalData?.volume ?? 0,
-      time: formatLegendTime(lastBar.time, isIntraday),
-    });
+    setLegendData(buildLegend(lastBar, lastOriginalData?.volume ?? 0, lastBar.time));
 
     // Subscribe to crosshair move for legend updates
     chart.subscribeCrosshairMove((param) => {
       if (!param.time || !param.seriesData.size) {
         // Cursor left chart - show last bar
-        setLegendData({
-          open: lastBar.open,
-          high: lastBar.high,
-          low: lastBar.low,
-          close: lastBar.close,
-          volume: lastOriginalData?.volume ?? 0,
-          time: formatLegendTime(lastBar.time, isIntraday),
-        });
+        setLegendData(buildLegend(lastBar, lastOriginalData?.volume ?? 0, lastBar.time));
         return;
       }
 
@@ -320,6 +375,8 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
             close: barInfo.close,
             volume: barInfo.volume,
             time: formatLegendTime(param.time, isIntraday),
+            sma50: sma50DataMap.get(param.time as string | number),
+            sma200: sma200DataMap.get(param.time as string | number),
           });
         }
       }
@@ -365,7 +422,7 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [data, height, activeRange, chartType]);
+  }, [data, height, activeRange, chartType, show50SMA, show200SMA]);
 
   const handleRangeChange = (range: TimeRange) => {
     setActiveRange(range);
@@ -398,6 +455,31 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
             <span className={`text-sm font-semibold ${getChangeColor(timeframeChanges[activeRange])}`}>
               {formatPercent(timeframeChanges[activeRange])}
             </span>
+          )}
+          {/* MA Toggle Buttons - only on daily+ timeframes */}
+          {activeRange !== "1D" && activeRange !== "5D" && (
+            <div className="flex gap-1 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+              <button
+                onClick={() => setShow50SMA((v) => !v)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  show50SMA
+                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                }`}
+              >
+                MA50
+              </button>
+              <button
+                onClick={() => setShow200SMA((v) => !v)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  show200SMA
+                    ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                }`}
+              >
+                MA200
+              </button>
+            </div>
           )}
         </div>
 
@@ -481,6 +563,16 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
                   <span className="text-black/50 dark:text-white/50">
                     Vol: <span className="text-black dark:text-white">{formatVolume(legendData.volume, 2)}</span>
                   </span>
+                  {show50SMA && legendData.sma50 !== undefined && (
+                    <span className="text-black/50 dark:text-white/50">
+                      MA50: <span className="text-amber-500">{legendData.sma50.toFixed(2)}</span>
+                    </span>
+                  )}
+                  {show200SMA && legendData.sma200 !== undefined && (
+                    <span className="text-black/50 dark:text-white/50">
+                      MA200: <span className="text-purple-500">{legendData.sma200.toFixed(2)}</span>
+                    </span>
+                  )}
                 </div>
               )}
               <div ref={chartContainerRef} />
