@@ -112,7 +112,7 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
                 {renderSortHeader("Symbol", "symbol")}
                 <th className="px-3 py-2 text-left text-xs font-medium text-black/50 dark:text-white/50">Name</th>
                 {renderSortHeader("Price", "price")}
-                {renderSortHeader("Change %", "changePercent")}
+                {renderSortHeader("Today's Change", "changePercent")}
                 {usedMetrics.map((key) => renderSortHeader(METRICS[key]?.label ?? key, key))}
               </tr>
             </thead>
