@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { getQuote, getHistoricalPrice, getDividendInfo } from "@/lib/api/yahoo-finance";
+import { getQuote, getHistoricalPrice, getHistoricalPricesMultiDate, getDividendInfo } from "@/lib/api/yahoo-finance";
 import type { QuoteWithRange } from "@/lib/api/yahoo-finance";
 import type { PortfolioDashboardData, PortfolioSummary, BreakdownItem } from "@/types";
 import { CACHE_TTL } from "@/lib/config";
@@ -133,6 +133,33 @@ export async function GET() {
       }
     }
 
+    // Fetch historical prices for period returns (5D, 1M, 3M, 1Y)
+    const now = new Date();
+    const periodDefs = [
+      { key: "5D", days: 5 },
+      { key: "1M", days: 30 },
+      { key: "3M", days: 90 },
+      { key: "1Y", days: 365 },
+    ];
+    const periodTargetDates = periodDefs.map(({ days }) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - days);
+      return d;
+    });
+
+    // One chart call per symbol, extracting all 4 dates
+    const periodPricePromises = uniqueSymbols.map(async (sym) => {
+      const prices = await getHistoricalPricesMultiDate(sym, periodTargetDates);
+      return { sym, prices };
+    });
+    const periodPriceResults = await Promise.all(periodPricePromises);
+
+    // symbol -> Map<targetDateTimestamp, price>
+    const periodPricesMap = new Map<string, Map<number, number>>();
+    for (const { sym, prices } of periodPriceResults) {
+      periodPricesMap.set(sym, prices);
+    }
+
     // Build portfolio summaries
     const portfolioSummaries: PortfolioSummary[] = [];
 
@@ -254,6 +281,74 @@ export async function GET() {
       const sinceInceptionAmount = marketValue - totalInvested + totalDividends;
       const sinceInceptionPercent = totalInvested > 0 ? (sinceInceptionAmount / totalInvested) * 100 : 0;
 
+      // Compute period returns (5D, 1M, 3M, 1Y)
+      const periodReturns: Record<string, { amount: number; percent: number }> = {};
+
+      // Reuse today's return for "1D"
+      periodReturns["1D"] = { amount: todayReturn, percent: todayReturnPercent };
+
+      const sortedTxnsForPeriod = [...pTransactions].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+
+      for (let pi = 0; pi < periodDefs.length; pi++) {
+        const { key } = periodDefs[pi];
+        const periodStart = periodTargetDates[pi];
+        const periodStartTs = periodStart.getTime();
+
+        // Walk transactions to find shares held at period start
+        const sharesAtPeriodStart = new Map<string, { shares: number; currency: string }>();
+
+        for (const txn of sortedTxnsForPeriod) {
+          if (new Date(txn.date) >= periodStart) break;
+          const h = holdingById.get(txn.holdingId);
+          if (!h) continue;
+          const cur = sharesAtPeriodStart.get(h.symbol) ?? { shares: 0, currency: holdingCurrency(h) };
+          if (txn.type === "buy" || txn.type === "transfer_in") {
+            cur.shares += txn.shares;
+          } else if (txn.type === "sell") {
+            cur.shares -= txn.shares;
+          }
+          sharesAtPeriodStart.set(h.symbol, cur);
+        }
+
+        // Compute start value using historical prices
+        let startVal = 0;
+        for (const [sym, { shares, currency }] of sharesAtPeriodStart) {
+          if (shares <= 0) continue;
+          const price = periodPricesMap.get(sym)?.get(periodStartTs);
+          if (price) {
+            startVal += toCAD(shares * price, currency);
+          }
+        }
+
+        // Track flows during the period
+        let pNetBuys = 0;
+        let pNetSells = 0;
+        let pDividends = 0;
+
+        for (const txn of sortedTxnsForPeriod) {
+          const txnDate = new Date(txn.date);
+          if (txnDate < periodStart) continue;
+          const h = holdingById.get(txn.holdingId);
+          if (!h) continue;
+          const value = txn.shares * txn.price;
+          if (txn.type === "buy" || txn.type === "transfer_in") {
+            pNetBuys += toCAD(value, holdingCurrency(h));
+          } else if (txn.type === "sell") {
+            pNetSells += toCAD(value, holdingCurrency(h));
+          } else if (txn.type === "dividend") {
+            pDividends += toCAD(value, holdingCurrency(h));
+          }
+        }
+
+        const returnAmt = marketValue - startVal - pNetBuys + pNetSells + pDividends;
+        const denom = startVal + pNetBuys;
+        const returnPct = denom > 0 ? (returnAmt / denom) * 100 : 0;
+
+        periodReturns[key] = { amount: returnAmt, percent: returnPct };
+      }
+
       // Use earliest transaction date as inception date (more reliable than createdAt which may have been backfilled)
       const earliestPortfolioTx = pTransactions.length > 0
         ? new Date(Math.min(...pTransactions.map((t) => new Date(t.date).getTime())))
@@ -273,6 +368,7 @@ export async function GET() {
         percentOfTotal: totalMarketValueAll > 0 ? (marketValue / totalMarketValueAll) * 100 : 0,
         yearlyReturns,
         sinceInception: { amount: sinceInceptionAmount, percent: sinceInceptionPercent },
+        periodReturns,
       });
     }
 
@@ -285,6 +381,30 @@ export async function GET() {
     const totalTodayReturnPercent = totalMarketValue > 0
       ? (totalTodayReturn / (totalMarketValue - totalTodayReturn)) * 100
       : 0;
+
+    // Aggregate period returns across portfolios
+    const totalPeriodReturns: Record<string, { amount: number; percent: number }> = {};
+    const periodKeys = ["1D", "5D", "1M", "3M", "1Y"];
+    for (const key of periodKeys) {
+      let totalAmt = 0;
+      let totalDenom = 0;
+      for (const p of portfolioSummaries) {
+        const pr = p.periodReturns?.[key];
+        if (pr) {
+          totalAmt += pr.amount;
+        }
+      }
+      // For percent, use the total portfolio's start value approach:
+      // sum of (startValue + netBuys) across portfolios
+      // Approximate by using totalAmt / (totalMarketValue - totalAmt) when possible
+      if (key === "1D") {
+        totalPeriodReturns[key] = { amount: totalTodayReturn, percent: totalTodayReturnPercent };
+      } else {
+        totalDenom = totalMarketValue - totalAmt;
+        const pct = totalDenom > 0 ? (totalAmt / totalDenom) * 100 : 0;
+        totalPeriodReturns[key] = { amount: totalAmt, percent: pct };
+      }
+    }
 
     // Total dividends across all portfolios (already computed in CAD during per-portfolio loop)
     let allPortfolioDividends = 0;
@@ -396,6 +516,7 @@ export async function GET() {
         earliestTransactionDate: earliestTxDate.toISOString(),
         totalDividends: allPortfolioDividends,
         totalCash,
+        periodReturns: totalPeriodReturns,
       },
       breakdowns: {
         assetType,

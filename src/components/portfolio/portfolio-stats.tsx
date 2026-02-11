@@ -279,6 +279,37 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
         />
       </div>
 
+      {/* Period returns row */}
+      {totals.periodReturns && (
+        <div className="grid grid-cols-5 gap-3">
+          {[
+            { key: "1D", label: "Today" },
+            { key: "5D", label: "5 Days" },
+            { key: "1M", label: "1 Month" },
+            { key: "3M", label: "3 Months" },
+            { key: "1Y", label: "1 Year" },
+          ].map(({ key, label }) => {
+            const pr = totals.periodReturns![key];
+            if (!pr) return null;
+            const color = getChangeColor(pr.amount);
+            return (
+              <div
+                key={key}
+                className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-3"
+              >
+                <p className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider mb-1">{label}</p>
+                <p className={`text-lg font-bold ${color}`}>
+                  {pr.amount >= 0 ? "+" : ""}{formatCurrency(pr.amount, "CAD")}
+                </p>
+                <p className={`text-sm ${color}`}>
+                  {pr.percent >= 0 ? "+" : ""}{pr.percent.toFixed(2)}%
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Charts grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <BreakdownChart

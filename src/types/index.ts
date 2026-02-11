@@ -116,6 +116,7 @@ export interface PortfolioSummary {
   percentOfTotal: number;
   yearlyReturns: Record<string, { amount: number; percent: number }>;
   sinceInception: { amount: number; percent: number };
+  periodReturns?: Record<string, { amount: number; percent: number }>;
 }
 
 export interface BreakdownItem {
@@ -136,6 +137,7 @@ export interface PortfolioDashboardData {
     earliestTransactionDate: string;
     totalDividends?: number;
     totalCash?: number;
+    periodReturns?: Record<string, { amount: number; percent: number }>;
   };
   breakdowns: {
     assetType: BreakdownItem[];

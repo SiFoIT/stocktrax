@@ -376,6 +376,48 @@ export async function getQuote(symbol: string, includeRange = false): Promise<St
   }
 }
 
+export async function getHistoricalPricesMultiDate(
+  symbol: string,
+  targetDates: Date[]
+): Promise<Map<number, number>> {
+  const result = new Map<number, number>();
+  try {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setFullYear(startDate.getFullYear() - 1);
+    startDate.setDate(startDate.getDate() - 10); // buffer for weekends/holidays
+
+    const chart = await yahooFinance.chart(symbol, {
+      period1: startDate,
+      period2: endDate,
+      interval: "1d",
+    });
+
+    if (!chart || !chart.quotes || chart.quotes.length === 0) return result;
+
+    const quotes = chart.quotes.filter((q) => q.date && q.close !== null);
+    if (quotes.length === 0) return result;
+
+    for (const target of targetDates) {
+      // Find closest quote on or before target date
+      let closest: (typeof quotes)[number] | null = null;
+      for (let i = quotes.length - 1; i >= 0; i--) {
+        if (quotes[i].date <= target) {
+          closest = quotes[i];
+          break;
+        }
+      }
+      if (closest && closest.close != null) {
+        result.set(target.getTime(), closest.close);
+      }
+    }
+
+    return result;
+  } catch {
+    return result;
+  }
+}
+
 export async function getHistoricalPrice(symbol: string, targetDate: Date): Promise<number | null> {
   try {
     // Fetch a window around the target date to find nearest trading day
