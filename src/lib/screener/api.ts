@@ -1,4 +1,37 @@
 import { ScreenRule } from "./metrics";
+import { ScreenPreset } from "./presets";
+
+export interface CustomPresetDTO {
+  id: number;
+  name: string;
+  rules: ScreenRule[];
+  match: "all" | "any";
+  createdAt: string;
+}
+
+export async function fetchPresets(): Promise<CustomPresetDTO[]> {
+  const response = await fetch("/api/screen-presets");
+  if (!response.ok) return [];
+  return response.json();
+}
+
+export async function createPreset(data: {
+  name: string;
+  rules: ScreenRule[];
+  match: "all" | "any";
+}): Promise<CustomPresetDTO> {
+  const response = await fetch("/api/screen-presets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error("Failed to create preset");
+  return response.json();
+}
+
+export async function deletePreset(id: number): Promise<void> {
+  await fetch(`/api/screen-presets?id=${id}`, { method: "DELETE" });
+}
 
 export interface ScreenDTO {
   id: number;

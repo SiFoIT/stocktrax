@@ -179,3 +179,16 @@ export const screens = sqliteTable("screens", {
 
 export type Screen = typeof screens.$inferSelect;
 export type NewScreen = typeof screens.$inferInsert;
+
+export const screenPresets = sqliteTable("screen_presets", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  rules: text("rules").notNull().default("[]"),
+  match: text("match", { enum: ["all", "any"] }).notNull().default("all"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export type ScreenPresetRow = typeof screenPresets.$inferSelect;
+export type NewScreenPresetRow = typeof screenPresets.$inferInsert;

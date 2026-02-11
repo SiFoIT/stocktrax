@@ -10,7 +10,8 @@ import {
   type ScreenRule,
   type ScreenOperator,
 } from "@/lib/screener/metrics";
-import { SCREEN_PRESETS } from "@/lib/screener/presets";
+import { SCREEN_PRESETS, ScreenPreset } from "@/lib/screener/presets";
+import { fetchPresets, createPreset, deletePreset, CustomPresetDTO } from "@/lib/screener/api";
 import { Watchlist, Portfolio } from "@/lib/db/schema";
 
 interface ScreenEditorProps {
@@ -36,7 +37,18 @@ export function ScreenEditor({
 }: ScreenEditorProps) {
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
+  const [customPresets, setCustomPresets] = useState<CustomPresetDTO[]>([]);
+  const [savingPreset, setSavingPreset] = useState(false);
+  const [presetName, setPresetName] = useState("");
   const metricsByCategory = getMetricsByCategory();
+
+  const loadPresets = async () => {
+    try {
+      setCustomPresets(await fetchPresets());
+    } catch {
+      // silent
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -52,6 +64,7 @@ export function ScreenEditor({
       }
     };
     fetchData();
+    loadPresets();
   }, []);
 
   const addRule = () => {
@@ -68,9 +81,30 @@ export function ScreenEditor({
     onRulesChange(rules.filter((_, i) => i !== index));
   };
 
-  const applyPreset = (preset: typeof SCREEN_PRESETS[number]) => {
+  const applyPreset = (preset: ScreenPreset) => {
     onRulesChange([...preset.rules]);
     onMatchChange(preset.match);
+  };
+
+  const handleSavePreset = async () => {
+    if (!presetName.trim() || rules.length === 0) return;
+    try {
+      await createPreset({ name: presetName.trim(), rules, match });
+      setPresetName("");
+      setSavingPreset(false);
+      loadPresets();
+    } catch {
+      // silent
+    }
+  };
+
+  const handleDeletePreset = async (id: number) => {
+    try {
+      await deletePreset(id);
+      loadPresets();
+    } catch {
+      // silent
+    }
   };
 
   return (
@@ -137,6 +171,61 @@ export function ScreenEditor({
             {preset.name}
           </button>
         ))}
+        {customPresets.map((preset) => (
+          <span key={preset.id} className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 transition-all">
+            <button
+              onClick={() => applyPreset(preset)}
+              className="pl-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300"
+            >
+              {preset.name}
+            </button>
+            <button
+              onClick={() => handleDeletePreset(preset.id)}
+              className="pr-2 py-1 text-emerald-600/50 dark:text-emerald-400/50 hover:text-red-400 transition-colors"
+              title="Delete preset"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </span>
+        ))}
+        {savingPreset ? (
+          <span className="inline-flex items-center gap-1">
+            <Input
+              autoFocus
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSavePreset();
+                if (e.key === "Escape") { setSavingPreset(false); setPresetName(""); }
+              }}
+              placeholder="Preset name…"
+              className="h-7 w-36 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10"
+            />
+            <button
+              onClick={handleSavePreset}
+              disabled={!presetName.trim() || rules.length === 0}
+              className="px-2 py-1 rounded-full text-xs font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 transition-all"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => { setSavingPreset(false); setPresetName(""); }}
+              className="px-1.5 py-1 text-xs text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
+            >
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <button
+            onClick={() => setSavingPreset(true)}
+            disabled={rules.length === 0}
+            className="px-3 py-1 rounded-full text-xs font-medium border border-dashed border-black/20 dark:border-white/20 text-black/50 dark:text-white/50 hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/5 disabled:opacity-30 disabled:hover:border-black/20 disabled:hover:text-black/50 disabled:hover:bg-transparent transition-all"
+          >
+            + Save Preset
+          </button>
+        )}
       </div>
 
       {/* Rules */}
