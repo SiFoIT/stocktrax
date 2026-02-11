@@ -330,6 +330,7 @@ export default function PortfolioPage() {
             todayReturnPercent: portfolioSummary.todayReturnPercent,
             cagr,
             earliestTransactionDate: portfolioSummary.createdAt,
+            periodReturns: portfolioSummary.periodReturns,
           },
           breakdowns: {
             assetType: toSorted(assetTypeMap),
