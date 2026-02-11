@@ -267,7 +267,7 @@ export function ScreenEditor({
               type="number"
               step="any"
               value={rule.value}
-              onChange={(e) => updateRule(index, { value: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => updateRule(index, { value: e.target.value === "" || e.target.value === "-" ? 0 : parseFloat(e.target.value) })}
               className="h-9 w-24 bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:ring-violet-500/50"
             />
 
@@ -279,7 +279,7 @@ export function ScreenEditor({
                   type="number"
                   step="any"
                   value={rule.valueTo ?? 0}
-                  onChange={(e) => updateRule(index, { valueTo: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => updateRule(index, { valueTo: e.target.value === "" || e.target.value === "-" ? 0 : parseFloat(e.target.value) })}
                   className="h-9 w-24 bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:ring-violet-500/50"
                 />
               </>
