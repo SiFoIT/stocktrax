@@ -228,6 +228,10 @@ function StatCard({ label, value, change, icon }: { label: string; value: string
 }
 
 
+function hasAnyValue(...values: (number | string | undefined | null)[]): boolean {
+  return values.some((v) => v !== undefined && v !== null);
+}
+
 export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
   const [details, setDetails] = useState<StockDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -391,6 +395,7 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
           ) : details ? (
             <div className="space-y-6">
               {/* Key Stats Cards */}
+              {hasAnyValue(details.marketCap, details.trailingPE, details.dividendYield, details.beta) && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatCard
                   label="Market Cap"
@@ -413,6 +418,7 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>}
                 />
               </div>
+              )}
 
               {/* Price Ranges */}
               {details.fiftyTwoWeekLow && details.fiftyTwoWeekHigh && details.price && (
@@ -449,6 +455,7 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   <Row label="Avg Volume" value={formatVolume(details.avgVolume, 2)} />
                 </Section>
 
+                {hasAnyValue(details.marketCap, details.enterpriseValue, details.trailingPE, details.forwardPE, details.priceToBook, details.priceToSales) && (
                 <Section
                   title="Valuation"
                   color="from-purple-500/20 to-transparent"
@@ -461,7 +468,9 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   <Row label="Price/Book" value={formatNumber(details.priceToBook)} />
                   <Row label="Price/Sales" value={formatNumber(details.priceToSales)} />
                 </Section>
+                )}
 
+                {hasAnyValue(details.dividendRate, details.dividendYield, details.exDividendDate, details.payoutRatio) && (
                 <Section
                   title="Dividends"
                   color="from-emerald-500/20 to-transparent"
@@ -472,7 +481,9 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   <Row label="Ex-Dividend Date" value={details.exDividendDate || "-"} />
                   <Row label="Payout Ratio" value={formatPercentRatio(details.payoutRatio)} className={getRatioColor(details.payoutRatio, 0.3, 0.8, true)} />
                 </Section>
+                )}
 
+                {hasAnyValue(details.revenue, details.grossProfit, details.ebitda, details.netIncome, details.eps, details.forwardEps) && (
                 <Section
                   title="Financials"
                   color="from-amber-500/20 to-transparent"
@@ -485,7 +496,9 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   <Row label="EPS (Trailing)" value={formatCurrency(details.eps, details.currency)} />
                   <Row label="EPS (Forward)" value={formatCurrency(details.forwardEps, details.currency)} />
                 </Section>
+                )}
 
+                {hasAnyValue(details.profitMargin, details.operatingMargin, details.returnOnAssets, details.returnOnEquity) && (
                 <Section
                   title="Profitability"
                   color="from-cyan-500/20 to-transparent"
@@ -496,7 +509,9 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   <Row label="Return on Assets" value={formatPercentRatio(details.returnOnAssets)} className={getRatioColor(details.returnOnAssets, 0.05, 0.15, false)} />
                   <Row label="Return on Equity" value={formatPercentRatio(details.returnOnEquity)} className={getRatioColor(details.returnOnEquity, 0.1, 0.2, false)} />
                 </Section>
+                )}
 
+                {hasAnyValue(details.totalCash, details.totalDebt, details.debtToEquity, details.currentRatio, details.bookValue) && (
                 <Section
                   title="Balance Sheet"
                   color="from-rose-500/20 to-transparent"
@@ -508,7 +523,9 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   <Row label="Current Ratio" value={formatNumber(details.currentRatio)} className={getRatioColor(details.currentRatio, 1, 2, false)} />
                   <Row label="Book Value" value={formatCurrency(details.bookValue, details.currency)} />
                 </Section>
+                )}
 
+                {hasAnyValue(details.sharesOutstanding, details.floatShares, details.sharesShort, details.shortRatio, details.shortPercentOfFloat) && (
                 <Section
                   title="Shares & Short Interest"
                   color="from-indigo-500/20 to-transparent"
@@ -520,7 +537,9 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   <Row label="Short Ratio" value={formatNumber(details.shortRatio)} className={getRatioColor(details.shortRatio, 3, 10, true)} />
                   <Row label="Short % of Float" value={formatPercentRatio(details.shortPercentOfFloat)} className={getRatioColor(details.shortPercentOfFloat, 0.05, 0.2, true)} />
                 </Section>
+                )}
 
+                {hasAnyValue(details.targetHighPrice, details.targetMeanPrice, details.targetLowPrice, details.recommendationKey, details.numberOfAnalystOpinions) && (
                 <Section
                   title="Analyst Ratings"
                   color="from-orange-500/20 to-transparent"
@@ -540,6 +559,7 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   <Row label="# of Analysts" value={details.numberOfAnalystOpinions?.toString() || "-"} />
                   <Row label="Earnings Date" value={details.earningsDate || "-"} className="text-yellow-400" />
                 </Section>
+                )}
 
                 <Section
                   title="52-Week Performance"

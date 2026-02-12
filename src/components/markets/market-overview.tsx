@@ -6,6 +6,7 @@ import { MarketData } from "@/types";
 import { MarketCard } from "./market-card";
 import { MarketStatus, MarketStatusIndicator } from "./market-status";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
+import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 
 type MarketDataByCategory = Record<Category, MarketData[]>;
 
@@ -14,6 +15,7 @@ export function MarketOverview() {
   const [isLoading, setIsLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [chartIndex, setChartIndex] = useState<number | null>(null);
+  const [detailsSymbol, setDetailsSymbol] = useState<string | null>(null);
 
   const fetchMarketData = useCallback(async (refresh = false) => {
     setIsLoading(true);
@@ -105,7 +107,8 @@ export function MarketOverview() {
                     <MarketCard
                       key={data.symbol}
                       data={data}
-                      onClick={() => setChartIndex(symbolIndexMap.get(data.symbol) ?? 0)}
+                      onClick={() => setDetailsSymbol(data.symbol)}
+                      onChartClick={() => setChartIndex(symbolIndexMap.get(data.symbol) ?? 0)}
                     />
                   ))}
                 </div>
@@ -115,6 +118,12 @@ export function MarketOverview() {
         </div>
       </div>
     </div>
+    {detailsSymbol && (
+      <StockDetailsModal
+        symbol={detailsSymbol}
+        onClose={() => setDetailsSymbol(null)}
+      />
+    )}
     {chartIndex !== null && flatSymbols.length > 0 && (
       <PriceChartModal
         symbols={flatSymbols}

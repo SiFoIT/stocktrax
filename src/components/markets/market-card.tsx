@@ -4,9 +4,10 @@ import { Sparkline } from "./sparkline";
 interface MarketCardProps {
   data: MarketData;
   onClick?: () => void;
+  onChartClick?: () => void;
 }
 
-export function MarketCard({ data, onClick }: MarketCardProps) {
+export function MarketCard({ data, onClick, onChartClick }: MarketCardProps) {
   const isPositive = data.change >= 0;
   const changeColor = isPositive ? "text-green-500" : "text-red-500";
   const bgGradient = isPositive
@@ -47,7 +48,20 @@ export function MarketCard({ data, onClick }: MarketCardProps) {
           <p className="text-xs text-black/50 dark:text-white/50">{data.symbol}</p>
         </div>
         {data.sparklineData.length >= 2 && (
-          <Sparkline data={data.sparklineData} positive={isPositive} />
+          onChartClick ? (
+            <button
+              className="rounded-lg p-1 -m-1 transition-colors hover:bg-white/10 dark:hover:bg-white/10 hover:shadow-sm cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChartClick();
+              }}
+              title="View chart"
+            >
+              <Sparkline data={data.sparklineData} positive={isPositive} />
+            </button>
+          ) : (
+            <Sparkline data={data.sparklineData} positive={isPositive} />
+          )
         )}
       </div>
       <div className="flex items-end justify-between">
