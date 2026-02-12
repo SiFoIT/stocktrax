@@ -29,7 +29,8 @@ import {
   StockTransactionRow,
   CashTransactionRow,
 } from "@/types";
-import { formatUpdatedTime, formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
+import { useRelativeTime } from "@/lib/hooks/use-relative-time";
 import { AlertsPanel } from "@/components/alerts/alerts-panel";
 import {
   triggerHoldingAlerts,
@@ -69,6 +70,7 @@ export default function PortfolioPage() {
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
   const [focusedAlertSymbol, setFocusedAlertSymbol] = useState<string | null>(null);
   const [cashBalance, setCashBalance] = useState<{ cad: number; usd: number; totalDividends: { cad: number; usd: number } }>({ cad: 0, usd: 0, totalDividends: { cad: 0, usd: 0 } });
+  const holdingsUpdatedLabel = useRelativeTime(holdingsUpdatedAt);
 
   // State for MainNavTabs (used for dropdown highlighting)
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
@@ -902,9 +904,9 @@ export default function PortfolioPage() {
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                {holdingsUpdatedAt && (
+                {holdingsUpdatedLabel && (
                   <span className="text-xs text-black/50 dark:text-white/50">
-                    {formatUpdatedTime(holdingsUpdatedAt)}
+                    {holdingsUpdatedLabel}
                   </span>
                 )}
                 <Button

@@ -21,7 +21,7 @@ import { PortfolioStats } from "@/components/portfolio/portfolio-stats";
 import { MainNav, MainNavTabs, getInitialTab, getInitialWatchlistId, getInitialScreenId, type Tab } from "@/components/layout/main-nav";
 import { ScreenContent } from "@/components/screener/screen-content";
 import { fetchScreens, type ScreenDTO } from "@/lib/screener/api";
-import { formatUpdatedTime } from "@/lib/utils";
+import { useRelativeTime } from "@/lib/hooks/use-relative-time";
 import { AlertsPanel } from "@/components/alerts/alerts-panel";
 import {
   triggerWatchlistAlerts,
@@ -85,6 +85,8 @@ export default function Dashboard() {
   const [watchlistHistory, setWatchlistHistory] = useState<AlertHistoryEntry[]>([]);
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
   const [focusedAlertSymbol, setFocusedAlertSymbol] = useState<string | null>(null);
+
+  const watchlistUpdatedLabel = useRelativeTime(watchlistUpdatedAt);
 
   // Portfolio state for the list view
   const [dashboardData, setDashboardData] = useState<PortfolioDashboardData | null>(null);
@@ -429,9 +431,9 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      {watchlistUpdatedAt && (
+                      {watchlistUpdatedLabel && (
                         <span className="text-xs text-black/50 dark:text-white/50">
-                          {formatUpdatedTime(watchlistUpdatedAt)}
+                          {watchlistUpdatedLabel}
                         </span>
                       )}
                       <Button
