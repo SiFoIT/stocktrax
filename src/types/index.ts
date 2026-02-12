@@ -1,3 +1,17 @@
+export type MarketState = "REGULAR" | "CLOSED" | "PRE" | "PREPRE" | "POST" | "POSTPOST";
+
+export interface ExtendedHoursData {
+  marketState?: MarketState;
+  preMarketPrice?: number;
+  preMarketChange?: number;
+  preMarketChangePercent?: number;
+  preMarketTime?: string;
+  postMarketPrice?: number;
+  postMarketChange?: number;
+  postMarketChangePercent?: number;
+  postMarketTime?: string;
+}
+
 export interface StockQuote {
   symbol: string;
   price: number;
@@ -6,6 +20,7 @@ export interface StockQuote {
   volume: number;
   latestTradingDay: string;
   quoteType?: string;
+  extendedHours?: ExtendedHoursData;
 }
 
 export interface StockTimeSeries {
@@ -22,6 +37,7 @@ export interface QuoteFields {
   changePercent?: number;
   lastTradeTime?: string;
   shortName?: string;
+  extendedHours?: ExtendedHoursData;
   // Historical changes
   change5D?: number;
   change1M?: number;
@@ -78,6 +94,7 @@ export interface MarketData {
   change: number;
   changePercent: number;
   sparklineData: number[];
+  extendedHours?: ExtendedHoursData;
 }
 
 export interface TransactionWithSymbol {

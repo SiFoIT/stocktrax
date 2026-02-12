@@ -6,6 +6,7 @@ import { HoldingWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
 import { formatCurrency, formatPercent, getChangeColor, getChangeBg } from "@/lib/utils";
+import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
 
 type SortColumn = "symbol" | "shares" | "avgCost" | "price" | "today" | "value" | "port" | "gainLoss";
 type SortDirection = "asc" | "desc";
@@ -233,6 +234,9 @@ export function HoldingsTable({
               </td>
               <td className="px-4 py-4 text-right">
                 <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(holding.currentPrice, holding.currency)}</span>
+                {holding.extendedHours && (
+                  <ExtendedHoursLabel extendedHours={holding.extendedHours} currency={holding.currency} compact />
+                )}
               </td>
               <td className="px-4 py-4 text-right">
                 {holding.change !== undefined && (

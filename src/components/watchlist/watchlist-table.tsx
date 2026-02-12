@@ -8,6 +8,7 @@ import { WatchlistItemWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
 import { formatCurrency, formatPercent, getChangeColor, getChangeBg, formatTradeTime } from "@/lib/utils";
+import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
 
 type SortColumn = "symbol" | "price" | "dayRange" | "52wRange" | "1D" | "5D" | "1M" | "3M" | "1Y" | "5Y";
 type SortDirection = "asc" | "desc";
@@ -223,6 +224,9 @@ export function WatchlistTable({
                     <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(item.price, item.currency)}</span>
                     {item.lastTradeTime && (
                       <div className="text-[10px] text-black/40 dark:text-white/40">{formatTradeTime(item.lastTradeTime)}</div>
+                    )}
+                    {item.extendedHours && (
+                      <ExtendedHoursLabel extendedHours={item.extendedHours} currency={item.currency} compact />
                     )}
                   </div>
                 </td>

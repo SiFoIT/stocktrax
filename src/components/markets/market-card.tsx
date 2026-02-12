@@ -1,5 +1,6 @@
 import { MarketData } from "@/types";
 import { Sparkline } from "./sparkline";
+import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
 
 interface MarketCardProps {
   data: MarketData;
@@ -77,6 +78,11 @@ export function MarketCard({ data, onClick, onChartClick }: MarketCardProps) {
           </span>
         </div>
       </div>
+      {data.extendedHours && (
+        <div className="mt-1.5">
+          <ExtendedHoursLabel extendedHours={data.extendedHours} compact />
+        </div>
+      )}
     </div>
   );
 }

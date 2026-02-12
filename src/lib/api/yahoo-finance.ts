@@ -1,7 +1,40 @@
 import YahooFinance from "yahoo-finance2";
-import { StockQuote, StockTimeSeries, NewsArticle } from "@/types";
+import { StockQuote, StockTimeSeries, NewsArticle, ExtendedHoursData, MarketState } from "@/types";
 
 const yahooFinance = new YahooFinance();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractExtendedHours(quote: any): ExtendedHoursData | undefined {
+  const state = quote.marketState as MarketState | undefined;
+  if (!state) return undefined;
+
+  const data: ExtendedHoursData = { marketState: state };
+
+  if (quote.preMarketPrice != null) {
+    data.preMarketPrice = quote.preMarketPrice;
+    data.preMarketChange = quote.preMarketChange;
+    data.preMarketChangePercent = quote.preMarketChangePercent;
+    if (quote.preMarketTime) {
+      data.preMarketTime = new Date(quote.preMarketTime).toISOString();
+    }
+  }
+
+  if (quote.postMarketPrice != null) {
+    data.postMarketPrice = quote.postMarketPrice;
+    data.postMarketChange = quote.postMarketChange;
+    data.postMarketChangePercent = quote.postMarketChangePercent;
+    if (quote.postMarketTime) {
+      data.postMarketTime = new Date(quote.postMarketTime).toISOString();
+    }
+  }
+
+  // Only return if there's actual extended hours price data (beyond just marketState)
+  if (data.preMarketPrice != null || data.postMarketPrice != null) {
+    return data;
+  }
+  // Still return marketState for state-based display logic
+  return { marketState: state };
+}
 
 export interface HistoricalChanges {
   change5D?: number;
@@ -158,6 +191,9 @@ export interface StockDetails {
   industry?: string;
   website?: string;
   description?: string;
+
+  // Extended hours
+  extendedHours?: ExtendedHoursData;
 }
 
 export async function getStockDetails(symbol: string): Promise<StockDetails | null> {
@@ -279,6 +315,9 @@ export async function getStockDetails(symbol: string): Promise<StockDetails | nu
       industry: profile?.industry,
       website: profile?.website,
       description: profile?.longBusinessSummary,
+
+      // Extended hours
+      extendedHours: extractExtendedHours(quote),
     };
   } catch {
     return null;
@@ -353,6 +392,7 @@ export async function getQuote(symbol: string, includeRange = false): Promise<St
         ? new Date(quote.regularMarketTime).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0],
       quoteType: quote.quoteType,
+      extendedHours: extractExtendedHours(quote),
     };
 
     if (includeRange) {

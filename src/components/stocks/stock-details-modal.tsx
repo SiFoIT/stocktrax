@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { NewsArticle } from "@/types";
+import { NewsArticle, ExtendedHoursData } from "@/types";
 import { formatVolume, formatPercentRatio, formatRelativeTime } from "@/lib/utils";
+import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
 
 interface StockDetails {
   symbol: string;
@@ -70,6 +71,7 @@ interface StockDetails {
   industry?: string;
   website?: string;
   description?: string;
+  extendedHours?: ExtendedHoursData;
 }
 
 interface StockDetailsModalProps {
@@ -368,6 +370,11 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   )}
                 </div>
               </div>
+              {details.extendedHours && (
+                <div className="mt-2">
+                  <ExtendedHoursLabel extendedHours={details.extendedHours} currency={details.currency} />
+                </div>
+              )}
             </div>
           )}
         </div>

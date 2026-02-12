@@ -122,6 +122,7 @@ export default function PortfolioPage() {
                 dayLow: quoteData.quote?.dayLow,
                 fiftyTwoWeekHigh: quoteData.quote?.fiftyTwoWeekHigh,
                 fiftyTwoWeekLow: quoteData.quote?.fiftyTwoWeekLow,
+                extendedHours: quoteData.quote?.extendedHours,
                 change5D: quoteData.historicalChanges?.change5D,
                 change1M: quoteData.historicalChanges?.change1M,
                 change3M: quoteData.historicalChanges?.change3M,

@@ -45,6 +45,7 @@ async function fetchCategoryData(category: Category, skipCache: boolean): Promis
           change: quote?.change ?? 0,
           changePercent: quote?.changePercent ?? 0,
           sparklineData,
+          extendedHours: quote?.extendedHours,
         };
       } catch {
         return {
