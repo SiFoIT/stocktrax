@@ -542,7 +542,10 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   <Row label="Float" value={formatVolume(details.floatShares, 2)} />
                   <Row label="Shares Short" value={formatVolume(details.sharesShort, 2)} />
                   <Row label="Short Ratio" value={formatNumber(details.shortRatio)} className={getRatioColor(details.shortRatio, 3, 10, true)} />
-                  <Row label="Short % of Float" value={formatPercentRatio(details.shortPercentOfFloat)} className={getRatioColor(details.shortPercentOfFloat, 0.05, 0.2, true)} />
+                  {(() => {
+                    const pct = details.shortPercentOfFloat ?? (details.sharesShort && details.floatShares && details.floatShares > 0 ? details.sharesShort / details.floatShares : undefined);
+                    return <Row label="Short % of Float" value={formatPercentRatio(pct)} className={getRatioColor(pct, 0.05, 0.2, true)} />;
+                  })()}
                 </Section>
                 )}
 
