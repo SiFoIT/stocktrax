@@ -1,0 +1,11 @@
+services:
+  stocktrax:
+    image: ghcr.io/sifoIt/stocktrax:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - stocktrax-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  stocktrax-data:
