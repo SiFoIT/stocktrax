@@ -32,7 +32,7 @@ COPY --from=builder /app/next.config.ts ./
 COPY --from=builder /app/tsconfig.json ./
 
 # Copy DB schema and drizzle config for migrations
-COPY --from=builder /app/src/lib/db/ ./src/lib/db/
+COPY --from=builder /app/src/lib/ ./src/lib/
 COPY --from=builder /app/drizzle.config.ts ./
 
 # Copy entrypoint
