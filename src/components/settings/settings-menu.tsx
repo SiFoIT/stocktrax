@@ -116,7 +116,7 @@ export function SettingsMenu() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-black dark:text-white">StockTrax</p>
-                    <p className="text-xs text-black/50 dark:text-white/50">Version 1.0.0</p>
+                    <p className="text-xs text-black/50 dark:text-white/50">Version {process.env.NEXT_PUBLIC_APP_VERSION}</p>
                   </div>
                 </div>
               </div>
