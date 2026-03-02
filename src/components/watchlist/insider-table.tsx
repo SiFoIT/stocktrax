@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { StockIcon } from "@/components/ui/stock-icon";
+import { InfoTip } from "@/components/ui/info-tip";
 import { WatchlistItemWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
@@ -25,13 +26,14 @@ function SortIcon({ direction }: { direction: SortDirection | null }) {
   );
 }
 
-function HeaderCell({ column, label, align = "right", sortColumn, sortDirection, onSort }: {
+function HeaderCell({ column, label, align = "right", sortColumn, sortDirection, onSort, tooltip }: {
   column: SortColumn;
   label: string;
   align?: "left" | "right";
   sortColumn: SortColumn | null;
   sortDirection: SortDirection;
   onSort: (column: SortColumn) => void;
+  tooltip?: string;
 }) {
   return (
     <th
@@ -39,6 +41,7 @@ function HeaderCell({ column, label, align = "right", sortColumn, sortDirection,
       onClick={() => onSort(column)}
     >
       {label}
+      {tooltip && <InfoTip text={tooltip} />}
       <SortIcon direction={sortColumn === column ? sortDirection : null} />
     </th>
   );
@@ -167,11 +170,11 @@ export function InsiderTable({
             <tr className="border-b border-black/10 dark:border-white/10">
               <HeaderCell column="symbol" label="Symbol" align="left" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <HeaderCell column="price" label="Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
-              <HeaderCell column="insidersPercentHeld" label="Insider %" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
-              <HeaderCell column="netBuyCount6mo" label="Buys (6mo)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
-              <HeaderCell column="netSellCount6mo" label="Sells (6mo)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
-              <HeaderCell column="netInsiderShares6mo" label="Net Shares" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
-              <HeaderCell column="lastInsiderDate" label="Last Activity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+              <HeaderCell column="insidersPercentHeld" label="Insider %" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Percentage of outstanding shares held by company insiders (officers, directors, and beneficial owners)." />
+              <HeaderCell column="netBuyCount6mo" label="Buys (6mo)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Number of insider buy transactions in the last 6 months." />
+              <HeaderCell column="netSellCount6mo" label="Sells (6mo)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Number of insider sell transactions in the last 6 months." />
+              <HeaderCell column="netInsiderShares6mo" label="Net Shares" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Net insider transactions in the last 6 months (buys minus sells). This is a transaction count, not a share count." />
+              <HeaderCell column="lastInsiderDate" label="Last Activity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Most recent insider purchase or sale transaction." />
               <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
             </tr>
           </thead>

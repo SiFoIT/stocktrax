@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { StockIcon } from "@/components/ui/stock-icon";
+import { InfoTip } from "@/components/ui/info-tip";
 import { HoldingWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
@@ -140,12 +141,13 @@ export function PortfolioInsiderTable({
     );
   }
 
-  const HeaderCell = ({ column, label, align = "right" }: { column: SortColumn; label: string; align?: "left" | "right" }) => (
+  const HeaderCell = ({ column, label, align = "right", tooltip }: { column: SortColumn; label: string; align?: "left" | "right"; tooltip?: string }) => (
     <th
       className={`px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
       onClick={() => handleSort(column)}
     >
       {label}
+      {tooltip && <InfoTip text={tooltip} />}
       <SortIcon direction={sortColumn === column ? sortDirection : null} />
     </th>
   );
@@ -159,11 +161,11 @@ export function PortfolioInsiderTable({
               <HeaderCell column="symbol" label="Symbol" align="left" />
               <HeaderCell column="shares" label="Shares" />
               <HeaderCell column="value" label="Value" />
-              <HeaderCell column="insidersPercentHeld" label="Insider %" />
-              <HeaderCell column="netBuyCount6mo" label="Buys (6mo)" />
-              <HeaderCell column="netSellCount6mo" label="Sells (6mo)" />
-              <HeaderCell column="netInsiderShares6mo" label="Net Shares" />
-              <HeaderCell column="lastInsiderDate" label="Last Activity" />
+              <HeaderCell column="insidersPercentHeld" label="Insider %" tooltip="Percentage of outstanding shares held by company insiders (officers, directors, and beneficial owners)." />
+              <HeaderCell column="netBuyCount6mo" label="Buys (6mo)" tooltip="Number of insider buy transactions in the last 6 months." />
+              <HeaderCell column="netSellCount6mo" label="Sells (6mo)" tooltip="Number of insider sell transactions in the last 6 months." />
+              <HeaderCell column="netInsiderShares6mo" label="Net Shares" tooltip="Net insider transactions in the last 6 months (buys minus sells). This is a transaction count, not a share count." />
+              <HeaderCell column="lastInsiderDate" label="Last Activity" tooltip="Most recent insider purchase or sale transaction." />
             </tr>
           </thead>
           <tbody>

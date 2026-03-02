@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { NewsArticle, ExtendedHoursData, InsiderDetails } from "@/types";
 import { formatVolume, formatPercentRatio, formatRelativeTime } from "@/lib/utils";
 import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
+import { InfoTip } from "@/components/ui/info-tip";
 
 interface StockDetails {
   symbol: string;
@@ -178,10 +179,10 @@ function Section({ title, icon, color, children }: { title: string; icon: React.
   );
 }
 
-function Row({ label, value, className, suffix }: { label: string; value: string; className?: string; suffix?: string }) {
+function Row({ label, value, className, suffix, tooltip }: { label: string; value: string; className?: string; suffix?: string; tooltip?: string }) {
   return (
     <div className="flex justify-between items-center py-1">
-      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm text-muted-foreground">{label}{tooltip && <InfoTip text={tooltip} />}</span>
       <span className={`text-sm font-medium ${className || "text-foreground"}`}>
         {value}{suffix && <span className="text-muted-foreground ml-1">{suffix}</span>}
       </span>
@@ -580,16 +581,17 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                     </div>
                   ) : insiderDetails ? (
                     <>
-                      <Row label="Insider Ownership" value={insiderDetails.insidersPercentHeld !== undefined ? `${(insiderDetails.insidersPercentHeld * 100).toFixed(2)}%` : "-"} />
-                      <Row label="Institutional Ownership" value={insiderDetails.institutionsPercentHeld !== undefined ? `${(insiderDetails.institutionsPercentHeld * 100).toFixed(2)}%` : "-"} />
-                      <Row label="Buys (6mo)" value={insiderDetails.buyInfoCount !== undefined ? `${insiderDetails.buyInfoCount} txn · ${formatVolume(insiderDetails.buyInfoShares, 0)} shares` : "-"} className={insiderDetails.buyInfoCount ? "text-emerald-400" : undefined} />
-                      <Row label="Sells (6mo)" value={insiderDetails.sellInfoCount !== undefined ? `${insiderDetails.sellInfoCount} txn · ${formatVolume(insiderDetails.sellInfoShares, 0)} shares` : "-"} className={insiderDetails.sellInfoCount ? "text-red-400" : undefined} />
+                      <Row label="Insider Ownership" value={insiderDetails.insidersPercentHeld !== undefined ? `${(insiderDetails.insidersPercentHeld * 100).toFixed(2)}%` : "-"} tooltip="Percentage of outstanding shares held by company insiders." />
+                      <Row label="Institutional Ownership" value={insiderDetails.institutionsPercentHeld !== undefined ? `${(insiderDetails.institutionsPercentHeld * 100).toFixed(2)}%` : "-"} tooltip="Percentage of outstanding shares held by institutions (mutual funds, pension funds, etc.)." />
+                      <Row label="Buys (6mo)" value={insiderDetails.buyInfoCount !== undefined ? `${insiderDetails.buyInfoCount} txn · ${formatVolume(insiderDetails.buyInfoShares, 0)} shares` : "-"} className={insiderDetails.buyInfoCount ? "text-emerald-400" : undefined} tooltip="Insider buy transactions and total shares purchased in the last 6 months." />
+                      <Row label="Sells (6mo)" value={insiderDetails.sellInfoCount !== undefined ? `${insiderDetails.sellInfoCount} txn · ${formatVolume(insiderDetails.sellInfoShares, 0)} shares` : "-"} className={insiderDetails.sellInfoCount ? "text-red-400" : undefined} tooltip="Insider sell transactions and total shares sold in the last 6 months." />
                       <Row
                         label="Net Shares"
                         value={insiderDetails.netInfoShares !== undefined ? insiderDetails.netInfoShares.toLocaleString() : "-"}
                         className={insiderDetails.netInfoShares !== undefined ? (insiderDetails.netInfoShares > 0 ? "text-emerald-400" : insiderDetails.netInfoShares < 0 ? "text-red-400" : undefined) : undefined}
+                        tooltip="Net insider transaction count in the last 6 months (buys minus sells). This is a transaction count, not a share count."
                       />
-                      <Row label="Total Insider Shares" value={formatVolume(insiderDetails.totalInsiderShares, 0)} />
+                      <Row label="Total Insider Shares" value={formatVolume(insiderDetails.totalInsiderShares, 0)} tooltip="Total number of shares held by all company insiders." />
                     </>
                   ) : (
                     <p className="text-sm text-white/50 text-center py-2">No insider data available</p>
