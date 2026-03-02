@@ -12,4 +12,6 @@ export const CACHE_TTL = {
   news: 15 * 60 * 1000,
   /** Portfolio summary dashboard — 5 minutes */
   portfolioSummary: 5 * 60 * 1000,
+  /** Insider trading data — 6 hours */
+  insider: 6 * 60 * 60 * 1000,
 } as const;

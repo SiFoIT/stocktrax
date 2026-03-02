@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { getQuote, getTimeSeries, getHistoricalChanges, getStockDetails, getDividendInfo, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
+import { getQuote, getTimeSeries, getHistoricalChanges, getStockDetails, getDividendInfo, getInsiderInfo, getInsiderDetails, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
 import { CACHE_TTL } from "@/lib/config";
 
@@ -20,6 +20,45 @@ export async function GET(
   const includeDetails = url.searchParams.get("details") === "true";
   const includeDividends = url.searchParams.get("dividends") === "true";
   const includeRange = url.searchParams.get("range") === "true";
+  const includeInsider = url.searchParams.get("insider") === "true";
+  const includeInsiderDetails = url.searchParams.get("insiderDetails") === "true";
+
+  // Handle insider details request separately
+  if (includeInsiderDetails) {
+    const insiderDetailsCacheKey = `${upperSymbol}_insider_details`;
+
+    if (!skipCache) {
+      const cached = await db.query.stockCache.findFirst({
+        where: eq(schema.stockCache.symbol, insiderDetailsCacheKey),
+      });
+
+      if (cached) {
+        const age = Date.now() - cached.fetchedAt.getTime();
+        if (age < CACHE_TTL.insider) {
+          return NextResponse.json(JSON.parse(cached.data));
+        }
+      }
+    }
+
+    const insiderDetailsData = await getInsiderDetails(upperSymbol);
+
+    await db
+      .insert(schema.stockCache)
+      .values({
+        symbol: insiderDetailsCacheKey,
+        data: JSON.stringify(insiderDetailsData),
+        fetchedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: schema.stockCache.symbol,
+        set: {
+          data: JSON.stringify(insiderDetailsData),
+          fetchedAt: new Date(),
+        },
+      });
+
+    return NextResponse.json(insiderDetailsData);
+  }
 
   // Handle details request separately (different data structure)
   if (includeDetails) {
@@ -109,11 +148,50 @@ export async function GET(
     dividendInfo = await getDividendInfo(upperSymbol);
   }
 
+  let insiderInfo: Awaited<ReturnType<typeof getInsiderInfo>> = {};
+  if (includeInsider) {
+    // Check insider-specific cache first (6hr TTL)
+    const insiderCacheKey = `${upperSymbol}_insider`;
+    let insiderCached = false;
+
+    if (!skipCache) {
+      const cached = await db.query.stockCache.findFirst({
+        where: eq(schema.stockCache.symbol, insiderCacheKey),
+      });
+      if (cached) {
+        const age = Date.now() - cached.fetchedAt.getTime();
+        if (age < CACHE_TTL.insider) {
+          insiderInfo = JSON.parse(cached.data);
+          insiderCached = true;
+        }
+      }
+    }
+
+    if (!insiderCached) {
+      insiderInfo = await getInsiderInfo(upperSymbol);
+      await db
+        .insert(schema.stockCache)
+        .values({
+          symbol: insiderCacheKey,
+          data: JSON.stringify(insiderInfo),
+          fetchedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.stockCache.symbol,
+          set: {
+            data: JSON.stringify(insiderInfo),
+            fetchedAt: new Date(),
+          },
+        });
+    }
+  }
+
   const data = {
     quote,
     timeSeries: includeTimeSeries ? timeSeries : undefined,
     historicalChanges: includeChanges ? historicalChanges : undefined,
     dividendInfo: includeDividends ? dividendInfo : undefined,
+    insiderInfo: includeInsider ? insiderInfo : undefined,
   };
 
   // Update cache

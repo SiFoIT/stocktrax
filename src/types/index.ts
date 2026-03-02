@@ -62,6 +62,38 @@ export interface QuoteFields {
   // Volume
   volume?: number;
   avgVolume?: number;
+  // Insider
+  insidersPercentHeld?: number;
+  netBuyCount6mo?: number;
+  netSellCount6mo?: number;
+  netInsiderShares6mo?: number;
+  lastInsiderName?: string;
+  lastInsiderType?: string;
+  lastInsiderDate?: string;
+}
+
+export interface InsiderTransaction {
+  filerName: string;
+  filerRelation: string;
+  transactionText: string;
+  shares: number;
+  value?: number;
+  startDate: string;
+  ownership: string;
+}
+
+export interface InsiderDetails {
+  insidersPercentHeld?: number;
+  institutionsPercentHeld?: number;
+  institutionsCount?: number;
+  buyInfoCount?: number;
+  buyInfoShares?: number;
+  sellInfoCount?: number;
+  sellInfoShares?: number;
+  netInfoShares?: number;
+  totalInsiderShares?: number;
+  period?: string;
+  transactions: InsiderTransaction[];
 }
 
 export interface HoldingWithQuote extends QuoteFields {

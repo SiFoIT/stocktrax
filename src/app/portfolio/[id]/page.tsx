@@ -6,6 +6,7 @@ import Link from "next/link";
 import { HoldingsTable } from "@/components/portfolio/holdings-table";
 import { PortfolioPerformanceTable } from "@/components/portfolio/portfolio-performance-table";
 import { PortfolioDividendTable } from "@/components/portfolio/portfolio-dividend-table";
+import { PortfolioInsiderTable } from "@/components/portfolio/portfolio-insider-table";
 import { NewsTable } from "@/components/watchlist/news-table";
 import { AddTransactionForm } from "@/components/portfolio/add-transaction-form";
 import { TransactionsTable } from "@/components/portfolio/transactions-table";
@@ -54,7 +55,7 @@ export default function PortfolioPage() {
   const [activeTab, setActiveTab] = useState<"holdings" | "performance">("holdings");
   const [dashboardData, setDashboardData] = useState<PortfolioDashboardData | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
-  const [holdingsView, setHoldingsView] = useState<"holdings" | "performance" | "dividend" | "divreturns" | "news" | "transactions">("holdings");
+  const [holdingsView, setHoldingsView] = useState<"holdings" | "performance" | "dividend" | "insider" | "divreturns" | "news" | "transactions">("holdings");
   const [holdingsUpdatedAt, setHoldingsUpdatedAt] = useState<Date | null>(null);
   const [portfolioNews, setPortfolioNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
@@ -97,8 +98,8 @@ export default function PortfolioPage() {
         holdingsData.map(async (holding) => {
           try {
             const url = refresh
-              ? `/api/stocks/${holding.symbol}?changes=true&dividends=true&range=true&refresh=true`
-              : `/api/stocks/${holding.symbol}?changes=true&dividends=true&range=true`;
+              ? `/api/stocks/${holding.symbol}?changes=true&dividends=true&insider=true&range=true&refresh=true`
+              : `/api/stocks/${holding.symbol}?changes=true&dividends=true&insider=true&range=true`;
             const quoteResponse = await fetch(url);
             const quoteData = await quoteResponse.json();
 
@@ -141,6 +142,13 @@ export default function PortfolioPage() {
                 quoteType: quoteData.quote?.quoteType,
                 volume: quoteData.quote?.volume,
                 avgVolume: quoteData.quote?.avgVolume,
+                insidersPercentHeld: quoteData.insiderInfo?.insidersPercentHeld,
+                netBuyCount6mo: quoteData.insiderInfo?.netBuyCount6mo,
+                netSellCount6mo: quoteData.insiderInfo?.netSellCount6mo,
+                netInsiderShares6mo: quoteData.insiderInfo?.netInsiderShares6mo,
+                lastInsiderName: quoteData.insiderInfo?.lastInsiderName,
+                lastInsiderType: quoteData.insiderInfo?.lastInsiderType,
+                lastInsiderDate: quoteData.insiderInfo?.lastInsiderDate,
               };
             }
           } catch {
@@ -872,6 +880,16 @@ export default function PortfolioPage() {
                     Dividend
                   </button>
                   <button
+                    onClick={() => setHoldingsView("insider")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      holdingsView === "insider"
+                        ? "bg-blue-500 text-white"
+                        : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    Insider
+                  </button>
+                  <button
                     onClick={() => setHoldingsView("divreturns")}
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                       holdingsView === "divreturns"
@@ -972,6 +990,11 @@ export default function PortfolioPage() {
                 />
               ) : holdingsView === "dividend" ? (
                 <PortfolioDividendTable
+                  holdings={activeHoldings}
+                  storageKey={`portfolio_${portfolioId}`}
+                />
+              ) : holdingsView === "insider" ? (
+                <PortfolioInsiderTable
                   holdings={activeHoldings}
                   storageKey={`portfolio_${portfolioId}`}
                 />

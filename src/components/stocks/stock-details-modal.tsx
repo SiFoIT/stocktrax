@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { NewsArticle, ExtendedHoursData } from "@/types";
+import { NewsArticle, ExtendedHoursData, InsiderDetails } from "@/types";
 import { formatVolume, formatPercentRatio, formatRelativeTime } from "@/lib/utils";
 import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
 
@@ -240,6 +240,8 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
+  const [insiderDetails, setInsiderDetails] = useState<InsiderDetails | null>(null);
+  const [insiderLoading, setInsiderLoading] = useState(true);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -275,6 +277,24 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
       }
     };
     fetchNews();
+  }, [symbol]);
+
+  useEffect(() => {
+    const fetchInsider = async () => {
+      setInsiderLoading(true);
+      try {
+        const response = await fetch(`/api/stocks/${symbol}?insiderDetails=true`);
+        if (response.ok) {
+          const data = await response.json();
+          setInsiderDetails(data);
+        }
+      } catch {
+        // Silently fail for insider data
+      } finally {
+        setInsiderLoading(false);
+      }
+    };
+    fetchInsider();
   }, [symbol]);
 
   useEffect(() => {
@@ -551,6 +571,33 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
 
                 {hasAnyValue(details.targetHighPrice, details.targetMeanPrice, details.targetLowPrice, details.recommendationKey, details.numberOfAnalystOpinions) && (
                 <Section
+                  title="Insider Activity"
+                  color="from-amber-500/20 to-orange-500/10"
+                  icon={<svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+                >
+                  {insiderLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="w-5 h-5 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+                    </div>
+                  ) : insiderDetails ? (
+                    <>
+                      <Row label="Insider Ownership" value={insiderDetails.insidersPercentHeld !== undefined ? `${(insiderDetails.insidersPercentHeld * 100).toFixed(2)}%` : "-"} />
+                      <Row label="Institutional Ownership" value={insiderDetails.institutionsPercentHeld !== undefined ? `${(insiderDetails.institutionsPercentHeld * 100).toFixed(2)}%` : "-"} />
+                      <Row label="Buys (6mo)" value={insiderDetails.buyInfoCount !== undefined ? `${insiderDetails.buyInfoCount} txn · ${formatVolume(insiderDetails.buyInfoShares, 0)} shares` : "-"} className={insiderDetails.buyInfoCount ? "text-emerald-400" : undefined} />
+                      <Row label="Sells (6mo)" value={insiderDetails.sellInfoCount !== undefined ? `${insiderDetails.sellInfoCount} txn · ${formatVolume(insiderDetails.sellInfoShares, 0)} shares` : "-"} className={insiderDetails.sellInfoCount ? "text-red-400" : undefined} />
+                      <Row
+                        label="Net Shares"
+                        value={insiderDetails.netInfoShares !== undefined ? insiderDetails.netInfoShares.toLocaleString() : "-"}
+                        className={insiderDetails.netInfoShares !== undefined ? (insiderDetails.netInfoShares > 0 ? "text-emerald-400" : insiderDetails.netInfoShares < 0 ? "text-red-400" : undefined) : undefined}
+                      />
+                      <Row label="Total Insider Shares" value={formatVolume(insiderDetails.totalInsiderShares, 0)} />
+                    </>
+                  ) : (
+                    <p className="text-sm text-white/50 text-center py-2">No insider data available</p>
+                  )}
+                </Section>
+
+                <Section
                   title="Analyst Ratings"
                   color="from-orange-500/20 to-transparent"
                   icon={<svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>}
@@ -609,6 +656,59 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                       {details.website}
                     </a>
                   )}
+                </div>
+              )}
+
+              {/* Insider Transactions Table */}
+              {!insiderLoading && insiderDetails && insiderDetails.transactions.length > 0 && (
+                <div className="rounded-xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-white/10 bg-gradient-to-r from-amber-500/20 to-orange-500/10">
+                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                      <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      Recent Insider Transactions
+                    </h3>
+                  </div>
+                  <div className="p-4 max-h-72 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 text-xs text-white/50 uppercase tracking-wider">
+                          <th className="text-left py-2 px-2">Date</th>
+                          <th className="text-left py-2 px-2">Name</th>
+                          <th className="text-left py-2 px-2">Role</th>
+                          <th className="text-left py-2 px-2">Type</th>
+                          <th className="text-right py-2 px-2">Shares</th>
+                          <th className="text-right py-2 px-2">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {insiderDetails.transactions.map((tx, i) => {
+                          const isPurchase = tx.transactionText.includes("Purchase");
+                          return (
+                            <tr key={i} className={`border-b border-white/5 ${i % 2 === 0 ? "bg-white/[0.02]" : ""}`}>
+                              <td className="py-2 px-2 text-white/70 whitespace-nowrap">{tx.startDate}</td>
+                              <td className="py-2 px-2 text-white/90 font-medium truncate max-w-[140px]">{tx.filerName}</td>
+                              <td className="py-2 px-2 text-white/50 text-xs truncate max-w-[100px]">{tx.filerRelation}</td>
+                              <td className="py-2 px-2">
+                                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                                  isPurchase
+                                    ? "bg-emerald-500/20 text-emerald-400"
+                                    : "bg-red-500/20 text-red-400"
+                                }`}>
+                                  {isPurchase ? "Purchase" : "Sale"}
+                                </span>
+                              </td>
+                              <td className="py-2 px-2 text-right font-mono text-white/80">{tx.shares.toLocaleString()}</td>
+                              <td className="py-2 px-2 text-right font-mono text-white/60">
+                                {tx.value ? `$${tx.value.toLocaleString()}` : "-"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 

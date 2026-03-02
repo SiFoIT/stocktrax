@@ -14,6 +14,7 @@ import {
 import { AddSymbolForm } from "@/components/watchlist/add-symbol-form";
 import { WatchlistTable } from "@/components/watchlist/watchlist-table";
 import { DividendTable } from "@/components/watchlist/dividend-table";
+import { InsiderTable } from "@/components/watchlist/insider-table";
 import { NewsTable } from "@/components/watchlist/news-table";
 import { MarketOverview } from "@/components/markets/market-overview";
 import { PortfolioSummaryList } from "@/components/portfolio/portfolio-summary-list";
@@ -77,7 +78,7 @@ export default function Dashboard() {
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItemWithQuote[]>([]);
   const [watchlistLoading, setWatchlistLoading] = useState(true);
   const [watchlistUpdatedAt, setWatchlistUpdatedAt] = useState<Date | null>(null);
-  const [watchlistView, setWatchlistView] = useState<"performance" | "dividend" | "news">("performance");
+  const [watchlistView, setWatchlistView] = useState<"performance" | "dividend" | "insider" | "news">("performance");
   const [watchlistNews, setWatchlistNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const [watchlistAlerts, setWatchlistAlerts] = useState<TriggeredAlertSummary[]>([]);
@@ -127,8 +128,8 @@ export default function Dashboard() {
         items.map(async (item) => {
           try {
             const url = refresh
-              ? `/api/stocks/${item.symbol}?changes=true&dividends=true&range=true&refresh=true`
-              : `/api/stocks/${item.symbol}?changes=true&dividends=true&range=true`;
+              ? `/api/stocks/${item.symbol}?changes=true&dividends=true&insider=true&range=true&refresh=true`
+              : `/api/stocks/${item.symbol}?changes=true&dividends=true&insider=true&range=true`;
             const quoteResponse = await fetch(url);
             if (quoteResponse.ok) {
               const quoteData = await quoteResponse.json();
@@ -160,6 +161,13 @@ export default function Dashboard() {
                 sector: quoteData.dividendInfo?.sector,
                 volume: quoteData.quote?.volume,
                 avgVolume: quoteData.quote?.avgVolume,
+                insidersPercentHeld: quoteData.insiderInfo?.insidersPercentHeld,
+                netBuyCount6mo: quoteData.insiderInfo?.netBuyCount6mo,
+                netSellCount6mo: quoteData.insiderInfo?.netSellCount6mo,
+                netInsiderShares6mo: quoteData.insiderInfo?.netInsiderShares6mo,
+                lastInsiderName: quoteData.insiderInfo?.lastInsiderName,
+                lastInsiderType: quoteData.insiderInfo?.lastInsiderType,
+                lastInsiderDate: quoteData.insiderInfo?.lastInsiderDate,
               };
             }
           } catch {
@@ -419,6 +427,16 @@ export default function Dashboard() {
                           Dividend
                         </button>
                         <button
+                          onClick={() => setWatchlistView("insider")}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                            watchlistView === "insider"
+                              ? "bg-blue-500 text-white"
+                              : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                          }`}
+                        >
+                          Insider
+                        </button>
+                        <button
                           onClick={() => setWatchlistView("news")}
                           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                             watchlistView === "news"
@@ -499,6 +517,12 @@ export default function Dashboard() {
                       />
                     ) : watchlistView === "dividend" ? (
                       <DividendTable
+                        items={watchlistItems}
+                        onRemoveSymbol={handleRemoveSymbol}
+                        storageKey={`watchlist_${selectedWatchlistId}`}
+                      />
+                    ) : watchlistView === "insider" ? (
+                      <InsiderTable
                         items={watchlistItems}
                         onRemoveSymbol={handleRemoveSymbol}
                         storageKey={`watchlist_${selectedWatchlistId}`}

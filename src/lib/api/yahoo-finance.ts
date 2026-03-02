@@ -1,5 +1,5 @@
 import YahooFinance from "yahoo-finance2";
-import { StockQuote, StockTimeSeries, NewsArticle, ExtendedHoursData, MarketState } from "@/types";
+import { StockQuote, StockTimeSeries, NewsArticle, ExtendedHoursData, MarketState, InsiderTransaction, InsiderDetails } from "@/types";
 
 const yahooFinance = new YahooFinance();
 
@@ -559,6 +559,91 @@ export async function getTimeSeries(
       }));
   } catch {
     return [];
+  }
+}
+
+export interface InsiderInfo {
+  insidersPercentHeld?: number;
+  netBuyCount6mo?: number;
+  netSellCount6mo?: number;
+  netInsiderShares6mo?: number;
+  lastInsiderName?: string;
+  lastInsiderType?: string;
+  lastInsiderDate?: string;
+}
+
+export async function getInsiderInfo(symbol: string): Promise<InsiderInfo> {
+  try {
+    const summary = await yahooFinance.quoteSummary(symbol, {
+      modules: ["netSharePurchaseActivity", "majorHoldersBreakdown", "insiderTransactions"],
+    });
+
+    const netActivity = summary?.netSharePurchaseActivity;
+    const holders = summary?.majorHoldersBreakdown;
+    const insiderTx = summary?.insiderTransactions;
+
+    // Find most recent Purchase or Sale transaction
+    const transactions = insiderTx?.transactions || [];
+    const relevantTx = transactions.find(
+      (tx: { text?: string }) => tx.text && (tx.text.includes("Purchase") || tx.text.includes("Sale"))
+    );
+
+    return {
+      insidersPercentHeld: holders?.insidersPercentHeld,
+      netBuyCount6mo: netActivity?.buyInfoCount,
+      netSellCount6mo: netActivity?.sellInfoCount,
+      netInsiderShares6mo: netActivity?.netInfoCount,
+      lastInsiderName: (relevantTx as { filerName?: string } | undefined)?.filerName,
+      lastInsiderType: (relevantTx as { text?: string } | undefined)?.text,
+      lastInsiderDate: (relevantTx as { startDate?: Date } | undefined)?.startDate
+        ? new Date((relevantTx as { startDate: Date }).startDate).toISOString().split("T")[0]
+        : undefined,
+    };
+  } catch (error) {
+    return {};
+  }
+}
+
+export async function getInsiderDetails(symbol: string): Promise<InsiderDetails> {
+  try {
+    const summary = await yahooFinance.quoteSummary(symbol, {
+      modules: ["netSharePurchaseActivity", "majorHoldersBreakdown", "insiderTransactions"],
+    });
+
+    const netActivity = summary?.netSharePurchaseActivity;
+    const holders = summary?.majorHoldersBreakdown;
+    const insiderTx = summary?.insiderTransactions;
+
+    const transactions: InsiderTransaction[] = (insiderTx?.transactions || [])
+      .filter((tx: { text?: string }) => tx.text && (tx.text.includes("Purchase") || tx.text.includes("Sale")))
+      .slice(0, 15)
+      .map((tx: { filerName?: string; filerRelation?: string; text?: string; shares?: number; value?: number; startDate?: Date; ownership?: string }) => ({
+        filerName: tx.filerName || "Unknown",
+        filerRelation: tx.filerRelation || "Unknown",
+        transactionText: tx.text || "Unknown",
+        shares: tx.shares || 0,
+        value: tx.value,
+        startDate: tx.startDate
+          ? new Date(tx.startDate).toISOString().split("T")[0]
+          : "",
+        ownership: tx.ownership || "Unknown",
+      }));
+
+    return {
+      insidersPercentHeld: holders?.insidersPercentHeld,
+      institutionsPercentHeld: holders?.institutionsPercentHeld,
+      institutionsCount: holders?.institutionsCount,
+      buyInfoCount: netActivity?.buyInfoCount,
+      buyInfoShares: netActivity?.buyInfoShares,
+      sellInfoCount: netActivity?.sellInfoCount,
+      sellInfoShares: netActivity?.sellInfoShares,
+      netInfoShares: netActivity?.netInfoCount,
+      totalInsiderShares: netActivity?.totalInsiderShares,
+      period: netActivity?.period,
+      transactions,
+    };
+  } catch (error) {
+    return { transactions: [] };
   }
 }
 
