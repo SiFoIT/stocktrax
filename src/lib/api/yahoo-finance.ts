@@ -583,9 +583,10 @@ export async function getInsiderInfo(symbol: string): Promise<InsiderInfo> {
     const insiderTx = summary?.insiderTransactions;
 
     // Find most recent Purchase or Sale transaction
-    const transactions = insiderTx?.transactions || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const transactions: any[] = insiderTx?.transactions || [];
     const relevantTx = transactions.find(
-      (tx: { text?: string }) => tx.text && (tx.text.includes("Purchase") || tx.text.includes("Sale"))
+      (tx) => tx.text && (tx.text.includes("Purchase") || tx.text.includes("Sale"))
     );
 
     return {
@@ -593,10 +594,10 @@ export async function getInsiderInfo(symbol: string): Promise<InsiderInfo> {
       netBuyCount6mo: netActivity?.buyInfoCount,
       netSellCount6mo: netActivity?.sellInfoCount,
       netInsiderShares6mo: netActivity?.netInfoCount,
-      lastInsiderName: (relevantTx as { filerName?: string } | undefined)?.filerName,
-      lastInsiderType: (relevantTx as { text?: string } | undefined)?.text,
-      lastInsiderDate: (relevantTx as { startDate?: Date } | undefined)?.startDate
-        ? new Date((relevantTx as { startDate: Date }).startDate).toISOString().split("T")[0]
+      lastInsiderName: relevantTx?.filerName,
+      lastInsiderType: relevantTx?.text,
+      lastInsiderDate: relevantTx?.startDate
+        ? new Date(relevantTx.startDate).toISOString().split("T")[0]
         : undefined,
     };
   } catch (error) {
@@ -614,10 +615,12 @@ export async function getInsiderDetails(symbol: string): Promise<InsiderDetails>
     const holders = summary?.majorHoldersBreakdown;
     const insiderTx = summary?.insiderTransactions;
 
-    const transactions: InsiderTransaction[] = (insiderTx?.transactions || [])
-      .filter((tx: { text?: string }) => tx.text && (tx.text.includes("Purchase") || tx.text.includes("Sale")))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawTransactions: any[] = insiderTx?.transactions || [];
+    const transactions: InsiderTransaction[] = rawTransactions
+      .filter((tx) => tx.text && (tx.text.includes("Purchase") || tx.text.includes("Sale")))
       .slice(0, 15)
-      .map((tx: { filerName?: string; filerRelation?: string; text?: string; shares?: number; value?: number; startDate?: Date; ownership?: string }) => ({
+      .map((tx) => ({
         filerName: tx.filerName || "Unknown",
         filerRelation: tx.filerRelation || "Unknown",
         transactionText: tx.text || "Unknown",

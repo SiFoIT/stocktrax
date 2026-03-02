@@ -569,7 +569,6 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                 </Section>
                 )}
 
-                {hasAnyValue(details.targetHighPrice, details.targetMeanPrice, details.targetLowPrice, details.recommendationKey, details.numberOfAnalystOpinions) && (
                 <Section
                   title="Insider Activity"
                   color="from-amber-500/20 to-orange-500/10"
@@ -597,6 +596,7 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   )}
                 </Section>
 
+                {hasAnyValue(details.targetHighPrice, details.targetMeanPrice, details.targetLowPrice, details.recommendationKey, details.numberOfAnalystOpinions) && (
                 <Section
                   title="Analyst Ratings"
                   color="from-orange-500/20 to-transparent"
