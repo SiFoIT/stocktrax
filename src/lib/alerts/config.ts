@@ -1,4 +1,4 @@
-export const alertScopes = ["watchlist", "holding"] as const;
+export const alertScopes = ["watchlist", "holding", "market"] as const;
 export const alertMetrics = [
   "daily_change_percent",
   "last_price",
@@ -38,3 +38,5 @@ export const ALERT_OPERATOR_LABELS: Record<AlertOperator, string> = {
   gte: "at or above",
   lte: "at or below",
 };
+
+export const MARKET_METRICS: AlertMetric[] = ["daily_change_percent", "last_price", "price_vs_anchor"];

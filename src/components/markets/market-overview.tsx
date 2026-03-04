@@ -2,11 +2,22 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Category, CATEGORIES, CATEGORY_LABELS } from "@/lib/markets/symbols";
-import { MarketData } from "@/types";
+import { MarketData, AlertRuleDTO, AlertHistoryEntry } from "@/types";
 import { MarketCard } from "./market-card";
 import { MarketStatus, MarketStatusIndicator } from "./market-status";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
+import { AlertsPanel } from "@/components/alerts/alerts-panel";
+import {
+  triggerMarketAlerts,
+  fetchAlertRules,
+  fetchAlertHistory,
+  createAlertRule,
+  updateAlertRule,
+  deleteAlertRule,
+  resetAlertRule,
+  CreateAlertRuleInput,
+} from "@/lib/alerts/api";
 
 type MarketDataByCategory = Record<Category, MarketData[]>;
 
@@ -16,6 +27,23 @@ export function MarketOverview() {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [chartIndex, setChartIndex] = useState<number | null>(null);
   const [detailsSymbol, setDetailsSymbol] = useState<string | null>(null);
+
+  // Alert state
+  const [marketRules, setMarketRules] = useState<AlertRuleDTO[]>([]);
+  const [marketAlerts, setMarketAlerts] = useState<AlertHistoryEntry[]>([]);
+  const [marketHistory, setMarketHistory] = useState<AlertHistoryEntry[]>([]);
+  const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
+  const [focusedAlertSymbol, setFocusedAlertSymbol] = useState<string | null>(null);
+
+  const loadAlertRules = useCallback(async () => {
+    const rules = await fetchAlertRules("market");
+    setMarketRules(rules);
+  }, []);
+
+  const loadAlertHistory = useCallback(async () => {
+    const history = await fetchAlertHistory("market");
+    setMarketHistory(history);
+  }, []);
 
   const fetchMarketData = useCallback(async (refresh = false) => {
     setIsLoading(true);
@@ -35,7 +63,22 @@ export function MarketOverview() {
 
   useEffect(() => {
     fetchMarketData();
-  }, [fetchMarketData]);
+    loadAlertRules();
+  }, [fetchMarketData, loadAlertRules]);
+
+  // Trigger market alerts whenever market data changes
+  useEffect(() => {
+    if (!marketData) return;
+    const allItems = CATEGORIES.flatMap((c) => marketData[c] ?? []);
+    if (allItems.length === 0) return;
+    triggerMarketAlerts(allItems).then((triggered) => {
+      setMarketAlerts(triggered);
+      if (triggered.length > 0) {
+        loadAlertRules();
+        loadAlertHistory();
+      }
+    });
+  }, [marketData, loadAlertRules, loadAlertHistory]);
 
   const handleRefresh = () => {
     fetchMarketData(true);
@@ -58,6 +101,55 @@ export function MarketOverview() {
     flatSymbols.forEach((s, i) => map.set(s.symbol, i));
     return map;
   }, [flatSymbols]);
+
+  // Alert state per symbol
+  const marketAlertStates = useMemo(() => {
+    const states: Record<string, { hasRules: boolean; triggered: boolean }> = {};
+    for (const rule of marketRules) {
+      if (!states[rule.symbol]) states[rule.symbol] = { hasRules: false, triggered: false };
+      states[rule.symbol].hasRules = true;
+    }
+    for (const alert of marketAlerts) {
+      if (!states[alert.symbol]) states[alert.symbol] = { hasRules: true, triggered: false };
+      states[alert.symbol].triggered = true;
+    }
+    return states;
+  }, [marketRules, marketAlerts]);
+
+  // Source options for AlertsPanel (synthetic IDs from index)
+  const marketSourceOptions = useMemo(() => {
+    return flatMarketData.map((d, i) => ({
+      id: i + 1, // synthetic 1-based ID
+      label: d.name,
+      symbol: d.symbol,
+    }));
+  }, [flatMarketData]);
+
+  const handleOpenAlerts = useCallback((symbol: string) => {
+    setFocusedAlertSymbol(symbol);
+    setAlertsPanelOpen(true);
+    loadAlertHistory();
+  }, [loadAlertHistory]);
+
+  const handleCreateRule = useCallback(async (input: CreateAlertRuleInput) => {
+    await createAlertRule(input);
+    await loadAlertRules();
+  }, [loadAlertRules]);
+
+  const handleUpdateRule = useCallback(async (id: number, updates: Partial<CreateAlertRuleInput>) => {
+    await updateAlertRule(id, updates);
+    await loadAlertRules();
+  }, [loadAlertRules]);
+
+  const handleDeleteRule = useCallback(async (id: number) => {
+    await deleteAlertRule(id);
+    await loadAlertRules();
+  }, [loadAlertRules]);
+
+  const handleResetRule = useCallback(async (id: number) => {
+    await resetAlertRule(id);
+    await loadAlertRules();
+  }, [loadAlertRules]);
 
   return (
     <>
@@ -109,6 +201,8 @@ export function MarketOverview() {
                       data={data}
                       onClick={() => setDetailsSymbol(data.symbol)}
                       onChartClick={() => setChartIndex(symbolIndexMap.get(data.symbol) ?? 0)}
+                      alertState={marketAlertStates[data.symbol]}
+                      onAlertClick={() => handleOpenAlerts(data.symbol)}
                     />
                   ))}
                 </div>
@@ -139,6 +233,20 @@ export function MarketOverview() {
         onClose={() => setChartIndex(null)}
       />
     )}
+    <AlertsPanel
+      open={alertsPanelOpen}
+      scope="market"
+      sourceOptions={marketSourceOptions}
+      rules={marketRules}
+      alerts={marketAlerts}
+      history={marketHistory}
+      focusSymbol={focusedAlertSymbol}
+      onClose={() => { setAlertsPanelOpen(false); setFocusedAlertSymbol(null); }}
+      onCreateRule={handleCreateRule}
+      onUpdateRule={handleUpdateRule}
+      onDeleteRule={handleDeleteRule}
+      onResetRule={handleResetRule}
+    />
     </>
   );
 }

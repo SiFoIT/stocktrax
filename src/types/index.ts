@@ -196,7 +196,7 @@ export interface PortfolioDashboardData {
   };
 }
 
-export type AlertScope = "watchlist" | "holding";
+export type AlertScope = "watchlist" | "holding" | "market";
 export type AlertMetric =
   | "daily_change_percent"
   | "last_price"

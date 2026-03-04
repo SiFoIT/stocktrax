@@ -1,4 +1,4 @@
-import { AlertHistoryEntry, AlertRuleDTO, AlertScope, TriggeredAlertSummary } from "@/types";
+import { AlertHistoryEntry, AlertRuleDTO, AlertScope, MarketData, TriggeredAlertSummary } from "@/types";
 import { WatchlistItemWithQuote, HoldingWithQuote } from "@/types";
 
 export async function triggerWatchlistAlerts(items: WatchlistItemWithQuote[]) {
@@ -12,6 +12,26 @@ export async function triggerWatchlistAlerts(items: WatchlistItemWithQuote[]) {
       price: item.price ?? null,
       changePercent: item.changePercent ?? null,
       currency: item.currency ?? null,
+    })),
+  };
+  const response = await fetch("/api/alerts/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) return [];
+  const data = await response.json();
+  return (data.alerts ?? []) as TriggeredAlertSummary[];
+}
+
+export async function triggerMarketAlerts(items: MarketData[]) {
+  if (items.length === 0) return [] as TriggeredAlertSummary[];
+  const payload = {
+    scope: "market" as AlertScope,
+    items: items.map((item) => ({
+      symbol: item.symbol,
+      price: item.price ?? null,
+      changePercent: item.changePercent ?? null,
     })),
   };
   const response = await fetch("/api/alerts/run", {

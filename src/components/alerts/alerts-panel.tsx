@@ -11,7 +11,7 @@ import type {
   AlertResetStrategy,
 } from "@/types";
 import { CreateAlertRuleInput } from "@/lib/alerts/api";
-import { ALERT_METRIC_LABELS, ALERT_OPERATOR_LABELS, ALERT_RESET_LABELS } from "@/lib/alerts/config";
+import { ALERT_METRIC_LABELS, ALERT_OPERATOR_LABELS, ALERT_RESET_LABELS, MARKET_METRICS } from "@/lib/alerts/config";
 import { InfoTip } from "@/components/ui/info-tip";
 
 interface AlertsPanelProps {
@@ -50,7 +50,7 @@ export function AlertsPanel({
   onResetRule,
 }: AlertsPanelProps) {
   const [selectedSource, setSelectedSource] = useState<number | null>(null);
-  const [metric, setMetric] = useState<AlertMetric>(scope === "watchlist" ? "daily_change_percent" : "holding_gain_percent");
+  const [metric, setMetric] = useState<AlertMetric>(scope === "holding" ? "holding_gain_percent" : "daily_change_percent");
   const [operator, setOperator] = useState<AlertOperator>("lte");
   const [threshold, setThreshold] = useState<number>(-5);
   const [resetStrategy, setResetStrategy] = useState<AlertResetStrategy>("recovery");
@@ -69,7 +69,7 @@ export function AlertsPanel({
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  const metricOptions = scope === "watchlist" ? WATCHLIST_METRICS : HOLDING_METRICS;
+  const metricOptions = scope === "holding" ? HOLDING_METRICS : scope === "market" ? MARKET_METRICS : WATCHLIST_METRICS;
 
   // Escape key handler
   useEffect(() => {
@@ -176,8 +176,8 @@ export function AlertsPanel({
       <div className="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold">{scope === "watchlist" ? "Watchlist Alerts" : "Portfolio Alerts"}</h2>
-            <p className="text-sm text-black/50 dark:text-white/50">Create and review alert rules tied to this {scope === "watchlist" ? "watchlist" : "portfolio"}.</p>
+            <h2 className="text-lg font-semibold">{scope === "market" ? "Market Alerts" : scope === "watchlist" ? "Watchlist Alerts" : "Portfolio Alerts"}</h2>
+            <p className="text-sm text-black/50 dark:text-white/50">Create and review alert rules tied to this {scope === "market" ? "market overview" : scope === "watchlist" ? "watchlist" : "portfolio"}.</p>
           </div>
           <Button variant="ghost" onClick={onClose} className="text-black/60 dark:text-white/60">
             Close

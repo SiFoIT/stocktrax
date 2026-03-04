@@ -25,11 +25,18 @@ export interface HoldingAlertSource {
   currency?: string | null;
 }
 
+export interface MarketAlertSource {
+  symbol: string;
+  price?: number | null;
+  changePercent?: number | null;
+}
+
 export type AlertRunPayload =
   | { scope: "watchlist"; items: WatchlistAlertSource[] }
-  | { scope: "holding"; holdings: HoldingAlertSource[] };
+  | { scope: "holding"; holdings: HoldingAlertSource[] }
+  | { scope: "market"; items: MarketAlertSource[] };
 
-type AlertSource = WatchlistAlertSource | HoldingAlertSource;
+type AlertSource = WatchlistAlertSource | HoldingAlertSource | MarketAlertSource;
 
 function sourcePrice(source: AlertSource): number | null | undefined {
   return "price" in source ? source.price : (source as HoldingAlertSource).currentPrice;
@@ -105,6 +112,10 @@ function getSourceForRule(payload: AlertRunPayload, rule: AlertRule) {
     return list.find((item) => item.symbol === rule.symbol);
   }
 
+  if (payload.scope === "market") {
+    return payload.items.find((item) => item.symbol === rule.symbol);
+  }
+
   const holdings = payload.holdings;
   if (rule.holdingId) {
     return holdings.find((holding) => holding.id === rule.holdingId);
@@ -114,7 +125,7 @@ function getSourceForRule(payload: AlertRunPayload, rule: AlertRule) {
 
 function getMetricValue(
   metric: AlertMetric,
-  source: WatchlistAlertSource | HoldingAlertSource,
+  source: AlertSource,
   rule: AlertRule
 ): number | null | undefined {
   switch (metric) {
@@ -183,7 +194,7 @@ function applyReset(
   rule: AlertRule,
   metricValue: number,
   now: Date,
-  source: WatchlistAlertSource | HoldingAlertSource
+  source: AlertSource
 ): RuleStateUpdate {
   const update: RuleStateUpdate = { id: rule.id, lastTriggeredAt: now };
 
@@ -221,7 +232,7 @@ function hasRecovered(operator: AlertOperator, metricValue: number, threshold: n
   return metricValue > threshold;
 }
 
-function buildMessage(rule: AlertRule, metricValue: number, source: WatchlistAlertSource | HoldingAlertSource) {
+function buildMessage(rule: AlertRule, metricValue: number, source: AlertSource) {
   const symbol = source.symbol;
   switch (rule.metric) {
     case "daily_change_percent":

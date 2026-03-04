@@ -23,9 +23,16 @@ const holdingSourceSchema = z.object({
   currency: z.string().nullable().optional(),
 });
 
+const marketSourceSchema = z.object({
+  symbol: z.string(),
+  price: z.number().nullable().optional(),
+  changePercent: z.number().nullable().optional(),
+});
+
 const payloadSchema = z.discriminatedUnion("scope", [
   z.object({ scope: z.literal("watchlist"), items: z.array(watchlistSourceSchema) }),
   z.object({ scope: z.literal("holding"), holdings: z.array(holdingSourceSchema) }),
+  z.object({ scope: z.literal("market"), items: z.array(marketSourceSchema) }),
 ]);
 
 export async function POST(request: NextRequest) {
