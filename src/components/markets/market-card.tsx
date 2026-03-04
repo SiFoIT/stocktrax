@@ -47,32 +47,34 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
     >
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-black dark:text-white truncate">{data.name}</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="font-semibold text-black dark:text-white truncate">{data.name}</h3>
+            {onAlertClick && (
+              <button
+                className={`p-1 rounded-lg transition-colors shrink-0 ${(() => {
+                  if (alertState?.triggered) return "text-red-500 hover:bg-red-500/10";
+                  if (alertState?.hasRules) return "text-emerald-500 hover:bg-emerald-500/10";
+                  return "text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5";
+                })()}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAlertClick();
+                }}
+                aria-label="Manage alerts"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </button>
+            )}
+          </div>
           <p className="text-xs text-black/50 dark:text-white/50">{data.symbol}</p>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {onAlertClick && (
-            <button
-              className={`p-1.5 rounded-lg transition-colors ${(() => {
-                if (alertState?.triggered) return "text-red-500 hover:bg-red-500/10";
-                if (alertState?.hasRules) return "text-emerald-500 hover:bg-emerald-500/10";
-                return "text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5";
-              })()}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onAlertClick();
-              }}
-              aria-label="Manage alerts"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            </button>
-          )}
+        <div className="shrink-0">
           {data.sparklineData.length >= 2 && (
             onChartClick ? (
               <button
-                className="rounded-lg p-1 -m-1 transition-colors hover:bg-white/10 dark:hover:bg-white/10 hover:shadow-sm cursor-pointer"
+                className={`rounded-lg p-1 -m-1 transition-transform cursor-pointer hover:scale-105 ${isPositive ? "hover:drop-shadow-[0_0_4px_rgba(34,197,94,0.5)]" : "hover:drop-shadow-[0_0_4px_rgba(239,68,68,0.5)]"}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onChartClick();
