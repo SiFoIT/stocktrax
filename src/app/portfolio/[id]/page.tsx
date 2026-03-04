@@ -542,9 +542,12 @@ export default function PortfolioPage() {
       const hasRules = holdingRules.some(
         (rule) => rule.scope === "holding" && (rule.holdingId === holding.id || rule.symbol === holding.symbol)
       );
+      const hasRecoveryOrMuted = holdingRules.some(
+        (rule) => rule.scope === "holding" && (rule.holdingId === holding.id || rule.symbol === holding.symbol) && (rule.needsRecovery || rule.isMuted)
+      );
       states[holding.id] = {
         hasRules,
-        triggered: triggeredSymbols.has(holding.symbol),
+        triggered: triggeredSymbols.has(holding.symbol) || hasRecoveryOrMuted,
       };
     });
     return states;

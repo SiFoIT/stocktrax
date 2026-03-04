@@ -108,6 +108,9 @@ export function MarketOverview() {
     for (const rule of marketRules) {
       if (!states[rule.symbol]) states[rule.symbol] = { hasRules: false, triggered: false };
       states[rule.symbol].hasRules = true;
+      if (rule.needsRecovery || rule.isMuted) {
+        states[rule.symbol].triggered = true;
+      }
     }
     for (const alert of marketAlerts) {
       if (!states[alert.symbol]) states[alert.symbol] = { hasRules: true, triggered: false };

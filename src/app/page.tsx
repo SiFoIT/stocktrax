@@ -339,9 +339,12 @@ export default function Dashboard() {
       const hasRules = watchlistRules.some(
         (rule) => rule.scope === "watchlist" && (rule.watchlistItemId === item.id || rule.symbol === item.symbol)
       );
+      const hasRecoveryOrMuted = watchlistRules.some(
+        (rule) => rule.scope === "watchlist" && (rule.watchlistItemId === item.id || rule.symbol === item.symbol) && (rule.needsRecovery || rule.isMuted)
+      );
       states[item.id] = {
         hasRules,
-        triggered: triggeredSymbols.has(item.symbol),
+        triggered: triggeredSymbols.has(item.symbol) || hasRecoveryOrMuted,
       };
     });
     return states;
