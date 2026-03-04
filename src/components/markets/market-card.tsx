@@ -74,7 +74,7 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
           {data.sparklineData.length >= 2 && (
             onChartClick ? (
               <button
-                className={`rounded-lg p-1 -m-1 transition-transform cursor-pointer hover:scale-105 ${isPositive ? "hover:drop-shadow-[0_0_4px_rgba(34,197,94,0.5)]" : "hover:drop-shadow-[0_0_4px_rgba(239,68,68,0.5)]"}`}
+                className={`rounded-lg p-1 -m-1 border border-black/10 dark:border-white/10 transition-all cursor-pointer hover:scale-105 hover:bg-black/5 dark:hover:bg-white/10 ${isPositive ? "hover:drop-shadow-[0_0_4px_rgba(34,197,94,0.5)]" : "hover:drop-shadow-[0_0_4px_rgba(239,68,68,0.5)]"}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onChartClick();
