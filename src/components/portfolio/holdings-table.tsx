@@ -47,16 +47,32 @@ export function HoldingsTable({
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [detailsSymbol, setDetailsSymbol] = useState<string | null>(null);
   const [chartIndex, setChartIndex] = useState<number | null>(null);
-  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(() => {
+    if (!storageKey) return null;
+    try {
+      const saved = localStorage.getItem(`${storageKey}_sort`);
+      if (saved) return JSON.parse(saved).column ?? null;
+    } catch {}
+    return null;
+  });
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
+    if (!storageKey) return "desc";
+    try {
+      const saved = localStorage.getItem(`${storageKey}_sort`);
+      if (saved) return JSON.parse(saved).direction ?? "desc";
+    } catch {}
+    return "desc";
+  });
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const handleSort = (column: SortColumn) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortColumn(column);
-      setSortDirection("desc");
+    const newDirection = sortColumn === column
+      ? (sortDirection === "asc" ? "desc" : "asc")
+      : "desc";
+    setSortColumn(column);
+    setSortDirection(newDirection);
+    if (storageKey) {
+      localStorage.setItem(`${storageKey}_sort`, JSON.stringify({ column, direction: newDirection }));
     }
   };
 
