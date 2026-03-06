@@ -978,6 +978,7 @@ export default function PortfolioPage() {
               )}
               {holdingsView === "holdings" ? (
                 <HoldingsTable
+                  key={`portfolio_${portfolioId}`}
                   holdings={activeHoldings}
                   totalPortfolioValue={totalValue}
                   onDeleteHolding={handleDeleteHolding}

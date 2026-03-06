@@ -512,6 +512,7 @@ export default function Dashboard() {
                       </div>
                     ) : watchlistView === "performance" ? (
                       <WatchlistTable
+                        key={`watchlist_${selectedWatchlistId}`}
                         items={watchlistItems}
                         onRemoveSymbol={handleRemoveSymbol}
                         storageKey={`watchlist_${selectedWatchlistId}`}
