@@ -408,16 +408,34 @@ export function CsvImportModal({
                 })()}
               </div>
 
-              {dedupedCash.length > 0 && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                  <svg className="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm text-purple-300">
-                    {dedupedCash.length} cash transaction{dedupedCash.length !== 1 ? "s" : ""} to import
-                  </span>
-                </div>
-              )}
+              {(() => {
+                const fxCount = dedupedCash.filter((t) => t.type === "fx_conversion").length;
+                const otherCashCount = dedupedCash.length - fxCount;
+                return (
+                  <>
+                    {otherCashCount > 0 && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                        <svg className="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-sm text-purple-300">
+                          {otherCashCount} cash transaction{otherCashCount !== 1 ? "s" : ""} to import
+                        </span>
+                      </div>
+                    )}
+                    {fxCount > 0 && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-500/10 border border-sky-500/20">
+                        <svg className="w-4 h-4 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        <span className="text-sm text-sky-300">
+                          {fxCount} FX conversion{fxCount !== 1 ? "s" : ""} to import
+                        </span>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {duplicateCount > 0 && (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">

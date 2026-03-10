@@ -61,7 +61,7 @@ export const cashTransactions = sqliteTable("cash_transactions", {
     .notNull()
     .references(() => portfolios.id, { onDelete: "cascade" }),
   type: text("type", {
-    enum: ["contribution", "deposit", "refund", "referral", "transfer_in", "transfer_out"],
+    enum: ["contribution", "deposit", "refund", "referral", "transfer_in", "transfer_out", "fx_conversion"],
   }).notNull(),
   description: text("description").notNull(),
   amount: real("amount").notNull(),

@@ -261,7 +261,7 @@ export interface CashTransactionRow {
   kind: "cash";
   id: number;
   portfolioId: number;
-  type: "contribution" | "deposit" | "refund" | "referral" | "transfer_in" | "transfer_out";
+  type: "contribution" | "deposit" | "refund" | "referral" | "transfer_in" | "transfer_out" | "fx_conversion";
   description: string;
   amount: number;
   date: string;

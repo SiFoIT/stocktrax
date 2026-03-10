@@ -42,7 +42,7 @@ const backupSchema = z.object({
     cashTransactions: z.array(z.object({
       id: z.number(),
       portfolioId: z.number(),
-      type: z.enum(["contribution", "deposit", "refund", "referral", "transfer_in", "transfer_out"]),
+      type: z.enum(["contribution", "deposit", "refund", "referral", "transfer_in", "transfer_out", "fx_conversion"]),
       description: z.string(),
       amount: z.number(),
       currency: z.string(),

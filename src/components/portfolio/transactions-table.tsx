@@ -49,6 +49,8 @@ function getTypeBadge(type: string) {
       return "bg-teal-500/15 text-teal-400 border-teal-500/20";
     case "refund":
       return "bg-cyan-500/15 text-cyan-400 border-cyan-500/20";
+    case "fx_conversion":
+      return "bg-sky-500/15 text-sky-400 border-sky-500/20";
     case "referral":
       return "bg-purple-500/15 text-purple-400 border-purple-500/20";
     case "transfer_out":

@@ -5,7 +5,7 @@ import { z } from "zod";
 
 const updateCashTransactionSchema = z.object({
   type: z
-    .enum(["contribution", "deposit", "refund", "referral", "transfer_in", "transfer_out"])
+    .enum(["contribution", "deposit", "refund", "referral", "transfer_in", "transfer_out", "fx_conversion"])
     .optional(),
   description: z.string().min(1).optional(),
   amount: z.number().optional(),

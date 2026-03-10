@@ -12,7 +12,7 @@ export interface ParsedStockTransaction {
 }
 
 export interface ParsedCashTransaction {
-  type: "contribution" | "deposit" | "refund" | "referral" | "transfer_in" | "transfer_out";
+  type: "contribution" | "deposit" | "refund" | "referral" | "transfer_in" | "transfer_out" | "fx_conversion";
   description: string;
   amount: number;
   date: string; // ISO date string
@@ -52,6 +52,7 @@ const CASH_TYPE_MAP: Record<string, ParsedCashTransaction["type"]> = {
   TRFINTF: "transfer_in",
   TRFOUTTF: "transfer_out",
   TRFOUT: "transfer_out",
+  FXCONVERSION: "fx_conversion",
 };
 
 interface CsvRow {

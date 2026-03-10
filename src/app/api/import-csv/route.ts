@@ -15,7 +15,7 @@ const stockTransactionSchema = z.object({
 });
 
 const cashTransactionSchema = z.object({
-  type: z.enum(["contribution", "deposit", "refund", "referral", "transfer_in", "transfer_out"]),
+  type: z.enum(["contribution", "deposit", "refund", "referral", "transfer_in", "transfer_out", "fx_conversion"]),
   description: z.string(),
   amount: z.number(),
   date: z.string(),
