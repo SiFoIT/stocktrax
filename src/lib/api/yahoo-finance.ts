@@ -655,26 +655,27 @@ export async function getNews(symbol: string, limit = 5): Promise<NewsArticle[]>
     const upperSymbol = symbol.toUpperCase();
 
     // Use search API which provides news with thumbnails
-    const result = await yahooFinance.search(symbol, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: any = await yahooFinance.search(symbol, {
       newsCount: limit * 3,
       quotesCount: 0,
-    });
+    }, { validateResult: false });
 
     if (!result || !result.news || result.news.length === 0) {
       return [];
     }
 
     // Filter to only include articles that actually have this symbol in relatedTickers
-    const relevantNews = result.news.filter((item) => {
+    const relevantNews = result.news.filter((item: any) => {
       if (!item.relatedTickers || item.relatedTickers.length === 0) {
         return false;
       }
       return item.relatedTickers.some(
-        (ticker) => ticker.toUpperCase() === upperSymbol
+        (ticker: string) => ticker.toUpperCase() === upperSymbol
       );
     });
 
-    return relevantNews.slice(0, limit).map((item) => ({
+    return relevantNews.slice(0, limit).map((item: any) => ({
       uuid: item.uuid,
       title: item.title,
       publisher: item.publisher || "Unknown",

@@ -12,11 +12,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const results = await yahooFinance.search(query, { quotesCount: 8 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results: any = await yahooFinance.search(query, { quotesCount: 8 }, { validateResult: false });
 
-    const suggestions = results.quotes
-      .filter((q) => q.symbol && (q.quoteType === "EQUITY" || q.quoteType === "ETF" || q.quoteType === "CRYPTOCURRENCY"))
-      .map((q) => ({
+    const suggestions = (results.quotes ?? [])
+      .filter((q: any) => q.symbol && (q.quoteType === "EQUITY" || q.quoteType === "ETF" || q.quoteType === "CRYPTOCURRENCY"))
+      .map((q: any) => ({
         symbol: q.symbol,
         name: q.shortname || q.longname || q.symbol,
         type: q.quoteType,
