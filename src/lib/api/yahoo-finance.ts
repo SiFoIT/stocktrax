@@ -1,5 +1,5 @@
 import YahooFinance from "yahoo-finance2";
-import { StockQuote, StockTimeSeries, NewsArticle, ExtendedHoursData, MarketState, InsiderTransaction, InsiderDetails } from "@/types";
+import { StockQuote, StockTimeSeries, NewsArticle, ExtendedHoursData, MarketState, InsiderTransaction, InsiderDetails, InstitutionalOwnership, InstitutionalHolder } from "@/types";
 
 const yahooFinance = new YahooFinance();
 
@@ -647,6 +647,50 @@ export async function getInsiderDetails(symbol: string): Promise<InsiderDetails>
     };
   } catch (error) {
     return { transactions: [] };
+  }
+}
+
+export async function getInstitutionalOwnership(symbol: string): Promise<InstitutionalOwnership> {
+  try {
+    const summary = await yahooFinance.quoteSummary(symbol, {
+      modules: ["institutionOwnership", "fundOwnership", "majorHoldersBreakdown"],
+    });
+
+    const holders = summary?.majorHoldersBreakdown;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const instOwnership: any = summary?.institutionOwnership;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fundOwnershipData: any = summary?.fundOwnership;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapHolder = (item: any): InstitutionalHolder => ({
+      organization: item.organization || "Unknown",
+      pctHeld: item.pctHeld ?? 0,
+      position: item.position ?? 0,
+      value: item.value ?? 0,
+      pctChange: item.pctChange ?? 0,
+      reportDate: item.reportDate
+        ? new Date(item.reportDate).toISOString().split("T")[0]
+        : undefined,
+    });
+
+    const institutionHolders: InstitutionalHolder[] = (instOwnership?.ownershipList || [])
+      .slice(0, 10)
+      .map(mapHolder);
+
+    const fundHolders: InstitutionalHolder[] = (fundOwnershipData?.ownershipList || [])
+      .slice(0, 10)
+      .map(mapHolder);
+
+    return {
+      institutionsPercentHeld: holders?.institutionsPercentHeld,
+      institutionsFloatPercentHeld: holders?.institutionsFloatPercentHeld,
+      institutionsCount: holders?.institutionsCount,
+      institutionHolders,
+      fundHolders,
+    };
+  } catch {
+    return { institutionHolders: [], fundHolders: [] };
   }
 }
 

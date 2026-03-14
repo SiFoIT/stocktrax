@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { NewsArticle, ExtendedHoursData, InsiderDetails } from "@/types";
+import { NewsArticle, ExtendedHoursData, InsiderDetails, InstitutionalOwnership } from "@/types";
 import { formatVolume, formatPercentRatio, formatRelativeTime } from "@/lib/utils";
 import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
 import { InfoTip } from "@/components/ui/info-tip";
@@ -243,6 +243,8 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
   const [newsLoading, setNewsLoading] = useState(true);
   const [insiderDetails, setInsiderDetails] = useState<InsiderDetails | null>(null);
   const [insiderLoading, setInsiderLoading] = useState(true);
+  const [instOwnership, setInstOwnership] = useState<InstitutionalOwnership | null>(null);
+  const [instLoading, setInstLoading] = useState(true);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -296,6 +298,24 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
       }
     };
     fetchInsider();
+  }, [symbol]);
+
+  useEffect(() => {
+    const fetchInstitutional = async () => {
+      setInstLoading(true);
+      try {
+        const response = await fetch(`/api/stocks/${symbol}?institutionalOwnership=true`);
+        if (response.ok) {
+          const data = await response.json();
+          setInstOwnership(data);
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setInstLoading(false);
+      }
+    };
+    fetchInstitutional();
   }, [symbol]);
 
   useEffect(() => {
@@ -582,7 +602,6 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   ) : insiderDetails ? (
                     <>
                       <Row label="Insider Ownership" value={insiderDetails.insidersPercentHeld !== undefined ? `${(insiderDetails.insidersPercentHeld * 100).toFixed(2)}%` : "-"} tooltip="Percentage of outstanding shares held by company insiders." />
-                      <Row label="Institutional Ownership" value={insiderDetails.institutionsPercentHeld !== undefined ? `${(insiderDetails.institutionsPercentHeld * 100).toFixed(2)}%` : "-"} tooltip="Percentage of outstanding shares held by institutions (mutual funds, pension funds, etc.)." />
                       <Row label="Buys (6mo)" value={insiderDetails.buyInfoCount !== undefined ? `${insiderDetails.buyInfoCount} txn · ${formatVolume(insiderDetails.buyInfoShares, 0)} shares` : "-"} className={insiderDetails.buyInfoCount ? "text-emerald-400" : undefined} tooltip="Insider buy transactions and total shares purchased in the last 6 months." />
                       <Row label="Sells (6mo)" value={insiderDetails.sellInfoCount !== undefined ? `${insiderDetails.sellInfoCount} txn · ${formatVolume(insiderDetails.sellInfoShares, 0)} shares` : "-"} className={insiderDetails.sellInfoCount ? "text-red-400" : undefined} tooltip="Insider sell transactions and total shares sold in the last 6 months." />
                       <Row
@@ -595,6 +614,26 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                     </>
                   ) : (
                     <p className="text-sm text-white/50 text-center py-2">No insider data available</p>
+                  )}
+                </Section>
+
+                <Section
+                  title="Institutional Ownership"
+                  color="from-sky-500/20 to-blue-500/10"
+                  icon={<svg className="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>}
+                >
+                  {instLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="w-5 h-5 border-2 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
+                    </div>
+                  ) : instOwnership ? (
+                    <>
+                      <Row label="Institutions % Held" value={instOwnership.institutionsPercentHeld !== undefined ? `${(instOwnership.institutionsPercentHeld * 100).toFixed(2)}%` : "-"} tooltip="Percentage of outstanding shares held by institutions." />
+                      <Row label="Institutions Float % Held" value={instOwnership.institutionsFloatPercentHeld !== undefined ? `${(instOwnership.institutionsFloatPercentHeld * 100).toFixed(2)}%` : "-"} tooltip="Percentage of float shares held by institutions." />
+                      <Row label="Number of Institutions" value={instOwnership.institutionsCount !== undefined ? instOwnership.institutionsCount.toLocaleString() : "-"} tooltip="Total number of institutional holders." />
+                    </>
+                  ) : (
+                    <p className="text-sm text-white/50 text-center py-2">No institutional data available</p>
                   )}
                 </Section>
 
@@ -632,34 +671,6 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                   <Row label="200-Day Avg" value={formatCurrency(details.twoHundredDayAverage, details.currency)} />
                 </Section>
               </div>
-
-              {/* Description */}
-              {details.description && (
-                <div className="rounded-xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 p-5">
-                  <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    About {details.shortName || details.symbol}
-                  </h3>
-                  <p className="text-sm text-white/60 leading-relaxed">
-                    {details.description}
-                  </p>
-                  {details.website && (
-                    <a
-                      href={details.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 mt-3 transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                      {details.website}
-                    </a>
-                  )}
-                </div>
-              )}
 
               {/* Insider Transactions Table */}
               {!insiderLoading && insiderDetails && insiderDetails.transactions.length > 0 && (
@@ -711,6 +722,118 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                       </tbody>
                     </table>
                   </div>
+                </div>
+              )}
+
+              {/* Institutional Holders Table */}
+              {!instLoading && instOwnership && instOwnership.institutionHolders.length > 0 && (
+                <div className="rounded-xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-white/10 bg-gradient-to-r from-sky-500/20 to-blue-500/10">
+                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                      <svg className="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      Top Institutional Holders
+                    </h3>
+                  </div>
+                  <div className="p-4 max-h-72 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 text-xs text-white/50 uppercase tracking-wider">
+                          <th className="text-left py-2 px-2">Name</th>
+                          <th className="text-left py-2 px-2">Report Date</th>
+                          <th className="text-right py-2 px-2">% Held</th>
+                          <th className="text-right py-2 px-2">Shares</th>
+                          <th className="text-right py-2 px-2">Value</th>
+                          <th className="text-right py-2 px-2">% Change</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {instOwnership.institutionHolders.map((holder, i) => (
+                          <tr key={i} className={`border-b border-white/5 ${i % 2 === 0 ? "bg-white/[0.02]" : ""}`}>
+                            <td className="py-2 px-2 text-white/90 font-medium truncate max-w-[180px]">{holder.organization}</td>
+                            <td className="py-2 px-2 text-white/70 whitespace-nowrap">{holder.reportDate || "-"}</td>
+                            <td className="py-2 px-2 text-right font-mono text-white/80">{(holder.pctHeld * 100).toFixed(2)}%</td>
+                            <td className="py-2 px-2 text-right font-mono text-white/80">{holder.position.toLocaleString()}</td>
+                            <td className="py-2 px-2 text-right font-mono text-white/60">{formatLargeNumber(holder.value)}</td>
+                            <td className={`py-2 px-2 text-right font-mono ${holder.pctChange > 0 ? "text-emerald-400" : holder.pctChange < 0 ? "text-red-400" : "text-white/60"}`}>
+                              {holder.pctChange > 0 ? "+" : ""}{(holder.pctChange * 100).toFixed(2)}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Fund Holders Table */}
+              {!instLoading && instOwnership && instOwnership.fundHolders.length > 0 && (
+                <div className="rounded-xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-white/10 bg-gradient-to-r from-sky-500/20 to-blue-500/10">
+                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                      <svg className="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                      </svg>
+                      Top Fund Holders
+                    </h3>
+                  </div>
+                  <div className="p-4 max-h-72 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 text-xs text-white/50 uppercase tracking-wider">
+                          <th className="text-left py-2 px-2">Name</th>
+                          <th className="text-left py-2 px-2">Report Date</th>
+                          <th className="text-right py-2 px-2">% Held</th>
+                          <th className="text-right py-2 px-2">Shares</th>
+                          <th className="text-right py-2 px-2">Value</th>
+                          <th className="text-right py-2 px-2">% Change</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {instOwnership.fundHolders.map((holder, i) => (
+                          <tr key={i} className={`border-b border-white/5 ${i % 2 === 0 ? "bg-white/[0.02]" : ""}`}>
+                            <td className="py-2 px-2 text-white/90 font-medium truncate max-w-[180px]">{holder.organization}</td>
+                            <td className="py-2 px-2 text-white/70 whitespace-nowrap">{holder.reportDate || "-"}</td>
+                            <td className="py-2 px-2 text-right font-mono text-white/80">{(holder.pctHeld * 100).toFixed(2)}%</td>
+                            <td className="py-2 px-2 text-right font-mono text-white/80">{holder.position.toLocaleString()}</td>
+                            <td className="py-2 px-2 text-right font-mono text-white/60">{formatLargeNumber(holder.value)}</td>
+                            <td className={`py-2 px-2 text-right font-mono ${holder.pctChange > 0 ? "text-emerald-400" : holder.pctChange < 0 ? "text-red-400" : "text-white/60"}`}>
+                              {holder.pctChange > 0 ? "+" : ""}{(holder.pctChange * 100).toFixed(2)}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              {details.description && (
+                <div className="rounded-xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 p-5">
+                  <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    About {details.shortName || details.symbol}
+                  </h3>
+                  <p className="text-sm text-white/60 leading-relaxed">
+                    {details.description}
+                  </p>
+                  {details.website && (
+                    <a
+                      href={details.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 mt-3 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      {details.website}
+                    </a>
+                  )}
                 </div>
               )}
 

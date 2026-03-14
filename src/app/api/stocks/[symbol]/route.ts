@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { getQuote, getTimeSeries, getHistoricalChanges, getStockDetails, getDividendInfo, getInsiderInfo, getInsiderDetails, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
+import { getQuote, getTimeSeries, getHistoricalChanges, getStockDetails, getDividendInfo, getInsiderInfo, getInsiderDetails, getInstitutionalOwnership, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
 import { CACHE_TTL } from "@/lib/config";
 
@@ -22,6 +22,44 @@ export async function GET(
   const includeRange = url.searchParams.get("range") === "true";
   const includeInsider = url.searchParams.get("insider") === "true";
   const includeInsiderDetails = url.searchParams.get("insiderDetails") === "true";
+  const includeInstitutionalOwnership = url.searchParams.get("institutionalOwnership") === "true";
+
+  // Handle institutional ownership request separately
+  if (includeInstitutionalOwnership) {
+    const instCacheKey = `${upperSymbol}_institutional_ownership`;
+
+    if (!skipCache) {
+      const cached = await db.query.stockCache.findFirst({
+        where: eq(schema.stockCache.symbol, instCacheKey),
+      });
+
+      if (cached) {
+        const age = Date.now() - cached.fetchedAt.getTime();
+        if (age < CACHE_TTL.insider) {
+          return NextResponse.json(JSON.parse(cached.data));
+        }
+      }
+    }
+
+    const instData = await getInstitutionalOwnership(upperSymbol);
+
+    await db
+      .insert(schema.stockCache)
+      .values({
+        symbol: instCacheKey,
+        data: JSON.stringify(instData),
+        fetchedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: schema.stockCache.symbol,
+        set: {
+          data: JSON.stringify(instData),
+          fetchedAt: new Date(),
+        },
+      });
+
+    return NextResponse.json(instData);
+  }
 
   // Handle insider details request separately
   if (includeInsiderDetails) {

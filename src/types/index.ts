@@ -140,6 +140,23 @@ export interface TransactionWithSymbol {
   currency: string;
 }
 
+export interface InstitutionalHolder {
+  organization: string;
+  pctHeld: number;
+  position: number;
+  value: number;
+  pctChange: number;
+  reportDate?: string;
+}
+
+export interface InstitutionalOwnership {
+  institutionsPercentHeld?: number;
+  institutionsFloatPercentHeld?: number;
+  institutionsCount?: number;
+  institutionHolders: InstitutionalHolder[];
+  fundHolders: InstitutionalHolder[];
+}
+
 export interface NewsArticle {
   uuid: string;
   title: string;
