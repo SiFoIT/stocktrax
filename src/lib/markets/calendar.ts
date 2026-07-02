@@ -131,9 +131,12 @@ export function getMarketHolidays(year: number): Set<string> {
   const holidays = new Set<string>();
   const add = (m: number, d: number) => holidays.add(toDateStr(year, m, d));
 
-  // New Year's Day — Jan 1 (observed)
-  const ny = observedDate(year, 1, 1);
-  add(ny.month, ny.day);
+  // New Year's Day — Jan 1 (observed). NYSE does NOT observe when Jan 1 falls
+  // on a Saturday (no prior-Friday holiday), so only add otherwise.
+  if (new Date(year, 0, 1).getDay() !== 6) {
+    const ny = observedDate(year, 1, 1);
+    add(ny.month, ny.day);
+  }
 
   // MLK Day — 3rd Monday of January
   add(1, nthWeekday(year, 1, 1, 3));
@@ -170,6 +173,42 @@ export function getMarketHolidays(year: number): Set<string> {
 
   holidayCache.set(year, holidays);
   return holidays;
+}
+
+// --- Early-close (half-day) computation ---
+
+const earlyCloseCache = new Map<number, Set<string>>();
+
+/**
+ * NYSE early-close (1:00 PM ET) half-days for a given year:
+ * the day after Thanksgiving, Christmas Eve, and July 3 — each only when it is
+ * a weekday trading day and not itself an observed holiday.
+ */
+function getEarlyCloseDays(year: number): Set<string> {
+  const cached = earlyCloseCache.get(year);
+  if (cached) return cached;
+
+  const days = new Set<string>();
+  const holidays = getMarketHolidays(year);
+  const addIfTradingWeekday = (m: number, d: number) => {
+    const dateStr = toDateStr(year, m, d);
+    const dow = new Date(year, m - 1, d).getDay();
+    if (dow >= 1 && dow <= 5 && !holidays.has(dateStr)) days.add(dateStr);
+  };
+
+  // Day after Thanksgiving (Friday following the 4th Thursday of November)
+  addIfTradingWeekday(11, nthWeekday(year, 11, 4, 4) + 1);
+
+  // Christmas Eve — early close only Mon–Thu (a Friday Dec 24 is the observed holiday)
+  const dec24dow = new Date(year, 11, 24).getDay();
+  if (dec24dow >= 1 && dec24dow <= 4) addIfTradingWeekday(12, 24);
+
+  // July 3 — early close only Mon–Thu (i.e. July 4 falls Tue–Fri)
+  const jul3dow = new Date(year, 6, 3).getDay();
+  if (jul3dow >= 1 && jul3dow <= 4) addIfTradingWeekday(7, 3);
+
+  earlyCloseCache.set(year, days);
+  return days;
 }
 
 // --- Trading day logic ---
@@ -242,7 +281,8 @@ export function isMarketOpen(date?: Date): boolean {
   const dateStr = toDateStr(et.year, et.month, et.day);
   if (getMarketHolidays(et.year).has(dateStr)) return false;
 
-  // 9:30 AM – 4:00 PM ET
+  // 9:30 AM – 4:00 PM ET (1:00 PM ET on early-close half-days)
   const timeMinutes = et.hour * 60 + et.minute;
-  return timeMinutes >= 9 * 60 + 30 && timeMinutes < 16 * 60;
+  const closeMinutes = getEarlyCloseDays(et.year).has(dateStr) ? 13 * 60 : 16 * 60;
+  return timeMinutes >= 9 * 60 + 30 && timeMinutes < closeMinutes;
 }

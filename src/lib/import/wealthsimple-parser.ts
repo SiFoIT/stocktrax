@@ -165,11 +165,16 @@ export function toYahooSymbol(symbol: string, currency: string): string {
 }
 
 // Description regex patterns
-const BUY_PATTERN = /^(\S+)\s*-\s*.+?:\s*Bought\s+([\d.]+)\s+shares/;
-const SELL_PATTERN = /^(\S+)\s*-\s*.+?:\s*Sold\s+([\d.]+)\s+shares/;
+const BUY_PATTERN = /^(\S+)\s*-\s*.+?:\s*Bought\s+([\d,.]+)\s+shares/;
+const SELL_PATTERN = /^(\S+)\s*-\s*.+?:\s*Sold\s+([\d,.]+)\s+shares/;
 const DIV_PATTERN = /^(\S+)\s*-\s*.+?:\s*Cash dividend distribution/;
-const TRFIN_PATTERN = /^(\S+)\s*-\s*.+?:\s*Transfer of\s+([\d.]+)\s+shares/;
-const STKDIS_PATTERN = /^(\S+)\s*-\s*.+?:\s*Distribution of\s+([\d.]+)\s+shares/;
+const TRFIN_PATTERN = /^(\S+)\s*-\s*.+?:\s*Transfer of\s+([\d,.]+)\s+shares/;
+const STKDIS_PATTERN = /^(\S+)\s*-\s*.+?:\s*Distribution of\s+([\d,.]+)\s+shares/;
+
+/** Parse a share count that may contain thousands separators (e.g. "1,000"). */
+function parseShares(raw: string): number {
+  return parseFloat(raw.replace(/,/g, ""));
+}
 
 function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
   const wsType = row.Type;
@@ -183,7 +188,7 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
     if (!match) return null;
     const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
     const symbol = toYahooSymbol(match[1], currency);
-    const shares = parseFloat(match[2]);
+    const shares = parseShares(match[2]);
     const price = shares > 0 ? Math.abs(amount) / shares : 0;
     return { type: "buy", symbol, shares, price, date, currency: effectiveCurrency, rawDescription: desc };
   }
@@ -193,7 +198,7 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
     if (!match) return null;
     const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
     const symbol = toYahooSymbol(match[1], currency);
-    const shares = parseFloat(match[2]);
+    const shares = parseShares(match[2]);
     const price = shares > 0 ? Math.abs(amount) / shares : 0;
     return { type: "sell", symbol, shares, price, date, currency: effectiveCurrency, rawDescription: desc };
   }
@@ -203,7 +208,9 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
     if (!match) return null;
     const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
     const symbol = toYahooSymbol(match[1], currency);
-    return { type: "dividend", symbol, shares: 1, price: Math.abs(amount), date, currency: effectiveCurrency, rawDescription: desc };
+    // Preserve sign: negative amounts are dividend reversals/corrections and
+    // must reduce recorded income, not add to it.
+    return { type: "dividend", symbol, shares: 1, price: amount, date, currency: effectiveCurrency, rawDescription: desc };
   }
 
   if (wsType === "TRFIN") {
@@ -211,7 +218,7 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
     if (!match) return null;
     const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
     const symbol = toYahooSymbol(match[1], currency);
-    const shares = parseFloat(match[2]);
+    const shares = parseShares(match[2]);
     return { type: "transfer_in", symbol, shares, price: 0, date, currency: effectiveCurrency, rawDescription: desc };
   }
 
@@ -220,7 +227,7 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
     if (!match) return null;
     const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
     const symbol = toYahooSymbol(match[1], currency);
-    const shares = parseFloat(match[2]);
+    const shares = parseShares(match[2]);
     return { type: "transfer_in", symbol, shares, price: 0, date, currency: effectiveCurrency, rawDescription: desc };
   }
 
@@ -441,14 +448,17 @@ export function stockTxnDedupKey(
 
 /**
  * Build dedup key for cash transactions.
- * Key: date(YYYY-MM-DD)|type|amount
+ * Key: date(YYYY-MM-DD)|type|amount|currency
+ * Currency is included so same-day, same-amount transactions in different
+ * currencies (e.g. a $100 CAD and $100 USD deposit) are not collapsed.
  */
 export function cashTxnDedupKey(
   date: string | Date,
   type: string,
-  amount: number
+  amount: number,
+  currency: string
 ): string {
   const d = date instanceof Date ? date : new Date(date);
   const dateStr = d.toISOString().split("T")[0];
-  return `${dateStr}|${type}|${amount}`;
+  return `${dateStr}|${type}|${amount}|${currency}`;
 }

@@ -80,7 +80,9 @@ export async function getHistoricalChanges(symbol: string): Promise<HistoricalCh
       return undefined;
     };
 
-    const price5D = findPriceAtDaysAgo(5);
+    // 5D means 5 *trading* days, so index back 5 bars in the daily series
+    // rather than 5 calendar days (which is only ~3 trading days).
+    const price5D = quotes.length > 5 ? quotes[quotes.length - 1 - 5].close ?? undefined : undefined;
     const price1M = findPriceAtDaysAgo(30);
     const price3M = findPriceAtDaysAgo(90);
     const price1Y = findPriceAtDaysAgo(365);
@@ -287,7 +289,8 @@ export async function getStockDetails(symbol: string): Promise<StockDetails | nu
       // Balance sheet
       totalCash: financial?.totalCash,
       totalDebt: financial?.totalDebt,
-      debtToEquity: financial?.debtToEquity,
+      // Yahoo reports debt/equity percent-scaled (e.g. 145 = 1.45x); normalize to a ratio.
+      debtToEquity: financial?.debtToEquity != null ? financial.debtToEquity / 100 : undefined,
       currentRatio: financial?.currentRatio,
       bookValue: keyStats?.bookValue,
 

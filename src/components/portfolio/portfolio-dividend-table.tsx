@@ -5,7 +5,7 @@ import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
-import { formatCurrency, formatPercentRatio, formatDate } from "@/lib/utils";
+import { formatCurrency, formatPercentRatio, formatDate, toCAD } from "@/lib/utils";
 import { formatPercentRaw, getDaysToExDiv, formatDaysToExDiv, getDaysToExDivColor, getSafetyLabel, getSectorAbbrev } from "@/lib/dividend-helpers";
 
 type SortColumn = "symbol" | "shares" | "value" | "dividendRate" | "dividendYield" | "annualIncome" | "exDividendDate" | "daysToExDiv" | "dividendDate" | "payoutRatio" | "sector" | "fiveYearAvgYield";
@@ -13,6 +13,7 @@ type SortDirection = "asc" | "desc";
 
 interface PortfolioDividendTableProps {
   holdings: HoldingWithQuote[];
+  usdCadRate?: number;
   storageKey?: string;
 }
 
@@ -26,6 +27,7 @@ function SortIcon({ direction }: { direction: SortDirection | null }) {
 
 export function PortfolioDividendTable({
   holdings,
+  usdCadRate = 1,
   storageKey,
 }: PortfolioDividendTableProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
@@ -50,7 +52,11 @@ export function PortfolioDividendTable({
     }));
   }, [holdings]);
 
-  const totalAnnualIncome = holdingsWithIncome.reduce((sum, h) => sum + (h.annualIncome || 0), 0);
+  // Sum in CAD so mixed USD/CAD portfolios total correctly.
+  const totalAnnualIncome = holdingsWithIncome.reduce(
+    (sum, h) => sum + toCAD(h.annualIncome || 0, h.currency, usdCadRate),
+    0
+  );
 
   const sortedHoldings = useMemo(() => {
     if (!sortColumn) return holdingsWithIncome;
@@ -160,7 +166,7 @@ export function PortfolioDividendTable({
             </svg>
             <span className="text-sm font-medium text-emerald-400">Estimated Annual Dividend Income</span>
           </div>
-          <span className="text-lg font-bold text-emerald-400">{formatCurrency(totalAnnualIncome)}</span>
+          <span className="text-lg font-bold text-emerald-400">{formatCurrency(totalAnnualIncome, "CAD")}</span>
         </div>
       </div>
 

@@ -13,7 +13,7 @@ import { StockIcon } from "@/components/ui/stock-icon";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { InfoTip } from "@/components/ui/info-tip";
 import { HoldingWithQuote, TransactionWithSymbol } from "@/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, toCAD } from "@/lib/utils";
 
 type SortColumn =
   | "symbol"
@@ -29,6 +29,7 @@ type ChartPeriod = "monthly" | "quarterly";
 interface DividendReturnsTableProps {
   holdings: HoldingWithQuote[];
   transactions: TransactionWithSymbol[];
+  usdCadRate?: number;
   storageKey?: string;
 }
 
@@ -111,6 +112,7 @@ function formatPeriodLabel(
 export function DividendReturnsTable({
   holdings,
   transactions,
+  usdCadRate = 1,
 }: DividendReturnsTableProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -132,40 +134,40 @@ export function DividendReturnsTable({
     [transactions]
   );
 
-  // ─── Summary stats ───
+  // ─── Summary stats (aggregated in CAD so mixed portfolios total correctly) ───
   const totalReceived = useMemo(
-    () => dividendTxns.reduce((sum, t) => sum + t.shares * t.price, 0),
-    [dividendTxns]
+    () => dividendTxns.reduce((sum, t) => sum + toCAD(t.shares * t.price, t.currency, usdCadRate), 0),
+    [dividendTxns, usdCadRate]
   );
 
   const totalCostBasis = useMemo(
-    () => holdings.reduce((sum, h) => sum + h.shares * h.avgCost, 0),
-    [holdings]
+    () => holdings.reduce((sum, h) => sum + toCAD(h.shares * h.avgCost, h.currency, usdCadRate), 0),
+    [holdings, usdCadRate]
   );
 
   const projectedAnnual = useMemo(
     () =>
       holdings.reduce(
-        (sum, h) => sum + (h.dividendRate ? h.shares * h.dividendRate : 0),
+        (sum, h) => sum + toCAD(h.dividendRate ? h.shares * h.dividendRate : 0, h.currency, usdCadRate),
         0
       ),
-    [holdings]
+    [holdings, usdCadRate]
   );
 
   const yieldOnCost = totalCostBasis > 0 ? (projectedAnnual / totalCostBasis) * 100 : 0;
 
   const currentYieldWeighted = useMemo(() => {
     const totalMarketValue = holdings.reduce(
-      (sum, h) => sum + (h.marketValue || 0),
+      (sum, h) => sum + toCAD(h.marketValue || 0, h.currency, usdCadRate),
       0
     );
     if (totalMarketValue === 0) return 0;
     return holdings.reduce((acc, h) => {
-      const mv = h.marketValue || 0;
+      const mv = toCAD(h.marketValue || 0, h.currency, usdCadRate);
       const yld = h.dividendYield || 0;
       return acc + yld * (mv / totalMarketValue);
     }, 0);
-  }, [holdings]);
+  }, [holdings, usdCadRate]);
 
   const monthsSinceFirstDividend = useMemo(() => {
     if (dividendTxns.length === 0) return 0;
@@ -193,8 +195,10 @@ export function DividendReturnsTable({
       const month = d.getMonth();
       const periodIndex =
         chartPeriod === "quarterly" ? Math.floor(month / 3) : month;
-      const key = `${year}-${periodIndex}`;
-      buckets.set(key, (buckets.get(key) || 0) + txn.shares * txn.price);
+      // Zero-pad the period so string sort is chronological (e.g. "2025-02"
+      // before "2025-11" instead of lexicographic "2025-11" before "2025-2").
+      const key = `${year}-${String(periodIndex).padStart(2, "0")}`;
+      buckets.set(key, (buckets.get(key) || 0) + toCAD(txn.shares * txn.price, txn.currency, usdCadRate));
     }
 
     // Build sorted entries
@@ -211,7 +215,7 @@ export function DividendReturnsTable({
           amount: Math.round(amount * 100) / 100,
         };
       });
-  }, [dividendTxns, chartPeriod]);
+  }, [dividendTxns, chartPeriod, usdCadRate]);
 
   // ─── Per-stock table data ───
   const perStockData = useMemo(() => {
@@ -348,8 +352,9 @@ export function DividendReturnsTable({
     </th>
   );
 
+  // Summary figures are aggregated across currencies into CAD.
   const fmtDollar = (v: number) =>
-    `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `C$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div className="space-y-6">
@@ -452,7 +457,7 @@ export function DividendReturnsTable({
                 tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => `$${v}`}
+                tickFormatter={(v) => `C$${v}`}
               />
               <Tooltip
                 contentStyle={{
@@ -464,7 +469,7 @@ export function DividendReturnsTable({
                 }}
                 labelStyle={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}
                 itemStyle={{ color: "#34d399", fontWeight: 600 }}
-                formatter={(value: number | undefined) => [`$${(value ?? 0).toFixed(2)}`, "Income"]}
+                formatter={(value: number | undefined) => [`C$${(value ?? 0).toFixed(2)}`, "Income"]}
               />
               <Bar
                 dataKey="amount"

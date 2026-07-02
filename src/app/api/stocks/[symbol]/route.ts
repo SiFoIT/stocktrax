@@ -141,8 +141,19 @@ export async function GET(
     return NextResponse.json(details);
   }
 
-  const isIntraday = interval !== "1d";
-  const cacheKey = includeChanges ? `${upperSymbol}_changes` : `${upperSymbol}_${period}_${interval}`;
+  // Only sub-daily intervals are intraday; daily and weekly use the longer TTL.
+  const isIntraday = interval !== "1d" && interval !== "1wk";
+
+  // Encode every flag that changes the response shape into the cache key so a
+  // request never receives a cached payload that is missing requested fields
+  // (or, for time series, holds a different period/interval).
+  const keyParts = [upperSymbol];
+  if (includeTimeSeries) keyParts.push(`ts:${period}:${interval}`);
+  if (includeChanges) keyParts.push("ch");
+  if (includeDividends) keyParts.push("dv");
+  if (includeInsider) keyParts.push("in");
+  if (includeRange) keyParts.push("rg");
+  const cacheKey = keyParts.join("_");
   const cacheTTL = isIntraday ? CACHE_TTL.stockIntraday : CACHE_TTL.stockQuote;
 
   // Check cache (skip if refresh requested)
@@ -154,10 +165,7 @@ export async function GET(
     if (cached) {
       const age = Date.now() - cached.fetchedAt.getTime();
       if (age < cacheTTL) {
-        const data = JSON.parse(cached.data);
-        if (!includeTimeSeries || data.timeSeries) {
-          return NextResponse.json(data);
-        }
+        return NextResponse.json(JSON.parse(cached.data));
       }
     }
   }

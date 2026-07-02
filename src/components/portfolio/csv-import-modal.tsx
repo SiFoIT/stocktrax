@@ -97,7 +97,7 @@ export function CsvImportModal({
       // But we can dedup within the batch
       const cashKeys = new Set<string>();
       const newCash = result.cashTransactions.filter((txn) => {
-        const key = cashTxnDedupKey(txn.date, txn.type, txn.amount);
+        const key = cashTxnDedupKey(txn.date, txn.type, txn.amount, txn.currency);
         if (cashKeys.has(key)) {
           dupes++;
           return false;

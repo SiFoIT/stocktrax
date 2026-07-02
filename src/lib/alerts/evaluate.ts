@@ -81,7 +81,20 @@ export function evaluateAlerts(
     }
 
     const comparison = compare(metricValue, rule.operator as AlertOperator, rule.threshold ?? 0);
-    const canTrigger = comparison && shouldTrigger(rule, metricValue, now, updates);
+
+    // Recovery strategy: while a fired rule is awaiting recovery it must not
+    // re-trigger, and it re-arms only once the metric moves back across the
+    // threshold — which is exactly when `comparison` is false. This detection
+    // has to run here (not inside shouldTrigger, which only runs when the
+    // condition is still met) or the rule would never re-arm.
+    if (rule.resetStrategy === "recovery" && rule.needsRecovery) {
+      if (hasRecovered(rule.operator as AlertOperator, metricValue, rule.threshold ?? 0)) {
+        updates.push({ id: rule.id, needsRecovery: false });
+      }
+      continue;
+    }
+
+    const canTrigger = comparison && shouldTrigger(rule, now);
 
     if (!canTrigger) {
       continue;
@@ -156,23 +169,12 @@ function compare(value: number, operator: AlertOperator | null, threshold: numbe
 
 function shouldTrigger(
   rule: AlertRule,
-  metricValue: number,
-  now: Date,
-  updates: RuleStateUpdate[]
+  now: Date
 ): boolean {
-  if (rule.isMuted && rule.resetStrategy === "manual") {
+  // A muted rule never fires, regardless of reset strategy. Recovery re-arming
+  // is handled by the caller before this point.
+  if (rule.isMuted) {
     return false;
-  }
-
-  if (rule.resetStrategy === "recovery") {
-    if (rule.needsRecovery) {
-      const recovered = hasRecovered(rule.operator as AlertOperator, metricValue, rule.threshold ?? 0);
-      if (recovered) {
-        updates.push({ id: rule.id, needsRecovery: false });
-      } else {
-        return false;
-      }
-    }
   }
 
   if (rule.resetStrategy === "cooldown") {

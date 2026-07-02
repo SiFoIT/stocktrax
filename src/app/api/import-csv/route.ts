@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         ct.date instanceof Date
           ? ct.date.toISOString()
           : new Date(ct.date).toISOString();
-      existingCashKeys.add(cashTxnDedupKey(dateStr, ct.type, ct.amount));
+      existingCashKeys.add(cashTxnDedupKey(dateStr, ct.type, ct.amount, ct.currency));
     }
 
     // Filter out duplicate stock transactions
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     // Filter out duplicate cash transactions
     let cashDuplicates = 0;
     const newCashTxns = validated.cashTransactions.filter((txn) => {
-      const key = cashTxnDedupKey(txn.date, txn.type, txn.amount);
+      const key = cashTxnDedupKey(txn.date, txn.type, txn.amount, txn.currency);
       if (existingCashKeys.has(key)) {
         cashDuplicates++;
         return false;

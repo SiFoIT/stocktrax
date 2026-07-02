@@ -64,15 +64,15 @@ export function PortfolioPerformanceTable({
           bVal = b.marketValue;
           break;
         case "dayRange": {
-          const aRange = a.dayHigh && a.dayLow && a.currentPrice ? ((a.currentPrice - a.dayLow) / (a.dayHigh - a.dayLow)) * 100 : undefined;
-          const bRange = b.dayHigh && b.dayLow && b.currentPrice ? ((b.currentPrice - b.dayLow) / (b.dayHigh - b.dayLow)) * 100 : undefined;
+          const aRange = a.dayHigh && a.dayLow && a.currentPrice && a.dayHigh > a.dayLow ? ((a.currentPrice - a.dayLow) / (a.dayHigh - a.dayLow)) * 100 : undefined;
+          const bRange = b.dayHigh && b.dayLow && b.currentPrice && b.dayHigh > b.dayLow ? ((b.currentPrice - b.dayLow) / (b.dayHigh - b.dayLow)) * 100 : undefined;
           aVal = aRange;
           bVal = bRange;
           break;
         }
         case "52wRange": {
-          const aRange = a.fiftyTwoWeekHigh && a.fiftyTwoWeekLow && a.currentPrice ? ((a.currentPrice - a.fiftyTwoWeekLow) / (a.fiftyTwoWeekHigh - a.fiftyTwoWeekLow)) * 100 : undefined;
-          const bRange = b.fiftyTwoWeekHigh && b.fiftyTwoWeekLow && b.currentPrice ? ((b.currentPrice - b.fiftyTwoWeekLow) / (b.fiftyTwoWeekHigh - b.fiftyTwoWeekLow)) * 100 : undefined;
+          const aRange = a.fiftyTwoWeekHigh && a.fiftyTwoWeekLow && a.currentPrice && a.fiftyTwoWeekHigh > a.fiftyTwoWeekLow ? ((a.currentPrice - a.fiftyTwoWeekLow) / (a.fiftyTwoWeekHigh - a.fiftyTwoWeekLow)) * 100 : undefined;
+          const bRange = b.fiftyTwoWeekHigh && b.fiftyTwoWeekLow && b.currentPrice && b.fiftyTwoWeekHigh > b.fiftyTwoWeekLow ? ((b.currentPrice - b.fiftyTwoWeekLow) / (b.fiftyTwoWeekHigh - b.fiftyTwoWeekLow)) * 100 : undefined;
           aVal = aRange;
           bVal = bRange;
           break;

@@ -14,6 +14,16 @@ export function formatCurrency(value: number | undefined, currency = "USD"): str
   })}`;
 }
 
+/**
+ * Convert a native-currency value to CAD using a USD→CAD rate.
+ * USD values are multiplied by the rate; CAD (or anything non-USD) passes
+ * through unchanged. Mirrors the server-side conversion in the portfolio
+ * summary route so client tables can total mixed-currency holdings correctly.
+ */
+export function toCAD(value: number, currency: string | undefined, usdCadRate: number): number {
+  return currency === "USD" ? value * usdCadRate : value;
+}
+
 export function formatPercent(value: number | undefined): string {
   if (value === undefined) return "-";
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;

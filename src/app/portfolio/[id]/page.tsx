@@ -500,7 +500,8 @@ export default function PortfolioPage() {
   const todayChangeCAD = cadHoldings.reduce((s, h) => s + (h.change || 0) * h.shares, 0);
   const todayChangeUSD = usdHoldings.reduce((s, h) => s + (h.change || 0) * h.shares, 0);
   const todayChangeCadTotal = todayChangeCAD + todayChangeUSD * rate;
-  const todayChangePercent = holdingsValue > 0 ? (todayChangeCadTotal / (holdingsValue - todayChangeCadTotal)) * 100 : 0;
+  const todayChangeBase = holdingsValue - todayChangeCadTotal;
+  const todayChangePercent = todayChangeBase > 0 ? (todayChangeCadTotal / todayChangeBase) * 100 : 0;
 
   const handleCreateHoldingRule = async (input: CreateAlertRuleInput) => {
     const rule = await createAlertRule(input);
@@ -980,7 +981,8 @@ export default function PortfolioPage() {
                 <HoldingsTable
                   key={`portfolio_${portfolioId}`}
                   holdings={activeHoldings}
-                  totalPortfolioValue={totalValue}
+                  totalPortfolioValue={holdingsValue}
+                  usdCadRate={rate}
                   onDeleteHolding={handleDeleteHolding}
                   onAddTransaction={handleAddTransactionForSymbol}
                   storageKey={`portfolio_${portfolioId}`}
@@ -995,6 +997,7 @@ export default function PortfolioPage() {
               ) : holdingsView === "dividend" ? (
                 <PortfolioDividendTable
                   holdings={activeHoldings}
+                  usdCadRate={rate}
                   storageKey={`portfolio_${portfolioId}`}
                 />
               ) : holdingsView === "insider" ? (
@@ -1014,6 +1017,7 @@ export default function PortfolioPage() {
                   <DividendReturnsTable
                     holdings={activeHoldings}
                     transactions={transactionsData}
+                    usdCadRate={rate}
                     storageKey={`portfolio_${portfolioId}`}
                   />
                 )

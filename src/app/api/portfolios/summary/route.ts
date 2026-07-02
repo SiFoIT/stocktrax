@@ -163,6 +163,11 @@ export async function GET() {
     // Build portfolio summaries
     const portfolioSummaries: PortfolioSummary[] = [];
 
+    // Accumulate each portfolio's period-return denominator (startValue + net
+    // buys) so the totals row uses a real invested base rather than
+    // (totalMarketValue - totalAmt), which ignores mid-period cash flows.
+    const periodDenomTotals: Record<string, number> = {};
+
     for (const portfolio of allPortfolios) {
       const pHoldings = activeHoldings.filter((h) => h.portfolioId === portfolio.id);
       const pAllHoldings = allHoldings.filter((h) => h.portfolioId === portfolio.id);
@@ -188,7 +193,8 @@ export async function GET() {
 
       const gainLoss = marketValue - costBasis;
       const gainLossPercent = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
-      const todayReturnPercent = marketValue > 0 ? (todayReturn / (marketValue - todayReturn)) * 100 : 0;
+      const todayReturnBase = marketValue - todayReturn;
+      const todayReturnPercent = todayReturnBase > 0 ? (todayReturn / todayReturnBase) * 100 : 0;
 
       // Compute yearly returns
       const yearlyReturns: Record<string, { amount: number; percent: number }> = {};
@@ -227,14 +233,44 @@ export async function GET() {
           }
         }
 
-        // End value = current market value for current year, or year-end for completed years
-        const endValue = marketValue; // current year (will be overwritten for completed years)
+        const yearEnd = new Date(year + 1, 0, 1);
+
+        // End value: for the in-progress year use current market value; for a
+        // completed year, price the shares held at year-end using the year-end
+        // close (~Jan 2 of the following year, already fetched into
+        // yearStartPrices for `year + 1`). Using current market value here would
+        // let the completed year absorb all of the following period's movement.
+        let endValue: number;
+        if (year >= currentYear) {
+          endValue = marketValue;
+        } else {
+          const sharesAtEnd = new Map<string, { shares: number; currency: string }>();
+          for (const txn of sortedTxns) {
+            if (new Date(txn.date) >= yearEnd) break;
+            const holding = holdingById.get(txn.holdingId);
+            if (!holding) continue;
+            const cur = sharesAtEnd.get(holding.symbol) ?? { shares: 0, currency: holdingCurrency(holding) };
+            if (txn.type === "buy" || txn.type === "transfer_in") {
+              cur.shares += txn.shares;
+            } else if (txn.type === "sell") {
+              cur.shares -= txn.shares;
+            }
+            sharesAtEnd.set(holding.symbol, cur);
+          }
+          endValue = 0;
+          for (const [sym, { shares, currency }] of sharesAtEnd) {
+            if (shares <= 0) continue;
+            const price = yearStartPrices.get(sym)?.get(year + 1);
+            if (price) {
+              endValue += toCAD(shares * price, currency);
+            }
+          }
+        }
 
         // Track net flows during the year
         let netBuys = 0;
         let netSells = 0;
         let dividends = 0;
-        const yearEnd = new Date(year + 1, 0, 1);
 
         for (const txn of sortedTxns) {
           const txnDate = new Date(txn.date);
@@ -253,8 +289,6 @@ export async function GET() {
           }
         }
 
-        // For completed years, we'd need year-end prices, but for simplicity use current prices
-        // This makes the most recent completed year slightly inaccurate but avoids excessive API calls
         const returnAmount = endValue - startValue - netBuys + netSells + dividends;
         const denominator = startValue + netBuys;
         const returnPercent = denominator > 0 ? (returnAmount / denominator) * 100 : 0;
@@ -346,6 +380,7 @@ export async function GET() {
         const denom = startVal + pNetBuys;
         const returnPct = denom > 0 ? (returnAmt / denom) * 100 : 0;
 
+        periodDenomTotals[key] = (periodDenomTotals[key] ?? 0) + denom;
         periodReturns[key] = { amount: returnAmt, percent: returnPct };
       }
 
@@ -378,8 +413,9 @@ export async function GET() {
     const totalGainLoss = totalMarketValue - totalCostBasis;
     const totalGainLossPercent = totalCostBasis > 0 ? (totalGainLoss / totalCostBasis) * 100 : 0;
     const totalTodayReturn = portfolioSummaries.reduce((s, p) => s + p.todayReturn, 0);
-    const totalTodayReturnPercent = totalMarketValue > 0
-      ? (totalTodayReturn / (totalMarketValue - totalTodayReturn)) * 100
+    const totalTodayReturnBase = totalMarketValue - totalTodayReturn;
+    const totalTodayReturnPercent = totalTodayReturnBase > 0
+      ? (totalTodayReturn / totalTodayReturnBase) * 100
       : 0;
 
     // Aggregate period returns across portfolios
@@ -394,13 +430,12 @@ export async function GET() {
           totalAmt += pr.amount;
         }
       }
-      // For percent, use the total portfolio's start value approach:
-      // sum of (startValue + netBuys) across portfolios
-      // Approximate by using totalAmt / (totalMarketValue - totalAmt) when possible
+      // Percent uses the summed per-portfolio denominators (startValue + net
+      // buys), consistent with each portfolio's own period-return percent.
       if (key === "1D") {
         totalPeriodReturns[key] = { amount: totalTodayReturn, percent: totalTodayReturnPercent };
       } else {
-        totalDenom = totalMarketValue - totalAmt;
+        totalDenom = periodDenomTotals[key] ?? 0;
         const pct = totalDenom > 0 ? (totalAmt / totalDenom) * 100 : 0;
         totalPeriodReturns[key] = { amount: totalAmt, percent: pct };
       }

@@ -105,16 +105,16 @@ export function WatchlistTable({
           break;
         case "dayRange": {
           // Sort by position in day range (0-100%)
-          const aRange = a.dayHigh && a.dayLow && a.price ? ((a.price - a.dayLow) / (a.dayHigh - a.dayLow)) * 100 : undefined;
-          const bRange = b.dayHigh && b.dayLow && b.price ? ((b.price - b.dayLow) / (b.dayHigh - b.dayLow)) * 100 : undefined;
+          const aRange = a.dayHigh && a.dayLow && a.price && a.dayHigh > a.dayLow ? ((a.price - a.dayLow) / (a.dayHigh - a.dayLow)) * 100 : undefined;
+          const bRange = b.dayHigh && b.dayLow && b.price && b.dayHigh > b.dayLow ? ((b.price - b.dayLow) / (b.dayHigh - b.dayLow)) * 100 : undefined;
           aVal = aRange;
           bVal = bRange;
           break;
         }
         case "52wRange": {
           // Sort by position in 52-week range (0-100%)
-          const aRange = a.fiftyTwoWeekHigh && a.fiftyTwoWeekLow && a.price ? ((a.price - a.fiftyTwoWeekLow) / (a.fiftyTwoWeekHigh - a.fiftyTwoWeekLow)) * 100 : undefined;
-          const bRange = b.fiftyTwoWeekHigh && b.fiftyTwoWeekLow && b.price ? ((b.price - b.fiftyTwoWeekLow) / (b.fiftyTwoWeekHigh - b.fiftyTwoWeekLow)) * 100 : undefined;
+          const aRange = a.fiftyTwoWeekHigh && a.fiftyTwoWeekLow && a.price && a.fiftyTwoWeekHigh > a.fiftyTwoWeekLow ? ((a.price - a.fiftyTwoWeekLow) / (a.fiftyTwoWeekHigh - a.fiftyTwoWeekLow)) * 100 : undefined;
+          const bRange = b.fiftyTwoWeekHigh && b.fiftyTwoWeekLow && b.price && b.fiftyTwoWeekHigh > b.fiftyTwoWeekLow ? ((b.price - b.fiftyTwoWeekLow) / (b.fiftyTwoWeekHigh - b.fiftyTwoWeekLow)) * 100 : undefined;
           aVal = aRange;
           bVal = bRange;
           break;

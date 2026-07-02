@@ -5,7 +5,7 @@ import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
-import { formatCurrency, formatPercent, getChangeColor, getChangeBg } from "@/lib/utils";
+import { formatCurrency, formatPercent, getChangeColor, getChangeBg, toCAD } from "@/lib/utils";
 import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
 
 type SortColumn = "symbol" | "shares" | "avgCost" | "price" | "today" | "value" | "port" | "gainLoss";
@@ -21,7 +21,10 @@ function SortIcon({ direction }: { direction: SortDirection | null }) {
 
 interface HoldingsTableProps {
   holdings: HoldingWithQuote[];
+  /** Securities-only total in CAD, used as the % Port denominator. */
   totalPortfolioValue: number;
+  /** USD→CAD rate for converting each holding's native market value. */
+  usdCadRate?: number;
   onDeleteHolding: (id: number) => void;
   onAddTransaction?: (symbol: string) => void;
   storageKey?: string;
@@ -38,6 +41,7 @@ interface ContextMenu {
 export function HoldingsTable({
   holdings,
   totalPortfolioValue,
+  usdCadRate = 1,
   onDeleteHolding,
   onAddTransaction,
   storageKey,
@@ -272,7 +276,7 @@ export function HoldingsTable({
               <td className="px-4 py-4 text-right">
                 {holding.marketValue !== undefined && totalPortfolioValue > 0 && (
                   <span className="font-mono text-black/70 dark:text-white/70">
-                    {((holding.marketValue / totalPortfolioValue) * 100).toFixed(1)}%
+                    {((toCAD(holding.marketValue, holding.currency, usdCadRate) / totalPortfolioValue) * 100).toFixed(1)}%
                   </span>
                 )}
               </td>
