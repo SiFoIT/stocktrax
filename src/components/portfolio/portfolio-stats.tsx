@@ -4,16 +4,16 @@ import { useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { PortfolioDashboardData, BreakdownItem } from "@/types";
 import { formatCurrency, getChangeColor } from "@/lib/utils";
+import { StatCard } from "@/components/ui/stat-card";
+import { Panel } from "@/components/ui/panel";
 
+// Chart series read the --chart-* tokens so light and dark stay in step.
 const COLORS = [
-  "#3b82f6", // blue
-  "#10b981", // emerald
-  "#8b5cf6", // violet
-  "#f59e0b", // amber
-  "#ec4899", // pink
-  "#06b6d4", // cyan
-  "#f97316", // orange
-  "#6366f1", // indigo
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ];
 
 function BreakdownTooltip({ active, payload, total }: { active?: boolean; payload?: Array<{ name: string; value: number }>; total: number }) {
@@ -21,10 +21,10 @@ function BreakdownTooltip({ active, payload, total }: { active?: boolean; payloa
     const item = payload[0];
     const percent = ((item.value / total) * 100).toFixed(1);
     return (
-      <div className="bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-xl">
-        <p className="font-semibold text-white">{item.name}</p>
-        <p className="text-white/70 text-sm">{formatCurrency(item.value, "CAD")}</p>
-        <p className="text-white/50 text-xs">{percent}%</p>
+      <div className="rounded-md border border-border bg-popover p-2.5 shadow-md">
+        <p className="text-sm font-medium text-foreground">{item.name}</p>
+        <p className="text-muted-foreground text-sm">{formatCurrency(item.value, "CAD")}</p>
+        <p className="text-muted-foreground text-xs">{percent}%</p>
       </div>
     );
   }
@@ -35,10 +35,10 @@ function TopHoldingsTooltip({ active, payload, totalMarketValue }: { active?: bo
   if (active && payload && payload.length) {
     const pct = totalMarketValue > 0 ? ((payload[0].value / totalMarketValue) * 100).toFixed(1) : "0";
     return (
-      <div className="bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-xl">
-        <p className="font-semibold text-white">{payload[0].payload.name}</p>
-        <p className="text-white/70 text-sm">{formatCurrency(payload[0].value, "CAD")}</p>
-        <p className="text-white/50 text-xs">{pct}%</p>
+      <div className="rounded-md border border-border bg-popover p-2.5 shadow-md">
+        <p className="text-sm font-medium text-foreground">{payload[0].payload.name}</p>
+        <p className="text-muted-foreground text-sm">{formatCurrency(payload[0].value, "CAD")}</p>
+        <p className="text-muted-foreground text-xs">{pct}%</p>
       </div>
     );
   }
@@ -75,41 +75,23 @@ interface PortfolioStatsProps {
   showDividends?: boolean;
 }
 
-function StatCard({ label, value, subValue, colorClass }: { label: string; value: string; subValue?: string; colorClass?: string }) {
-  return (
-    <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
-      <p className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider mb-1">{label}</p>
-      <p className={`text-xl font-bold ${colorClass || "text-black dark:text-white"}`}>{value}</p>
-      {subValue && (
-        <p className={`text-sm mt-0.5 ${colorClass || "text-black/60 dark:text-white/60"}`}>{subValue}</p>
-      )}
-    </div>
-  );
-}
-
-function BreakdownChart({ title, data, icon }: { title: string; data: BreakdownItem[]; icon: React.ReactNode }) {
+function BreakdownChart({ title, data }: { title: string; data: BreakdownItem[] }) {
   if (data.length === 0) {
     return (
-      <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
-        <div className="flex items-center gap-2 mb-4">
-          {icon}
-          <h3 className="font-semibold text-sm text-black dark:text-white">{title}</h3>
-        </div>
+      <Panel className="p-4">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">{title}</h3>
         <div className="flex items-center justify-center h-[200px]">
-          <span className="text-black/30 dark:text-white/30 text-sm">No data</span>
+          <span className="text-subtle-foreground text-sm">No data</span>
         </div>
-      </div>
+      </Panel>
     );
   }
 
   const total = data.reduce((sum, d) => sum + d.value, 0);
 
   return (
-    <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
-      <div className="flex items-center gap-2 mb-4">
-        {icon}
-        <h3 className="font-semibold text-sm text-black dark:text-white">{title}</h3>
-      </div>
+    <Panel className="p-4">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">{title}</h3>
       <div className="flex flex-col lg:flex-row items-center gap-4">
         <div className="w-full lg:w-1/2">
           <ResponsiveContainer width="100%" height={200}>
@@ -128,7 +110,7 @@ function BreakdownChart({ title, data, icon }: { title: string; data: BreakdownI
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}
-                    className="transition-all hover:opacity-80"
+                    className="transition-colors hover:opacity-80"
                   />
                 ))}
               </Pie>
@@ -142,20 +124,20 @@ function BreakdownChart({ title, data, icon }: { title: string; data: BreakdownI
             return (
               <div
                 key={item.name}
-                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-accent transition-colors"
               >
                 <div
                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: COLORS[index % COLORS.length] }}
                 />
-                <span className="text-xs text-black dark:text-white truncate flex-1">{item.name}</span>
-                <span className="text-xs text-black/50 dark:text-white/50 font-mono">{percent}%</span>
+                <span className="text-xs text-foreground truncate flex-1">{item.name}</span>
+                <span className="text-xs text-muted-foreground font-mono">{percent}%</span>
               </div>
             );
           })}
         </div>
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -163,15 +145,8 @@ function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; t
   if (data.length === 0) return null;
 
   return (
-    <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-6 h-6 rounded-md bg-amber-500/20 flex items-center justify-center">
-          <svg className="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-        </div>
-        <h3 className="font-semibold text-sm text-black dark:text-white">Top Holdings</h3>
-      </div>
+    <Panel className="p-4">
+      <h3 className="mb-3 text-sm font-semibold text-foreground">Top Holdings</h3>
       <div className="max-h-[400px] overflow-y-auto">
         <ResponsiveContainer width="100%" height={Math.max(200, data.length * 32)}>
           <BarChart data={data} layout="vertical" margin={{ left: 10, right: 150, top: 0, bottom: 0 }}>
@@ -194,7 +169,7 @@ function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; t
           </BarChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -207,14 +182,14 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className={`grid grid-cols-2 ${gridCols} gap-3`}>
+        <div className={`grid grid-cols-2 ${gridCols} gap-2.5`}>
           {Array.from({ length: cardCount }, (_, i) => (
-            <div key={i} className="h-24 rounded-xl bg-black/5 dark:bg-white/5 animate-pulse" />
+            <div key={i} className="h-24 rounded-md bg-muted animate-pulse" />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-64 rounded-xl bg-black/5 dark:bg-white/5 animate-pulse" />
+            <div key={i} className="h-64 rounded-md bg-muted animate-pulse" />
           ))}
         </div>
       </div>
@@ -239,7 +214,7 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
   return (
     <div className="space-y-4">
       {/* Stat cards */}
-      <div className={`grid grid-cols-2 ${gridCols} gap-3`}>
+      <div className={`grid grid-cols-2 ${gridCols} gap-2.5`}>
         {showTotalValue && (
           <StatCard
             label="Total Value"
@@ -247,27 +222,28 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
           />
         )}
         {showTotalReturn && (
-          <div className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-4">
-            <p className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider mb-1">Total Return</p>
-            <p className={`text-xl font-bold ${gainColor}`}>{formatCurrency(adjustedGainLoss, "CAD")}</p>
-            <p className={`text-sm mt-0.5 ${gainColor}`}>
-              {`${adjustedGainLossPercent >= 0 ? "+" : ""}${adjustedGainLossPercent.toFixed(2)}%`}
-              {divTotal > 0 ? ` · incl. ${formatCurrency(divTotal, "CAD")} div` : ""}
-            </p>
-          </div>
+          <StatCard
+            label="Total Return"
+            value={formatCurrency(adjustedGainLoss, "CAD")}
+            valueClass={gainColor}
+            sub={`${adjustedGainLossPercent >= 0 ? "+" : ""}${adjustedGainLossPercent.toFixed(2)}%${
+              divTotal > 0 ? ` · incl. ${formatCurrency(divTotal, "CAD")} div` : ""
+            }`}
+            subClass={gainColor}
+          />
         )}
         {showDividends && (
           <StatCard
             label="Dividends"
             value={formatCurrency(divTotal, "CAD")}
-            colorClass={divTotal > 0 ? "text-emerald-400" : undefined}
+            valueClass={divTotal > 0 ? "text-positive" : undefined}
           />
         )}
         <StatCard
           label="CAGR"
           value={`${totals.cagr >= 0 ? "+" : ""}${totals.cagr.toFixed(2)}%`}
-          subValue={cagrSubValue}
-          colorClass={getChangeColor(totals.cagr)}
+          sub={cagrSubValue}
+          valueClass={getChangeColor(totals.cagr)}
         />
         <StatCard
           label="Market Value"
@@ -281,7 +257,7 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
 
       {/* Period returns row */}
       {totals.periodReturns && (
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-5">
           {[
             { key: "1D", label: "Today" },
             { key: "5D", label: "5 Days" },
@@ -293,57 +269,33 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
             if (!pr) return null;
             const color = getChangeColor(pr.amount);
             return (
-              <div
+              <StatCard
                 key={key}
-                className="rounded-xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-3"
-              >
-                <p className="text-xs font-medium text-black/50 dark:text-white/50 uppercase tracking-wider mb-1">{label}</p>
-                <p className={`text-lg font-bold ${color}`}>
-                  {pr.amount >= 0 ? "+" : ""}{formatCurrency(pr.amount, "CAD")}
-                </p>
-                <p className={`text-sm ${color}`}>
-                  {pr.percent >= 0 ? "+" : ""}{pr.percent.toFixed(2)}%
-                </p>
-              </div>
+                size="sm"
+                label={label}
+                value={`${pr.amount >= 0 ? "+" : ""}${formatCurrency(pr.amount, "CAD")}`}
+                valueClass={color}
+                sub={`${pr.percent >= 0 ? "+" : ""}${pr.percent.toFixed(2)}%`}
+                subClass={color}
+              />
             );
           })}
         </div>
       )}
 
       {/* Charts grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <BreakdownChart
           title="Asset Type"
           data={breakdowns.assetType}
-          icon={
-            <div className="w-6 h-6 rounded-md bg-blue-500/20 flex items-center justify-center">
-              <svg className="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-              </svg>
-            </div>
-          }
         />
         <BreakdownChart
           title="Currency Allocation"
           data={breakdowns.currency}
-          icon={
-            <div className="w-6 h-6 rounded-md bg-cyan-500/20 flex items-center justify-center">
-              <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          }
         />
         <BreakdownChart
           title="Sector Allocation"
           data={breakdowns.sector}
-          icon={
-            <div className="w-6 h-6 rounded-md bg-violet-500/20 flex items-center justify-center">
-              <svg className="w-3.5 h-3.5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            </div>
-          }
         />
         <TopHoldingsChart data={breakdowns.topHoldings} totalMarketValue={totals.marketValue} />
       </div>

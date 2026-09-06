@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 import { formatUpdatedTime } from "@/lib/utils";
 import { isMarketOpen } from "@/lib/markets/calendar";
 
@@ -17,10 +18,10 @@ export function MarketStatusIndicator() {
     <div className="flex items-center gap-2">
       <div
         className={`w-2 h-2 rounded-full ${
-          open ? "bg-green-500 animate-pulse" : "bg-red-500"
+          open ? "bg-positive animate-pulse" : "bg-negative"
         }`}
       />
-      <span className="text-sm text-black/70 dark:text-white/70">
+      <span className="text-sm text-foreground/80">
         Markets {open ? "open" : "closed"}
       </span>
     </div>
@@ -31,7 +32,7 @@ export function MarketStatus({ onRefresh, isLoading, updatedAt }: MarketStatusPr
   return (
     <div className="flex items-center gap-4">
       {updatedAt && (
-        <span className="text-xs text-black/50 dark:text-white/50">
+        <span className="text-xs text-muted-foreground">
           {formatUpdatedTime(updatedAt)}
         </span>
       )}
@@ -40,23 +41,16 @@ export function MarketStatus({ onRefresh, isLoading, updatedAt }: MarketStatusPr
         size="sm"
         onClick={onRefresh}
         disabled={isLoading}
-        className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 hover:bg-black/10 dark:hover:bg-white/10"
+        className="bg-muted border-border hover:bg-accent"
       >
         {isLoading ? (
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-black/30 dark:border-white/30 border-t-black dark:border-t-white rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-border-strong border-t-foreground rounded-full animate-spin" />
             Refreshing...
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
+            <RefreshCw className="size-4" />
             Refresh
           </div>
         )}

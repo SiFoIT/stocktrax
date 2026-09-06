@@ -1,3 +1,4 @@
+import { Bell } from "lucide-react";
 import { MarketData } from "@/types";
 import { Sparkline } from "./sparkline";
 import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
@@ -12,10 +13,7 @@ interface MarketCardProps {
 
 export function MarketCard({ data, onClick, onChartClick, alertState, onAlertClick }: MarketCardProps) {
   const isPositive = data.change >= 0;
-  const changeColor = isPositive ? "text-green-500" : "text-red-500";
-  const bgGradient = isPositive
-    ? "from-green-500/5 to-transparent"
-    : "from-red-500/5 to-transparent";
+  const changeColor = isPositive ? "text-positive" : "text-negative";
 
   const isCurrency = data.symbol.includes("=X");
 
@@ -42,19 +40,19 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
 
   return (
     <div
-      className={`rounded-xl border border-black/10 dark:border-white/10 bg-gradient-to-br ${bgGradient} p-4 transition-all hover:border-black/20 dark:hover:border-white/20 hover:shadow-lg ${onClick ? "cursor-pointer" : ""}`}
+      className={`rounded-md border border-border bg-card p-3 transition-colors hover:border-border-strong ${onClick ? "cursor-pointer" : ""}`}
       onClick={onClick}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <h3 className="font-semibold text-black dark:text-white truncate">{data.name}</h3>
+            <h3 className="truncate text-sm font-medium text-foreground">{data.name}</h3>
             {onAlertClick && (
               <button
-                className={`p-1 rounded-lg transition-colors shrink-0 ${(() => {
-                  if (alertState?.triggered) return "text-red-500 hover:bg-red-500/10";
-                  if (alertState?.hasRules) return "text-emerald-500 hover:bg-emerald-500/10";
-                  return "text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5";
+                className={`shrink-0 rounded p-1 transition-colors ${(() => {
+                  if (alertState?.triggered) return "text-negative hover:bg-negative/10";
+                  if (alertState?.hasRules) return "text-positive hover:bg-positive/10";
+                  return "text-subtle-foreground hover:bg-accent hover:text-foreground";
                 })()}`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -62,19 +60,17 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
                 }}
                 aria-label="Manage alerts"
               >
-                <svg className={`w-3.5 h-3.5 ${alertState?.triggered ? "animate-[bell-ring_2s_ease-in-out_infinite] origin-top" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
+                <Bell className={`size-3.5 ${alertState?.triggered ? "animate-[bell-ring_2s_ease-in-out_infinite] origin-top" : ""}`} />
               </button>
             )}
           </div>
-          <p className="text-xs text-black/50 dark:text-white/50">{data.symbol}</p>
+          <p className="text-xs text-subtle-foreground">{data.symbol}</p>
         </div>
         <div className="shrink-0">
           {data.sparklineData.length >= 2 && (
             onChartClick ? (
               <button
-                className={`rounded-lg p-1 -m-1 border border-black/10 dark:border-white/10 transition-all cursor-pointer hover:scale-105 hover:bg-black/5 dark:hover:bg-white/10 ${isPositive ? "hover:drop-shadow-[0_0_4px_rgba(34,197,94,0.5)]" : "hover:drop-shadow-[0_0_4px_rgba(239,68,68,0.5)]"}`}
+                className="-m-1 cursor-pointer rounded border border-border p-1 transition-colors hover:bg-accent"
                 onClick={(e) => {
                   e.stopPropagation();
                   onChartClick();
@@ -90,7 +86,7 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
         </div>
       </div>
       <div className="flex items-end justify-between">
-        <span className="text-xl font-bold text-black dark:text-white">
+        <span className="text-lg font-semibold tracking-tight text-foreground">
           {formatPrice(data.price)}
         </span>
         <div className="text-right">
