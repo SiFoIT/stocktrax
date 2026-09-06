@@ -254,6 +254,8 @@ export default function PortfolioPage() {
       if (response.ok) {
         const data = await response.json();
         setUsdCadRate(data.rate);
+        // Converts the USD half of the cached Cash slice; same invalidation applies.
+        setDashboardData(null);
       }
     } catch {
     }
@@ -265,6 +267,11 @@ export default function PortfolioPage() {
       if (response.ok) {
         const data = await response.json();
         setCashBalance(data);
+        // The overview breakdown caches a Cash slice built from this balance, and
+        // only fetchHoldings cleared that cache. Editing or deleting a cash-only
+        // transaction refreshes the balance without touching holdings, so the
+        // cache has to be invalidated here too.
+        setDashboardData(null);
       }
     } catch {
     }
@@ -382,7 +389,7 @@ export default function PortfolioPage() {
     };
 
     buildPerformanceData();
-  }, [holdingsView, holdings, dashboardData, portfolioId]);
+  }, [holdingsView, holdings, dashboardData, portfolioId, cashBalance.cad, cashBalance.usd, usdCadRate]);
 
   const handleDeleteHolding = async (id: number) => {
     if (!confirm("Are you sure you want to delete this holding and all its transactions?")) return;
