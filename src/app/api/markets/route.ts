@@ -4,6 +4,7 @@ import { getQuote, getTimeSeries } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
 import { MARKET_SYMBOLS, Category, CATEGORIES } from "@/lib/markets/symbols";
 import { MarketData } from "@/types";
+import { buildSparkline } from "@/lib/markets/session";
 import { CACHE_TTL } from "@/lib/config";
 
 async function fetchCategoryData(category: Category, skipCache: boolean): Promise<MarketData[]> {
@@ -28,23 +29,23 @@ async function fetchCategoryData(category: Category, skipCache: boolean): Promis
   const marketData: MarketData[] = await Promise.all(
     symbols.map(async ({ symbol, name }) => {
       try {
+        // 5d rather than 1d: a 1d window returns nothing over a weekend or
+        // holiday, when the tile still has to show the last session.
         const [quote, timeSeries] = await Promise.all([
           getQuote(symbol),
-          getTimeSeries(symbol, "5d", "1d"),
+          getTimeSeries(symbol, "5d", "5m"),
         ]);
 
-        const sparklineData = timeSeries
-          .slice(-5)
-          .map((ts) => ts.close)
-          .filter((v): v is number => v !== null && v !== undefined);
+        const price = quote?.price ?? 0;
+        const change = quote?.change ?? 0;
 
         return {
           symbol,
           name,
-          price: quote?.price ?? 0,
-          change: quote?.change ?? 0,
+          price,
+          change,
           changePercent: quote?.changePercent ?? 0,
-          sparklineData,
+          sparklineData: buildSparkline(timeSeries, price, price - change),
           extendedHours: quote?.extendedHours,
         };
       } catch {
