@@ -21,11 +21,11 @@ export function StockIcon({ symbol, size = "md" }: StockIconProps) {
   if (hasError) {
     return (
       <div
-        className="rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center"
+        className="rounded-lg bg-muted flex items-center justify-center"
         style={{ width: pixels, height: pixels }}
       >
         <span
-          className="font-bold text-blue-400"
+          className="font-bold text-primary"
           style={{ fontSize: size === "sm" ? 10 : size === "md" ? 12 : 14 }}
         >
           {symbol.slice(0, 2)}

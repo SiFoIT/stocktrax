@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback } from "react";
+import { Info } from "lucide-react";
 import { createPortal } from "react-dom";
 
 export function InfoTip({ text }: { text: string }) {
@@ -27,13 +28,11 @@ export function InfoTip({ text }: { text: string }) {
       onMouseEnter={show}
       onMouseLeave={hide}
     >
-      <svg className="w-3.5 h-3.5 text-black/30 dark:text-white/30 hover:text-black/60 dark:hover:text-white/60 transition-colors cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
+      <Info className="size-3.5 text-subtle-foreground hover:text-foreground transition-colors cursor-help" />
       {pos &&
         createPortal(
           <div
-            className="fixed z-[9999] w-48 rounded-lg bg-zinc-800 border border-white/10 px-3 py-2 text-xs text-white/80 leading-relaxed shadow-xl text-left font-normal normal-case tracking-normal pointer-events-none"
+            className="fixed z-[9999] w-48 rounded-lg bg-popover border border-border px-3 py-2 text-xs text-muted-foreground leading-relaxed text-left font-normal normal-case tracking-normal pointer-events-none"
             style={{ top: pos.top, left: pos.left }}
           >
             {text}

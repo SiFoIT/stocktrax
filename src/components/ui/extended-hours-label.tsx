@@ -46,13 +46,13 @@ export function ExtendedHoursLabel({ extendedHours, currency = "USD", compact }:
   }
 
   const isPositive = (changePercent ?? 0) >= 0;
-  const changeColor = isPositive ? "text-emerald-400/70" : "text-red-400/70";
+  const changeColor = isPositive ? "text-positive/70" : "text-negative/70";
 
   if (compact) {
     return (
       <div className="flex items-center gap-1 text-[10px] leading-tight">
-        <span className="text-amber-400/70 font-medium">{label}</span>
-        <span className="text-white/50 font-mono">{formatPrice(price, currency)}</span>
+        <span className="text-warning/70 font-medium">{label}</span>
+        <span className="text-muted-foreground font-mono">{formatPrice(price, currency)}</span>
         <span className={changeColor}>{formatPercent(changePercent)}</span>
       </div>
     );
@@ -60,8 +60,8 @@ export function ExtendedHoursLabel({ extendedHours, currency = "USD", compact }:
 
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <span className="text-amber-400/80 font-medium">{label}</span>
-      <span className="text-white/60 font-mono">{formatPrice(price, currency)}</span>
+      <span className="text-warning/80 font-medium">{label}</span>
+      <span className="text-muted-foreground font-mono">{formatPrice(price, currency)}</span>
       <span className={changeColor}>{formatPercent(changePercent)}</span>
     </div>
   );
