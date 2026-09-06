@@ -627,7 +627,7 @@ export default function PortfolioPage() {
         hasTriggeredAlerts={holdingAlerts.length > 0}
       />
 
-      <div className="mx-auto max-w-[1280px] px-6 py-5">
+      <div className="mx-auto max-w-[1536px] px-6 py-5">
 
         {/* Portfolio title */}
         <div className="mb-4 flex items-center gap-2.5">

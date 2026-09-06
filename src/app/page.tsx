@@ -382,7 +382,7 @@ export default function Dashboard() {
         hasTriggeredAlerts={watchlistAlerts.length > 0}
       />
 
-      <div className="mx-auto max-w-[1280px] space-y-4 px-6 py-5">
+      <div className="mx-auto max-w-[1536px] space-y-4 px-6 py-5">
 
         {/* General Content */}
         {activeTab === "general" && <MarketOverview />}

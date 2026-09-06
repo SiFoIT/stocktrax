@@ -330,7 +330,7 @@ export function AppHeader({
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
-      <div className="mx-auto flex min-h-[52px] max-w-[1280px] flex-wrap items-center gap-x-7 gap-y-1 px-6">
+      <div className="mx-auto flex min-h-[52px] max-w-[1536px] flex-wrap items-center gap-x-7 gap-y-1 px-6">
         <Link
           href="/"
           className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground"
