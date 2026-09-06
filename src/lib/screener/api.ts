@@ -1,5 +1,4 @@
 import { ScreenRule } from "./metrics";
-import { ScreenPreset } from "./presets";
 
 export interface CustomPresetDTO {
   id: number;

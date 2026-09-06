@@ -25,6 +25,29 @@ function SortIcon({ direction }: { direction: SortDirection | null }) {
   );
 }
 
+interface HeaderCellProps {
+  column: SortColumn;
+  label: string;
+  align?: "left" | "right";
+  tooltip?: string;
+  sortColumn: SortColumn | null;
+  sortDirection: SortDirection;
+  onSort: (column: SortColumn) => void;
+}
+
+function HeaderCell({ column, label, align = "right", tooltip, sortColumn, sortDirection, onSort }: HeaderCellProps) {
+  return (
+    <th
+      className={`px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
+      onClick={() => onSort(column)}
+    >
+      {label}
+      {tooltip && <InfoTip text={tooltip} />}
+      <SortIcon direction={sortColumn === column ? sortDirection : null} />
+    </th>
+  );
+}
+
 function formatInsiderPercent(value: number | undefined): string {
   if (value === undefined || value === null) return "\u2014";
   return `${(value * 100).toFixed(2)}%`;
@@ -138,16 +161,8 @@ export function PortfolioInsiderTable({
     );
   }
 
-  const HeaderCell = ({ column, label, align = "right", tooltip }: { column: SortColumn; label: string; align?: "left" | "right"; tooltip?: string }) => (
-    <th
-      className={`px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
-      onClick={() => handleSort(column)}
-    >
-      {label}
-      {tooltip && <InfoTip text={tooltip} />}
-      <SortIcon direction={sortColumn === column ? sortDirection : null} />
-    </th>
-  );
+  // Shared by every header cell; grouped so the tooltip-bearing ones stay readable.
+  const sortProps = { sortColumn, sortDirection, onSort: handleSort };
 
   return (
     <>
@@ -155,14 +170,14 @@ export function PortfolioInsiderTable({
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
-              <HeaderCell column="symbol" label="Symbol" align="left" />
-              <HeaderCell column="shares" label="Shares" />
-              <HeaderCell column="value" label="Value" />
-              <HeaderCell column="insidersPercentHeld" label="Insider %" tooltip="Percentage of outstanding shares held by company insiders (officers, directors, and beneficial owners)." />
-              <HeaderCell column="netBuyCount6mo" label="Buys (6mo)" tooltip="Number of insider buy transactions in the last 6 months." />
-              <HeaderCell column="netSellCount6mo" label="Sells (6mo)" tooltip="Number of insider sell transactions in the last 6 months." />
-              <HeaderCell column="netInsiderShares6mo" label="Net Shares" tooltip="Net insider transactions in the last 6 months (buys minus sells). This is a transaction count, not a share count." />
-              <HeaderCell column="lastInsiderDate" label="Last Activity" tooltip="Most recent insider purchase or sale transaction." />
+              <HeaderCell column="symbol" label="Symbol" align="left" {...sortProps} />
+              <HeaderCell column="shares" label="Shares" {...sortProps} />
+              <HeaderCell column="value" label="Value" {...sortProps} />
+              <HeaderCell column="insidersPercentHeld" label="Insider %" tooltip="Percentage of outstanding shares held by company insiders (officers, directors, and beneficial owners)." {...sortProps} />
+              <HeaderCell column="netBuyCount6mo" label="Buys (6mo)" tooltip="Number of insider buy transactions in the last 6 months." {...sortProps} />
+              <HeaderCell column="netSellCount6mo" label="Sells (6mo)" tooltip="Number of insider sell transactions in the last 6 months." {...sortProps} />
+              <HeaderCell column="netInsiderShares6mo" label="Net Shares" tooltip="Net insider transactions in the last 6 months (buys minus sells). This is a transaction count, not a share count." {...sortProps} />
+              <HeaderCell column="lastInsiderDate" label="Last Activity" tooltip="Most recent insider purchase or sale transaction." {...sortProps} />
             </tr>
           </thead>
           <tbody>

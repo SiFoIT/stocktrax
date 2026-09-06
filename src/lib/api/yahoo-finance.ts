@@ -603,7 +603,7 @@ export async function getInsiderInfo(symbol: string): Promise<InsiderInfo> {
         ? new Date(relevantTx.startDate).toISOString().split("T")[0]
         : undefined,
     };
-  } catch (error) {
+  } catch {
     return {};
   }
 }
@@ -648,7 +648,7 @@ export async function getInsiderDetails(symbol: string): Promise<InsiderDetails>
       period: netActivity?.period,
       transactions,
     };
-  } catch (error) {
+  } catch {
     return { transactions: [] };
   }
 }
