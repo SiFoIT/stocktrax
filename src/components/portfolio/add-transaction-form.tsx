@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Search } from "lucide-react";
+import { Minus, Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
@@ -143,13 +143,13 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
   const getTypeColor = (type: string) => {
     switch (type) {
       case "EQUITY":
-        return "bg-primary/20 text-primary";
+        return "bg-muted text-muted-foreground";
       case "ETF":
-        return "bg-purple-500/20 text-purple-400";
+        return "bg-muted text-muted-foreground";
       case "CRYPTOCURRENCY":
-        return "bg-warning/20 text-warning";
+        return "bg-muted text-muted-foreground";
       case "INDEX":
-        return "bg-positive/20 text-positive";
+        return "bg-muted text-muted-foreground";
       default:
         return "bg-accent text-muted-foreground";
     }
@@ -212,14 +212,10 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center gap-3 px-6 py-4 hover:from-emerald-500/15 transition-colors cursor-pointer ${isOpen ? "border-b border-border" : ""}`}
+        className={`w-full flex items-center gap-3 px-6 py-4 transition-colors cursor-pointer ${isOpen ? "border-b border-border" : ""}`}
       >
-        <div className="w-8 h-8 rounded-lg bg-positive/20 flex items-center justify-center">
-          <svg className="w-4 h-4 text-positive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isOpen ? "M6 12h12" : "M12 6v6m0 0v6m0-6h6m-6 0H6"} />
-          </svg>
-        </div>
-        <h2 className="font-semibold text-foreground">Add Transaction</h2>
+        {isOpen ? <Minus className="size-4 text-muted-foreground" /> : <Plus className="size-4 text-muted-foreground" />}
+        <h2 className="text-sm font-semibold text-foreground">Add transaction</h2>
       </button>
       {isOpen && <div className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -256,7 +252,7 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
                       key={suggestion.symbol}
                       className={`px-4 py-3 cursor-pointer flex justify-between items-center transition-colors ${
                         index === selectedIndex
-                          ? "bg-accent"
+                          ? "bg-primary/15 text-foreground"
                           : "hover:bg-accent"
                       }`}
                       onClick={() => handleSelectSuggestion(suggestion)}
@@ -292,11 +288,11 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
                     className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                       transactionType === type
                         ? type === "buy"
-                          ? "bg-positive text-foreground"
+                          ? "bg-positive/15 text-positive"
                           : type === "sell"
-                          ? "bg-negative text-foreground"
+                          ? "bg-negative/15 text-negative"
                           : type === "dividend"
-                          ? "bg-warning text-foreground"
+                          ? "bg-warning/15 text-warning"
                           : "bg-blue-500 text-foreground"
                         : "text-muted-foreground hover:text-foreground hover:bg-accent"
                     }`}

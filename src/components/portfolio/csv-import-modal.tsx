@@ -262,11 +262,9 @@ export function CsvImportModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-              <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-subtle-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
-            </div>
             <div>
               <h2 className="font-semibold text-foreground">Import CSV</h2>
               <p className="text-xs text-muted-foreground">
@@ -335,11 +333,9 @@ export function CsvImportModal({
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
               >
-                <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-subtle-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
-                </div>
                 <p className="text-foreground/80 font-medium mb-1">
                   Drag & drop CSV files here
                 </p>
@@ -412,20 +408,20 @@ export function CsvImportModal({
                   <>
                     {otherCashCount > 0 && (
                       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                        <svg className="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 text-muted-foreground shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="text-sm text-purple-300">
+                        <span className="text-sm text-foreground">
                           {otherCashCount} cash transaction{otherCashCount !== 1 ? "s" : ""} to import
                         </span>
                       </div>
                     )}
                     {fxCount > 0 && (
                       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-500/10 border border-sky-500/20">
-                        <svg className="w-4 h-4 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 text-muted-foreground shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                         </svg>
-                        <span className="text-sm text-sky-300">
+                        <span className="text-sm text-foreground">
                           {fxCount} FX conversion{fxCount !== 1 ? "s" : ""} to import
                         </span>
                       </div>
@@ -436,7 +432,7 @@ export function CsvImportModal({
 
               {duplicateCount > 0 && (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20">
-                  <Info className="size-4 text-warning shrink-0" />
+                  <Info className="size-4 text-muted-foreground shrink-0" />
                   <span className="text-sm text-warning">
                     {duplicateCount} duplicate{duplicateCount !== 1 ? "s" : ""} will be skipped
                   </span>
@@ -461,20 +457,20 @@ export function CsvImportModal({
                     className="w-full flex items-center justify-between px-3 py-2 bg-orange-500/10 hover:bg-orange-500/15 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-warning shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>
-                      <span className="text-sm text-orange-300">
+                      <span className="text-sm text-warning">
                         {parseResult.unrecognized.length} unrecognized transaction type{parseResult.unrecognized.length !== 1 ? "s" : ""} (will be skipped)
                       </span>
                     </div>
-                    <ChevronDown className={`size-4 text-orange-400 transition-transform ${showUnrecognized ? "rotate-180" : ""}`} />
+                    <ChevronDown className={`size-4 text-warning transition-transform ${showUnrecognized ? "rotate-180" : ""}`} />
                   </button>
                   {showUnrecognized && (
                     <div className="px-3 py-2 max-h-40 overflow-y-auto">
                       {parseResult.unrecognized.map((row, i) => (
                         <div key={i} className="text-xs text-muted-foreground py-1 border-b border-border last:border-0">
-                          <span className="font-mono text-orange-400">{row.wsType || "(unknown)"}</span>
+                          <span className="font-mono text-warning">{row.wsType || "(unknown)"}</span>
                           {row.description ? ` — ${row.description}` : ""}
                           {row.amount ? ` · ${row.amount}` : ""}
                         </div>
@@ -611,7 +607,7 @@ export function CsvImportModal({
                   <p className="text-xs text-muted-foreground">Stock Transactions</p>
                 </div>
                 <div className="text-center p-3 rounded-md bg-muted border border-border">
-                  <p className="text-lg font-semibold tracking-tight text-purple-400">{importResult.cashImported}</p>
+                  <p className="text-lg font-semibold tracking-tight text-foreground">{importResult.cashImported}</p>
                   <p className="text-xs text-muted-foreground">Cash Transactions</p>
                 </div>
                 <div className="text-center p-3 rounded-md bg-muted border border-border">
@@ -651,7 +647,7 @@ export function CsvImportModal({
                   }
                 }}
                 disabled={dedupedStock.length === 0 && dedupedCash.length === 0}
-                className="px-6 py-2.5 rounded-md bg-primary text-foreground font-medium hover:from-blue-600 hover:to-indigo-600 disabled:opacity-50 transition-colors"
+                className="px-6 py-2.5 rounded-md bg-primary text-foreground font-medium disabled:opacity-50 transition-colors"
               >
                 {acbEntries.length > 0 ? "Next: Enter Cost Basis" : `Import ${dedupedStock.length + dedupedCash.length} Transactions`}
               </button>
@@ -674,7 +670,7 @@ export function CsvImportModal({
                 </button>
                 <button
                   onClick={handleImport}
-                  className="px-6 py-2.5 rounded-md bg-primary text-foreground font-medium hover:from-blue-600 hover:to-indigo-600 transition-colors"
+                  className="px-6 py-2.5 rounded-md bg-primary text-foreground font-medium transition-colors"
                 >
                   Import {dedupedStock.length + dedupedCash.length} Transactions
                 </button>
@@ -685,7 +681,7 @@ export function CsvImportModal({
             <div className="w-full flex justify-end">
               <button
                 onClick={handleSuccessClose}
-                className="px-6 py-2.5 rounded-md bg-positive text-foreground font-medium hover:from-emerald-600 hover:to-teal-600 transition-colors"
+                className="px-6 py-2.5 rounded-md bg-primary text-primary-foreground font-medium transition-colors hover:bg-primary/90"
               >
                 Done
               </button>

@@ -129,13 +129,13 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
   const getTypeColor = (type: string) => {
     switch (type) {
       case "EQUITY":
-        return "bg-primary/20 text-primary";
+        return "bg-muted text-muted-foreground";
       case "ETF":
-        return "bg-purple-500/20 text-purple-400";
+        return "bg-muted text-muted-foreground";
       case "CRYPTOCURRENCY":
-        return "bg-warning/20 text-warning";
+        return "bg-muted text-muted-foreground";
       case "INDEX":
-        return "bg-positive/20 text-positive";
+        return "bg-muted text-muted-foreground";
       default:
         return "bg-accent text-muted-foreground";
     }
@@ -151,8 +151,8 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
           key={suggestion.symbol}
           className={`px-4 py-3 cursor-pointer flex justify-between items-center transition-colors ${
             index === selectedIndex
-              ? "bg-accent"
-              : "hover:bg-muted"
+              ? "bg-primary/15 text-foreground"
+              : "hover:bg-accent"
           }`}
           onClick={() => handleSelectSuggestion(suggestion)}
         >
@@ -220,9 +220,7 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
   return (
     <div className="rounded-lg bg-card border border-border overflow-hidden">
       <div className="flex items-center gap-3 px-6 py-4 border-b border-border">
-        <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-          <Plus className="size-4 text-primary" />
-        </div>
+        <Plus className="size-4 text-subtle-foreground" />
         <h2 className="font-semibold text-foreground">Add Symbol</h2>
       </div>
       <div className="p-6">

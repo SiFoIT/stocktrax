@@ -203,7 +203,7 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-md bg-cyan-500/20 flex items-center justify-center">
                 <svg
-                  className="w-5 h-5 text-cyan-400"
+                  className="w-5 h-5 text-muted-foreground"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -459,7 +459,7 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                     <Button
                       size="sm"
                       onClick={handleImportConfirm}
-                      className="flex-1 bg-warning hover:bg-warning text-black"
+                      className="flex-1 bg-warning hover:bg-warning/90 text-black"
                     >
                       Import
                     </Button>
@@ -498,7 +498,7 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                   <Button
                     size="sm"
                     onClick={() => window.location.reload()}
-                    className="w-full bg-positive hover:bg-positive text-black"
+                    className="w-full bg-positive hover:bg-positive/90 text-black"
                   >
                     Refresh Page
                   </Button>

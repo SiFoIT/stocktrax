@@ -171,9 +171,7 @@ export function HoldingsTable({
   if (holdings.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-primary/20 flex items-center justify-center">
-          <Plus className="size-8 text-primary" />
-        </div>
+        <Plus className="size-5 text-subtle-foreground" />
         <h3 className="text-lg font-semibold text-foreground mb-2">No Holdings Yet</h3>
         <p className="text-muted-foreground">Add your first transaction using the form above.</p>
       </div>
@@ -337,7 +335,7 @@ export function HoldingsTable({
                 setContextMenu(null);
               }}
             >
-              <Plus className="size-4 text-positive" />
+              <Plus className="size-4 text-muted-foreground" />
               Add Transaction
             </button>
           )}

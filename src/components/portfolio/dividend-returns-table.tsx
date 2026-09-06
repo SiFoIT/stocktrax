@@ -315,9 +315,8 @@ export function DividendReturnsTable({
   if (!hasDividendTxns && !hasDividendHoldings) {
     return (
       <div className="text-center py-12">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-positive/20 flex items-center justify-center">
-          <svg
-            className="w-8 h-8 text-positive"
+        <svg
+            className="w-5 h-5 text-subtle-foreground"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -329,7 +328,6 @@ export function DividendReturnsTable({
               d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-        </div>
         <h3 className="text-lg font-semibold text-foreground mb-2">
           No Dividend Data
         </h3>
@@ -413,12 +411,12 @@ export function DividendReturnsTable({
           <h3 className="text-sm font-semibold text-foreground">
             Dividend Income
           </h3>
-          <div className="flex gap-1 p-1 rounded-lg bg-muted border border-border">
+          <div className="inline-flex rounded-md border border-border bg-muted p-0.5">
             <button
               onClick={() => setChartPeriod("monthly")}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                 chartPeriod === "monthly"
-                  ? "bg-positive text-foreground"
+                  ? "bg-card text-foreground shadow-[inset_0_0_0_1px_var(--border-strong)]"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
               }`}
             >
@@ -428,7 +426,7 @@ export function DividendReturnsTable({
               onClick={() => setChartPeriod("quarterly")}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                 chartPeriod === "quarterly"
-                  ? "bg-positive text-foreground"
+                  ? "bg-card text-foreground shadow-[inset_0_0_0_1px_var(--border-strong)]"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
               }`}
             >

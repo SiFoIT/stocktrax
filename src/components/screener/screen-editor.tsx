@@ -140,7 +140,7 @@ export function ScreenEditor({
               onClick={() => onMatchChange("all")}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 match === "all"
-                  ? "bg-muted-foreground text-foreground"
+                  ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -150,7 +150,7 @@ export function ScreenEditor({
               onClick={() => onMatchChange("any")}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 match === "any"
-                  ? "bg-muted-foreground text-foreground"
+                  ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -167,7 +167,7 @@ export function ScreenEditor({
           <button
             key={preset.name}
             onClick={() => applyPreset(preset)}
-            className="px-3 py-1 rounded-full text-xs font-medium border border-muted-foreground/30 bg-muted-foreground/10 text-muted-foreground hover:bg-muted-foreground/20 transition-colors"
+            className="px-3 py-1 rounded-full text-xs font-medium border border-border bg-muted text-muted-foreground hover:bg-muted-foreground/20 transition-colors"
           >
             {preset.name}
           </button>
@@ -176,7 +176,7 @@ export function ScreenEditor({
           <span key={preset.id} className="inline-flex items-center gap-1 rounded-full border border-positive/30 bg-positive/10 transition-colors">
             <button
               onClick={() => applyPreset(preset)}
-              className="pl-3 py-1 text-xs font-medium text-positive hover:text-positive"
+              className="pl-3 py-1 text-xs font-medium text-positive hover:text-positive/80"
             >
               {preset.name}
             </button>
@@ -317,7 +317,7 @@ export function ScreenEditor({
           size="sm"
           onClick={onRun}
           disabled={running || rules.length === 0}
-          className="bg-muted-foreground hover:bg-muted-foreground text-foreground"
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           {running ? (
             <div className="flex items-center gap-2">

@@ -88,7 +88,7 @@ export function ScreenContent({ screen, onScreenUpdated }: ScreenContentProps) {
     return (
       <div className="rounded-lg bg-card border border-border p-12">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-muted-foreground/20 flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-muted flex items-center justify-center">
             <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12m6-6H6" />
             </svg>
@@ -106,7 +106,7 @@ export function ScreenContent({ screen, onScreenUpdated }: ScreenContentProps) {
         {/* Header */}
         <div className="px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-muted-foreground/20 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
               <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>

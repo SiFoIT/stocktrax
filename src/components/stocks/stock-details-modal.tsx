@@ -143,7 +143,7 @@ function getRecommendationColor(key: string | undefined): string {
     case "hold":
       return "bg-warning/20 text-warning border border-warning/30";
     case "sell":
-      return "bg-orange-500/20 text-orange-400 border border-orange-500/30";
+      return "bg-muted text-muted-foreground border border-border";
     case "strong_sell":
     case "strongsell":
       return "bg-negative/20 text-negative border border-negative/30";
@@ -420,11 +420,9 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
           ) : error ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-negative/20 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-negative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-subtle-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                </div>
                 <p className="text-negative">{error}</p>
               </div>
             </div>
@@ -692,7 +690,7 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                 <div className="rounded-lg bg-card border border-border overflow-hidden">
                   <div className="border-b border-border px-4 py-2.5">
                     <h3 className="text-sm font-semibold text-foreground">
-                      <svg className="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                       Top Institutional Holders
@@ -734,7 +732,7 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                 <div className="rounded-lg bg-card border border-border overflow-hidden">
                   <div className="border-b border-border px-4 py-2.5">
                     <h3 className="text-sm font-semibold text-foreground">
-                      <svg className="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
                       </svg>
                       Top Fund Holders
@@ -799,7 +797,7 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
               <div className="rounded-lg bg-card border border-border overflow-hidden">
                 <div className="border-b border-border px-4 py-2.5">
                   <h3 className="text-sm font-semibold text-foreground">
-                    <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
                     </svg>
                     Recent News
@@ -831,13 +829,13 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                             />
                           ) : (
                             <div className="w-16 h-12 bg-cyan-500/10 rounded-md shrink-0 flex items-center justify-center">
-                              <svg className="w-6 h-6 text-cyan-400/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-6 h-6 text-muted-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
                               </svg>
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-cyan-400 transition-colors">
+                            <h4 className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors">
                               {article.title}
                             </h4>
                             <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
@@ -846,7 +844,7 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                               <span className="shrink-0">{formatRelativeTime(article.publishedAt)}</span>
                             </div>
                           </div>
-                          <ExternalLink className="size-4 text-subtle-foreground group-hover:text-cyan-400 transition-colors shrink-0 mt-1" />
+                          <ExternalLink className="size-4 text-subtle-foreground group-hover:text-primary transition-colors shrink-0 mt-1" />
                         </a>
                       ))}
                     </div>

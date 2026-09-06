@@ -25,11 +25,9 @@ export function NewsTable({ articles, loading, emptyMessage }: NewsTableProps) {
   if (articles.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-primary/20 flex items-center justify-center">
-          <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 text-subtle-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
           </svg>
-        </div>
         <h3 className="text-lg font-semibold text-foreground mb-2">No News Available</h3>
         <p className="text-muted-foreground">{emptyMessage || "No recent news articles found for the symbols in this watchlist."}</p>
       </div>

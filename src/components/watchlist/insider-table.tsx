@@ -152,9 +152,7 @@ export function InsiderTable({
   if (items.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-primary/20 flex items-center justify-center">
-          <Plus className="size-8 text-primary" />
-        </div>
+        <Plus className="size-5 text-subtle-foreground" />
         <h3 className="text-lg font-semibold text-foreground mb-2">No Symbols Yet</h3>
         <p className="text-muted-foreground">Add your first symbol using the search above.</p>
       </div>

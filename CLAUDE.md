@@ -133,6 +133,16 @@ Defined in `src/app/globals.css`; the full contract is in `docs/ui-restyle-plan.
   static surfaces, no `backdrop-blur`, no `transition-all`.
 - **Icons** come from `lucide-react` at `size-4` (`size-3.5` in tables). Do not paste
   inline `<svg>` paths, and do not put decorative icon tiles before headings.
+- **Never dim a status colour with opacity** (`text-negative/70` and friends). The
+  tokens are contrast-tuned; opacity over a dark surface drops them below AA. Use
+  size or weight for hierarchy instead.
+- **Every text token clears WCAG AA (4.5:1)** on both `--background` and `--card` in
+  both themes. Check before changing a colour — `subtle-foreground` and the light
+  status colours were each shipped below AA once.
+- **Colour must mean something.** One accent for interaction, positive/negative for
+  direction, warning for alerts. A view toggle, a type badge or a section heading is
+  not a status: those are neutral (`bg-muted text-muted-foreground`). Chart series are
+  the exception and use `--chart-*` or their own drawn colours.
 
 ## Conventions
 
