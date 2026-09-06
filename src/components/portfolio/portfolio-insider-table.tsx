@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { Plus } from "lucide-react";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { InfoTip } from "@/components/ui/info-tip";
 import { HoldingWithQuote } from "@/types";
@@ -130,20 +131,18 @@ export function PortfolioInsiderTable({
   if (holdings.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-blue-500/20 flex items-center justify-center">
-          <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
+        <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-primary/20 flex items-center justify-center">
+          <Plus className="size-8 text-primary" />
         </div>
-        <h3 className="text-lg font-semibold text-black dark:text-white mb-2">No Holdings Yet</h3>
-        <p className="text-black/50 dark:text-white/50">Add your first holding using the form above.</p>
+        <h3 className="text-lg font-semibold text-foreground mb-2">No Holdings Yet</h3>
+        <p className="text-muted-foreground">Add your first holding using the form above.</p>
       </div>
     );
   }
 
   const HeaderCell = ({ column, label, align = "right", tooltip }: { column: SortColumn; label: string; align?: "left" | "right"; tooltip?: string }) => (
     <th
-      className={`px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
+      className={`px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
       onClick={() => handleSort(column)}
     >
       {label}
@@ -157,7 +156,7 @@ export function PortfolioInsiderTable({
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-black/10 dark:border-white/10">
+            <tr className="border-b border-border">
               <HeaderCell column="symbol" label="Symbol" align="left" />
               <HeaderCell column="shares" label="Shares" />
               <HeaderCell column="value" label="Value" />
@@ -169,37 +168,37 @@ export function PortfolioInsiderTable({
             </tr>
           </thead>
           <tbody>
-            {sortedHoldings.map((holding, index) => {
+            {sortedHoldings.map((holding) => {
               const netShares = holding.netInsiderShares6mo;
               const netColor = netShares === undefined || netShares === null
-                ? "text-black/50 dark:text-white/50"
+                ? "text-muted-foreground"
                 : netShares > 0
-                  ? "text-emerald-400"
+                  ? "text-positive"
                   : netShares < 0
-                    ? "text-red-400"
-                    : "text-black/50 dark:text-white/50";
+                    ? "text-negative"
+                    : "text-muted-foreground";
 
               return (
                 <tr
                   key={holding.id}
-                  className={`border-b border-white/5 transition-all hover:bg-black/5 dark:hover:bg-white/5 ${index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}`}
+                  className={`border-b border-border transition-colors hover:bg-accent`}
                 >
-                  <td className="px-4 py-4">
+                  <td className="px-3.5 py-2.5">
                     <div className="flex items-center gap-2">
                       <button
                         className="group/sym relative flex items-center gap-3 transition-colors"
                         onClick={() => setDetailsSymbol(holding.symbol)}
                       >
                         <StockIcon symbol={holding.symbol} />
-                        <span className="font-semibold text-blue-400 group-hover/sym:text-blue-300 underline decoration-blue-400/40 group-hover/sym:decoration-blue-300 underline-offset-2 transition-colors">{holding.symbol}</span>
+                        <span className="text-[13px] font-semibold text-foreground transition-colors group-hover/sym:text-primary">{holding.symbol}</span>
                         {holding.shortName && (
-                          <span className="pointer-events-none absolute left-0 -top-9 z-50 hidden group-hover/sym:block whitespace-nowrap rounded-lg bg-zinc-800 border border-white/10 px-3 py-1.5 text-xs text-white shadow-xl">
+                          <span className="pointer-events-none absolute left-0 -top-9 z-50 hidden group-hover/sym:block whitespace-nowrap rounded-lg bg-popover border border-border px-3 py-1.5 text-xs text-foreground">
                             {holding.shortName}
                           </span>
                         )}
                       </button>
                       <button
-                        className="text-black/30 dark:text-white/30 hover:text-blue-400 transition-colors p-1 rounded"
+                        className="text-subtle-foreground hover:text-primary transition-colors p-1 rounded"
                         onClick={() => {
                           const idx = sortedHoldings.findIndex((h) => h.symbol === holding.symbol);
                           setChartIndex(idx >= 0 ? idx : 0);
@@ -212,32 +211,32 @@ export function PortfolioInsiderTable({
                       </button>
                     </div>
                   </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className="font-mono text-black dark:text-white">{holding.shares.toLocaleString()}</span>
+                  <td className="px-3.5 py-2.5 text-right">
+                    <span className="font-mono text-foreground">{holding.shares.toLocaleString()}</span>
                   </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(holding.marketValue, holding.currency)}</span>
+                  <td className="px-3.5 py-2.5 text-right">
+                    <span className="font-mono font-semibold text-foreground">{formatCurrency(holding.marketValue, holding.currency)}</span>
                   </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className="text-black/70 dark:text-white/70">{formatInsiderPercent(holding.insidersPercentHeld)}</span>
+                  <td className="px-3.5 py-2.5 text-right">
+                    <span className="text-foreground/80">{formatInsiderPercent(holding.insidersPercentHeld)}</span>
                   </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className={holding.netBuyCount6mo ? "text-emerald-400" : "text-black/50 dark:text-white/50"}>
+                  <td className="px-3.5 py-2.5 text-right">
+                    <span className={holding.netBuyCount6mo ? "text-positive" : "text-muted-foreground"}>
                       {formatCount(holding.netBuyCount6mo)}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className={holding.netSellCount6mo ? "text-red-400" : "text-black/50 dark:text-white/50"}>
+                  <td className="px-3.5 py-2.5 text-right">
+                    <span className={holding.netSellCount6mo ? "text-negative" : "text-muted-foreground"}>
                       {formatCount(holding.netSellCount6mo)}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-right">
+                  <td className="px-3.5 py-2.5 text-right">
                     <span className={`font-mono font-medium ${netColor}`}>
                       {netShares !== undefined && netShares !== null ? netShares.toLocaleString() : "\u2014"}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className="text-xs text-black/60 dark:text-white/60">
+                  <td className="px-3.5 py-2.5 text-right">
+                    <span className="text-xs text-muted-foreground">
                       {formatLastActivity(holding.lastInsiderName, holding.lastInsiderType, holding.lastInsiderDate)}
                     </span>
                   </td>

@@ -315,9 +315,9 @@ export function DividendReturnsTable({
   if (!hasDividendTxns && !hasDividendHoldings) {
     return (
       <div className="text-center py-12">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-positive/20 flex items-center justify-center">
           <svg
-            className="w-8 h-8 text-emerald-400"
+            className="w-8 h-8 text-positive"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -330,10 +330,10 @@ export function DividendReturnsTable({
             />
           </svg>
         </div>
-        <h3 className="text-lg font-semibold text-black dark:text-white mb-2">
+        <h3 className="text-lg font-semibold text-foreground mb-2">
           No Dividend Data
         </h3>
-        <p className="text-black/50 dark:text-white/50">
+        <p className="text-muted-foreground">
           Add dividend transactions or holdings with dividend-paying stocks to
           see returns here.
         </p>
@@ -343,7 +343,7 @@ export function DividendReturnsTable({
 
   const headerCell = (column: SortColumn, label: string, align: "left" | "right" = "right", tooltip?: string) => (
     <th
-      className={`px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
+      className={`px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
       onClick={() => handleSort(column)}
     >
       {label}
@@ -360,76 +360,76 @@ export function DividendReturnsTable({
     <div className="space-y-6">
       {/* ─── Summary Cards ─── */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-5">
-          <p className="text-sm font-medium text-black/50 dark:text-white/50 mb-1">
+        <div className="rounded-lg bg-card border border-border p-5">
+          <p className="text-sm font-medium text-muted-foreground mb-1">
             Total Received
             <InfoTip text="Sum of all dividend payments recorded as transactions." />
           </p>
-          <p className="text-2xl font-bold text-emerald-400">
+          <p className="text-lg font-semibold tracking-tight text-positive">
             {fmtDollar(totalReceived)}
           </p>
         </div>
-        <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-5">
-          <p className="text-sm font-medium text-black/50 dark:text-white/50 mb-1">
+        <div className="rounded-lg bg-card border border-border p-5">
+          <p className="text-sm font-medium text-muted-foreground mb-1">
             Projected Annual
             <InfoTip text="Forward-looking estimate based on each holding's current dividend rate and shares owned." />
           </p>
-          <p className="text-2xl font-bold text-emerald-400">
+          <p className="text-lg font-semibold tracking-tight text-positive">
             {fmtDollar(projectedAnnual)}
           </p>
         </div>
-        <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-5">
-          <p className="text-sm font-medium text-black/50 dark:text-white/50 mb-1">
+        <div className="rounded-lg bg-card border border-border p-5">
+          <p className="text-sm font-medium text-muted-foreground mb-1">
             Yield on Cost
             <InfoTip text="Projected annual income divided by your total cost basis. Reflects yield relative to what you paid." />
           </p>
-          <p className="text-2xl font-bold text-emerald-400">
+          <p className="text-lg font-semibold tracking-tight text-positive">
             {yieldOnCost.toFixed(2)}%
           </p>
         </div>
-        <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-5">
-          <p className="text-sm font-medium text-black/50 dark:text-white/50 mb-1">
+        <div className="rounded-lg bg-card border border-border p-5">
+          <p className="text-sm font-medium text-muted-foreground mb-1">
             Current Yield
             <InfoTip text="Weighted average dividend yield across holdings, based on current market value." />
           </p>
-          <p className="text-2xl font-bold text-emerald-400">
+          <p className="text-lg font-semibold tracking-tight text-positive">
             {(currentYieldWeighted * 100).toFixed(2)}%
           </p>
         </div>
-        <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-5">
-          <p className="text-sm font-medium text-black/50 dark:text-white/50 mb-1">
+        <div className="rounded-lg bg-card border border-border p-5">
+          <p className="text-sm font-medium text-muted-foreground mb-1">
             Monthly Avg
             <InfoTip text="Total received divided by months since your first dividend transaction." />
           </p>
-          <p className="text-2xl font-bold text-emerald-400">
+          <p className="text-lg font-semibold tracking-tight text-positive">
             {fmtDollar(monthlyAvg)}
           </p>
         </div>
       </div>
 
       {/* ─── Bar Chart ─── */}
-      <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-6">
+      <div className="rounded-lg bg-card border border-border p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-black dark:text-white">
+          <h3 className="text-sm font-semibold text-foreground">
             Dividend Income
           </h3>
-          <div className="flex gap-1 p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+          <div className="flex gap-1 p-1 rounded-lg bg-muted border border-border">
             <button
               onClick={() => setChartPeriod("monthly")}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                 chartPeriod === "monthly"
-                  ? "bg-emerald-500 text-white"
-                  : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                  ? "bg-positive text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               }`}
             >
               Monthly
             </button>
             <button
               onClick={() => setChartPeriod("quarterly")}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                 chartPeriod === "quarterly"
-                  ? "bg-emerald-500 text-white"
-                  : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                  ? "bg-positive text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               }`}
             >
               Quarterly
@@ -438,7 +438,7 @@ export function DividendReturnsTable({
         </div>
 
         {chartData.length === 0 ? (
-          <div className="flex items-center justify-center h-48 text-black/40 dark:text-white/40 text-sm">
+          <div className="flex items-center justify-center h-48 text-subtle-foreground text-sm">
             No dividend transactions to chart yet.
           </div>
         ) : (
@@ -486,7 +486,7 @@ export function DividendReturnsTable({
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-black/10 dark:border-white/10">
+            <tr className="border-b border-border">
               {headerCell("symbol", "Symbol", "left")}
               {headerCell("totalReceived", "Total Received", "right", "Sum of all dividend payments received for this stock.")}
               {headerCell("yoc", "YOC", "right", "Yield on Cost — annual dividend rate divided by your average cost per share.")}
@@ -497,41 +497,41 @@ export function DividendReturnsTable({
             </tr>
           </thead>
           <tbody>
-            {sortedPerStock.map((row, index) => (
+            {sortedPerStock.map((row) => (
               <tr
                 key={row.holding.id}
-                className={`border-b border-white/5 transition-all hover:bg-black/5 dark:hover:bg-white/5 ${index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}`}
+                className={`border-b border-border transition-colors hover:bg-accent`}
               >
-                <td className="px-4 py-4">
+                <td className="px-3.5 py-2.5">
                   <button
                     className="group/sym relative flex items-center gap-3 transition-colors"
                     onClick={() => setDetailsSymbol(row.holding.symbol)}
                   >
                     <StockIcon symbol={row.holding.symbol} />
-                    <span className="font-semibold text-blue-400 group-hover/sym:text-blue-300 underline decoration-blue-400/40 group-hover/sym:decoration-blue-300 underline-offset-2 transition-colors">
+                    <span className="text-[13px] font-semibold text-foreground transition-colors group-hover/sym:text-primary">
                       {row.holding.symbol}
                     </span>
                     {row.holding.shortName && (
-                      <span className="pointer-events-none absolute left-0 -top-9 z-50 hidden group-hover/sym:block whitespace-nowrap rounded-lg bg-zinc-800 border border-white/10 px-3 py-1.5 text-xs text-white shadow-xl">
+                      <span className="pointer-events-none absolute left-0 -top-9 z-50 hidden group-hover/sym:block whitespace-nowrap rounded-lg bg-popover border border-border px-3 py-1.5 text-xs text-foreground">
                         {row.holding.shortName}
                       </span>
                     )}
                   </button>
                 </td>
-                <td className="px-4 py-4 text-right">
-                  <span className="font-mono font-semibold text-black dark:text-white">
+                <td className="px-3.5 py-2.5 text-right">
+                  <span className="font-mono font-semibold text-foreground">
                     {formatCurrency(
                       row.totalReceived,
                       row.holding.currency
                     )}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="px-3.5 py-2.5 text-right">
                   <span
                     className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${
                       row.yoc !== undefined
-                        ? "bg-emerald-500/10 text-emerald-400"
-                        : "text-black/50 dark:text-white/50"
+                        ? "bg-positive/10 text-positive"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {row.yoc !== undefined
@@ -539,12 +539,12 @@ export function DividendReturnsTable({
                       : "-"}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="px-3.5 py-2.5 text-right">
                   <span
                     className={`inline-block px-2 py-1 rounded-lg text-sm font-medium ${
                       row.currentYield !== undefined && row.currentYield > 0
-                        ? "bg-emerald-500/10 text-emerald-400"
-                        : "text-black/50 dark:text-white/50"
+                        ? "bg-positive/10 text-positive"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {row.currentYield !== undefined
@@ -552,9 +552,9 @@ export function DividendReturnsTable({
                       : "-"}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="px-3.5 py-2.5 text-right">
                   <span
-                    className={`font-mono font-semibold ${row.annualDollar > 0 ? "text-emerald-400" : "text-black/50 dark:text-white/50"}`}
+                    className={`font-mono font-semibold ${row.annualDollar > 0 ? "text-positive" : "text-muted-foreground"}`}
                   >
                     {formatCurrency(
                       row.annualDollar || undefined,
@@ -562,19 +562,19 @@ export function DividendReturnsTable({
                     )}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="px-3.5 py-2.5 text-right">
                   <span
                     className={`inline-block px-2 py-1 rounded-lg text-xs font-medium ${
                       row.frequency !== "-"
-                        ? "bg-black/5 dark:bg-white/5 text-black/70 dark:text-white/70"
-                        : "text-black/50 dark:text-white/50"
+                        ? "bg-muted text-foreground/80"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {row.frequency}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-right">
-                  <span className="font-mono text-black dark:text-white">
+                <td className="px-3.5 py-2.5 text-right">
+                  <span className="font-mono text-foreground">
                     {formatCurrency(
                       row.monthlyAvg > 0 ? row.monthlyAvg : undefined,
                       row.holding.currency

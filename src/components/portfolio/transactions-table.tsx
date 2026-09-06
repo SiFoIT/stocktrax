@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Check, ChevronDown, Search, Trash2, X } from "lucide-react";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { UnifiedTransaction, StockTransactionRow } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -36,15 +37,15 @@ function toInputDate(dateStr: string): string {
 function getTypeBadge(type: string) {
   switch (type) {
     case "buy":
-      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/20";
+      return "bg-positive/15 text-positive border-positive/20";
     case "sell":
-      return "bg-red-500/15 text-red-400 border-red-500/20";
+      return "bg-negative/15 text-negative border-negative/20";
     case "dividend":
-      return "bg-amber-500/15 text-amber-400 border-amber-500/20";
+      return "bg-warning/15 text-warning border-warning/20";
     case "transfer_in":
-      return "bg-blue-500/15 text-blue-400 border-blue-500/20";
+      return "bg-blue-500/15 text-primary border-primary/20";
     case "contribution":
-      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/20";
+      return "bg-positive/15 text-positive border-positive/20";
     case "deposit":
       return "bg-teal-500/15 text-teal-400 border-teal-500/20";
     case "refund":
@@ -54,9 +55,9 @@ function getTypeBadge(type: string) {
     case "referral":
       return "bg-purple-500/15 text-purple-400 border-purple-500/20";
     case "transfer_out":
-      return "bg-red-500/15 text-red-400 border-red-500/20";
+      return "bg-negative/15 text-negative border-negative/20";
     default:
-      return "bg-white/10 text-white/70 border-white/10";
+      return "bg-accent text-muted-foreground border-border";
   }
 }
 
@@ -239,13 +240,13 @@ export function TransactionsTable({
   if (transactions.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-blue-500/20 flex items-center justify-center">
-          <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-primary/20 flex items-center justify-center">
+          <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
         </div>
-        <h3 className="text-lg font-semibold text-black dark:text-white mb-2">No Transactions Yet</h3>
-        <p className="text-black/50 dark:text-white/50">Add your first transaction using the form above.</p>
+        <h3 className="text-lg font-semibold text-foreground mb-2">No Transactions Yet</h3>
+        <p className="text-muted-foreground">Add your first transaction using the form above.</p>
       </div>
     );
   }
@@ -259,38 +260,38 @@ export function TransactionsTable({
     return (
       <tr
         key={key}
-        className={`border-b border-white/5 transition-all hover:bg-black/5 dark:hover:bg-white/5 ${
-          selectedKeys.has(key) ? "bg-blue-500/10 dark:bg-blue-500/10" : index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""
+        className={`border-b border-border transition-colors hover:bg-accent ${
+          selectedKeys.has(key) ? "bg-primary/10" : ""
         }`}
         onContextMenu={(e) => handleContextMenu(e, key)}
       >
-        <td className="px-4 py-3 w-10">
+        <td className="px-3.5 py-2.5 w-10">
           <input
             type="checkbox"
             checked={selectedKeys.has(key)}
             onChange={() => toggleSelect(key)}
-            className="w-4 h-4 rounded border-black/20 dark:border-white/20 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+            className="w-4 h-4 rounded border-border-strong text-primary focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
           />
         </td>
-        <td className="px-4 py-3 text-sm">
+        <td className="px-3.5 py-2.5 text-sm">
           {isEditing ? (
             <input
               type="date"
               value={editDate}
               onChange={(e) => setEditDate(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-32 px-2 py-1 text-sm rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-32 px-2 py-1 text-sm rounded-lg bg-accent border border-border-strong text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           ) : (
-            <span className="text-black/70 dark:text-white/70">{formatDate(txn.date)}</span>
+            <span className="text-foreground/80">{formatDate(txn.date)}</span>
           )}
         </td>
         {showSymbol && (
-          <td className="px-4 py-3">
+          <td className="px-3.5 py-2.5">
             {isCash ? (
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-6 h-6 rounded-md bg-positive/20 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-3.5 h-3.5 text-positive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
@@ -300,10 +301,10 @@ export function TransactionsTable({
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="w-40 px-2 py-1 text-sm rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-40 px-2 py-1 text-sm rounded-lg bg-accent border border-border-strong text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 ) : (
-                  <span className="text-sm text-black/70 dark:text-white/70 truncate max-w-[200px]" title={txn.description}>
+                  <span className="text-sm text-foreground/80 truncate max-w-[200px]" title={txn.description}>
                     {txn.description}
                   </span>
                 )}
@@ -311,52 +312,52 @@ export function TransactionsTable({
             ) : (
               <div className="flex items-center gap-2">
                 <StockIcon symbol={txn.symbol} size="sm" />
-                <span className="font-semibold text-sm text-black dark:text-white">{txn.symbol}</span>
+                <span className="font-semibold text-sm text-foreground">{txn.symbol}</span>
               </div>
             )}
           </td>
         )}
-        <td className="px-4 py-3">
-          <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-semibold uppercase border ${getTypeBadge(txn.type)}`}>
+        <td className="px-3.5 py-2.5">
+          <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-semibold border ${getTypeBadge(txn.type)}`}>
             {formatTypeLabel(txn.type)}
           </span>
         </td>
-        <td className="px-4 py-3 text-right">
+        <td className="px-3.5 py-2.5 text-right">
           {isCash || isDividend ? (
-            <span className="text-black/30 dark:text-white/30">&mdash;</span>
+            <span className="text-subtle-foreground">&mdash;</span>
           ) : isEditing ? (
             <input
               type="number"
               value={editShares}
               onChange={(e) => setEditShares(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-20 px-2 py-1 text-right text-sm font-mono rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-20 px-2 py-1 text-right text-sm font-mono rounded-lg bg-accent border border-border-strong text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
               min="0"
               step="any"
               autoFocus
             />
           ) : (
-            <span className="font-mono text-sm text-black dark:text-white">{txn.shares.toLocaleString()}</span>
+            <span className="font-mono text-sm text-foreground">{txn.shares.toLocaleString()}</span>
           )}
         </td>
-        <td className="px-4 py-3 text-right">
+        <td className="px-3.5 py-2.5 text-right">
           {isCash || isDividend ? (
-            <span className="text-black/30 dark:text-white/30">&mdash;</span>
+            <span className="text-subtle-foreground">&mdash;</span>
           ) : isEditing ? (
             <input
               type="number"
               value={editPrice}
               onChange={(e) => setEditPrice(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-24 px-2 py-1 text-right text-sm font-mono rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-24 px-2 py-1 text-right text-sm font-mono rounded-lg bg-accent border border-border-strong text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
               min="0"
               step="any"
             />
           ) : (
-            <span className="font-mono text-sm text-black/70 dark:text-white/70">{formatCurrency(txn.price, txn.currency)}</span>
+            <span className="font-mono text-sm text-foreground/80">{formatCurrency(txn.price, txn.currency)}</span>
           )}
         </td>
-        <td className="px-4 py-3 text-right">
+        <td className="px-3.5 py-2.5 text-right">
           {isCash ? (
             isEditing ? (
               <input
@@ -364,52 +365,48 @@ export function TransactionsTable({
                 value={editAmount}
                 onChange={(e) => setEditAmount(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-24 px-2 py-1 text-right text-sm font-mono rounded-lg bg-black/10 dark:bg-white/10 border border-black/20 dark:border-white/20 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-24 px-2 py-1 text-right text-sm font-mono rounded-lg bg-accent border border-border-strong text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                 step="any"
                 autoFocus
               />
             ) : (
-              <span className={`font-mono text-sm font-semibold ${txn.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              <span className={`font-mono text-sm font-semibold ${txn.amount >= 0 ? "text-positive" : "text-negative"}`}>
                 {formatCurrency(Math.abs(txn.amount), txn.currency)}
               </span>
             )
           ) : isDividend ? (
-            <span className="font-mono text-sm font-semibold text-emerald-400">
+            <span className="font-mono text-sm font-semibold text-positive">
               {formatCurrency((txn as StockTransactionRow).shares * (txn as StockTransactionRow).price, txn.currency)}
             </span>
           ) : (
-            <span className="font-mono text-sm font-semibold text-black dark:text-white">
+            <span className="font-mono text-sm font-semibold text-foreground">
               {formatCurrency((txn as StockTransactionRow).shares * (txn as StockTransactionRow).price, txn.currency)}
             </span>
           )}
         </td>
-        <td className="px-4 py-3 text-right">
+        <td className="px-3.5 py-2.5 text-right">
           <div className="flex items-center justify-end gap-1">
             {isEditing ? (
               <>
                 <button
-                  className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 p-2 rounded-lg transition-all"
+                  className="text-positive hover:text-positive hover:bg-positive/10 p-2 rounded-lg transition-colors"
                   onClick={saveEditing}
                   title="Save"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
+                  <Check className="size-4" />
                 </button>
                 <button
-                  className="text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10 p-2 rounded-lg transition-all"
+                  className="text-subtle-foreground hover:text-foreground hover:bg-accent p-2 rounded-lg transition-colors"
                   onClick={cancelEditing}
                   title="Cancel"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="size-4" />
                 </button>
               </>
             ) : (
               <>
                 <button
-                  className="text-black/40 dark:text-white/40 hover:text-blue-400 hover:bg-blue-500/10 p-2 rounded-lg transition-all"
+                  className="text-subtle-foreground hover:text-primary hover:bg-primary/10 p-2 rounded-lg transition-colors"
                   onClick={() => startEditing(txn)}
                   title="Edit"
                 >
@@ -418,13 +415,11 @@ export function TransactionsTable({
                   </svg>
                 </button>
                 <button
-                  className="text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all"
+                  className="text-subtle-foreground hover:text-negative hover:bg-negative/10 p-2 rounded-lg transition-colors"
                   onClick={() => onDeleteTransaction(txn.kind, txn.id)}
                   title="Delete"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
+                  <Trash2 className="size-4" />
                 </button>
               </>
             )}
@@ -443,29 +438,29 @@ export function TransactionsTable({
     );
   };
 
-  const sortableThClass = "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left cursor-pointer select-none transition-colors hover:text-black dark:hover:text-white";
-  const staticThClass = "px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right";
+  const sortableThClass = "px-4 py-3 text-xs font-semibold text-left cursor-pointer select-none transition-colors hover:text-foreground";
+  const staticThClass = "px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-right";
 
   const tableHeaders = (showSymbol = true, visibleKeys: SelectionKey[] = []) => (
     <thead>
-      <tr className="border-b border-black/10 dark:border-white/10">
-        <th className="px-4 py-3 w-10">
+      <tr className="border-b border-border">
+        <th className="px-3.5 py-2.5 w-10">
           <input
             type="checkbox"
             checked={visibleKeys.length > 0 && visibleKeys.every((key) => selectedKeys.has(key))}
             onChange={() => toggleSelectAll(visibleKeys)}
-            className="w-4 h-4 rounded border-black/20 dark:border-white/20 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+            className="w-4 h-4 rounded border-border-strong text-primary focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
           />
         </th>
-        <th className={`${sortableThClass} ${sortKey === "date" ? "text-blue-400 dark:text-blue-400" : "text-black/50 dark:text-white/50"}`} onClick={() => toggleSort("date")}>
+        <th className={`${sortableThClass} ${sortKey === "date" ? "text-primary" : "text-muted-foreground"}`} onClick={() => toggleSort("date")}>
           Date{sortArrow("date")}
         </th>
         {showSymbol && (
-          <th className={`${sortableThClass} ${sortKey === "symbol" ? "text-blue-400 dark:text-blue-400" : "text-black/50 dark:text-white/50"}`} onClick={() => toggleSort("symbol")}>
+          <th className={`${sortableThClass} ${sortKey === "symbol" ? "text-primary" : "text-muted-foreground"}`} onClick={() => toggleSort("symbol")}>
             Symbol{sortArrow("symbol")}
           </th>
         )}
-        <th className={`${sortableThClass} ${sortKey === "type" ? "text-blue-400 dark:text-blue-400" : "text-black/50 dark:text-white/50"}`} onClick={() => toggleSort("type")}>
+        <th className={`${sortableThClass} ${sortKey === "type" ? "text-primary" : "text-muted-foreground"}`} onClick={() => toggleSort("type")}>
           Type{sortArrow("type")}
         </th>
         <th className={staticThClass}>Shares</th>
@@ -496,43 +491,43 @@ export function TransactionsTable({
       {/* Toolbar: view toggle + selection actions + search + delete all */}
       <div className="flex items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
-          <div className="flex gap-1 p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 w-fit">
+          <div className="flex gap-1 p-1 rounded-lg bg-muted border border-border w-fit">
             <button
               onClick={() => setViewMode("chronological")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 viewMode === "chronological"
-                  ? "bg-blue-500 text-white"
-                  : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                  ? "bg-blue-500 text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               }`}
             >
               Chronological
             </button>
             <button
               onClick={() => setViewMode("bySymbol")}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 viewMode === "bySymbol"
-                  ? "bg-blue-500 text-white"
-                  : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                  ? "bg-blue-500 text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               }`}
             >
               By Symbol
             </button>
           </div>
           {selectedKeys.size > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <span className="text-xs font-medium text-blue-400">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20">
+              <span className="text-xs font-medium text-primary">
                 {selectedKeys.size} selected
               </span>
               <button
                 onClick={() => setSelectedKeys(new Set())}
-                className="text-xs text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 Deselect
               </button>
-              <div className="w-px h-4 bg-blue-500/20" />
+              <div className="w-px h-4 bg-primary/20" />
               <button
                 onClick={handleDeleteSelected}
-                className="text-xs font-medium text-red-400 hover:text-red-300 transition-colors"
+                className="text-xs font-medium text-negative hover:text-negative transition-colors"
               >
                 Delete Selected
               </button>
@@ -541,31 +536,27 @@ export function TransactionsTable({
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/30 dark:text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-subtle-foreground" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter by symbol, type, or description..."
-              className="w-64 pl-9 pr-8 py-1.5 text-sm rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-64 pl-9 pr-8 py-1.5 text-sm rounded-lg bg-muted border border-border text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-black/30 dark:text-white/30 hover:text-black dark:hover:text-white transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-subtle-foreground hover:text-foreground transition-colors"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="size-4" />
               </button>
             )}
           </div>
           {selectedKeys.size === 0 && (
             <button
               onClick={onDeleteAllTransactions}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg text-subtle-foreground hover:text-negative hover:bg-negative/10 border border-transparent hover:border-negative/20 transition-colors"
               title="Delete all transactions"
             >
               Delete All
@@ -575,7 +566,7 @@ export function TransactionsTable({
       </div>
 
       {filtered.length === 0 && search ? (
-        <div className="text-center py-8 text-black/50 dark:text-white/50 text-sm">
+        <div className="text-center py-8 text-muted-foreground text-sm">
           No transactions matching &ldquo;{search}&rdquo;
         </div>
       ) : viewMode === "chronological" ? (
@@ -593,34 +584,27 @@ export function TransactionsTable({
             const isCollapsed = collapsedGroups.has(group);
             const isCashGroup = group === "Cash";
             return (
-              <div key={group} className="rounded-xl border border-black/10 dark:border-white/10 overflow-hidden">
+              <div key={group} className="rounded-md border border-border overflow-hidden">
                 <button
                   onClick={() => toggleGroupCollapse(group)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-black/[0.03] dark:bg-white/[0.03] hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                  className="w-full flex items-center justify-between px-4 py-3 bg-muted hover:bg-accent transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     {isCashGroup ? (
-                      <div className="w-6 h-6 rounded-md bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-6 h-6 rounded-md bg-positive/20 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3.5 h-3.5 text-positive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
                     ) : (
                       <StockIcon symbol={group} size="sm" />
                     )}
-                    <span className="font-semibold text-black dark:text-white">{group}</span>
-                    <span className="text-xs text-black/50 dark:text-white/50">
+                    <span className="font-semibold text-foreground">{group}</span>
+                    <span className="text-xs text-muted-foreground">
                       {txns.length} transaction{txns.length !== 1 ? "s" : ""}
                     </span>
                   </div>
-                  <svg
-                    className={`w-4 h-4 text-black/40 dark:text-white/40 transition-transform ${isCollapsed ? "" : "rotate-180"}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <ChevronDown className={`size-4 text-subtle-foreground transition-transform ${isCollapsed ? "" : "rotate-180"}`} />
                 </button>
                 {!isCollapsed && (
                   <div className="overflow-x-auto">
@@ -642,32 +626,30 @@ export function TransactionsTable({
       {contextMenu && (
         <div
           ref={contextMenuRef}
-          className="fixed z-50 min-w-[140px] rounded-xl bg-white dark:bg-zinc-900 border border-black/10 dark:border-white/10 shadow-xl overflow-hidden"
+          className="fixed z-50 min-w-[140px] rounded-md bg-popover border border-border overflow-hidden"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <button
-            className="w-full px-4 py-2.5 text-left text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-3 transition-colors"
+            className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-accent flex items-center gap-3 transition-colors"
             onClick={() => {
               const txn = transactions.find((t) => selKey(t) === contextMenu.selectionKey);
               if (txn) startEditing(txn);
             }}
           >
-            <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
             Edit
           </button>
           <button
-            className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-3 transition-colors"
+            className="w-full px-4 py-2.5 text-left text-sm text-negative hover:bg-negative/10 flex items-center gap-3 transition-colors"
             onClick={() => {
               const { kind, id } = parseSelKey(contextMenu.selectionKey);
               onDeleteTransaction(kind, id);
               setContextMenu(null);
             }}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
+            <Trash2 className="size-4" />
             Delete
           </button>
         </div>

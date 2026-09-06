@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { InfoTip } from "@/components/ui/info-tip";
@@ -37,7 +38,7 @@ function HeaderCell({ column, label, align = "right", sortColumn, sortDirection,
 }) {
   return (
     <th
-      className={`px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider cursor-pointer hover:text-black dark:hover:text-white/80 transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
+      className={`px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none whitespace-nowrap ${align === "left" ? "text-left" : "text-right"}`}
       onClick={() => onSort(column)}
     >
       {label}
@@ -151,13 +152,11 @@ export function InsiderTable({
   if (items.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-blue-500/20 flex items-center justify-center">
-          <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
+        <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-primary/20 flex items-center justify-center">
+          <Plus className="size-8 text-primary" />
         </div>
-        <h3 className="text-lg font-semibold text-black dark:text-white mb-2">No Symbols Yet</h3>
-        <p className="text-black/50 dark:text-white/50">Add your first symbol using the search above.</p>
+        <h3 className="text-lg font-semibold text-foreground mb-2">No Symbols Yet</h3>
+        <p className="text-muted-foreground">Add your first symbol using the search above.</p>
       </div>
     );
   }
@@ -167,7 +166,7 @@ export function InsiderTable({
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-black/10 dark:border-white/10">
+            <tr className="border-b border-border">
               <HeaderCell column="symbol" label="Symbol" align="left" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <HeaderCell column="price" label="Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <HeaderCell column="insidersPercentHeld" label="Insider %" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Percentage of outstanding shares held by company insiders (officers, directors, and beneficial owners)." />
@@ -175,36 +174,36 @@ export function InsiderTable({
               <HeaderCell column="netSellCount6mo" label="Sells (6mo)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Number of insider sell transactions in the last 6 months." />
               <HeaderCell column="netInsiderShares6mo" label="Net Shares" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Net insider transactions in the last 6 months (buys minus sells). This is a transaction count, not a share count." />
               <HeaderCell column="lastInsiderDate" label="Last Activity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Most recent insider purchase or sale transaction." />
-              <th className="px-4 py-3 text-xs font-semibold text-black/50 dark:text-white/50 uppercase tracking-wider text-right">Actions</th>
+              <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {sortedItems.map((item, index) => {
+            {sortedItems.map((item) => {
               const netShares = item.netInsiderShares6mo;
               const netColor = netShares === undefined || netShares === null
-                ? "text-black/50 dark:text-white/50"
+                ? "text-muted-foreground"
                 : netShares > 0
-                  ? "text-emerald-400"
+                  ? "text-positive"
                   : netShares < 0
-                    ? "text-red-400"
-                    : "text-black/50 dark:text-white/50";
+                    ? "text-negative"
+                    : "text-muted-foreground";
 
               return (
                 <tr
                   key={item.id}
-                  className={`border-b border-white/5 transition-all hover:bg-black/5 dark:hover:bg-white/5 ${index % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}`}
+                  className={`border-b border-border transition-colors hover:bg-accent`}
                 >
-                  <td className="px-4 py-4">
+                  <td className="px-3.5 py-2.5">
                     <div className="flex items-center gap-2">
                       <button
-                        className="flex items-center gap-3 hover:text-blue-400 transition-colors"
+                        className="flex items-center gap-3 hover:text-primary transition-colors"
                         onClick={() => setDetailsSymbol(item.symbol)}
                       >
                         <StockIcon symbol={item.symbol} />
-                        <span className="font-semibold text-black dark:text-white">{item.symbol}</span>
+                        <span className="font-semibold text-foreground">{item.symbol}</span>
                       </button>
                       <button
-                        className="text-black/30 dark:text-white/30 hover:text-blue-400 transition-colors p-1 rounded"
+                        className="text-subtle-foreground hover:text-primary transition-colors p-1 rounded"
                         onClick={() => {
                           const idx = sortedItems.findIndex((i) => i.symbol === item.symbol);
                           setChartIndex(idx >= 0 ? idx : 0);
@@ -217,42 +216,40 @@ export function InsiderTable({
                       </button>
                     </div>
                   </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className="font-mono font-semibold text-black dark:text-white">{formatCurrency(item.price, item.currency)}</span>
+                  <td className="px-3.5 py-2.5 text-right">
+                    <span className="font-mono font-semibold text-foreground">{formatCurrency(item.price, item.currency)}</span>
                   </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className="text-black/70 dark:text-white/70">{formatInsiderPercent(item.insidersPercentHeld)}</span>
+                  <td className="px-3.5 py-2.5 text-right">
+                    <span className="text-foreground/80">{formatInsiderPercent(item.insidersPercentHeld)}</span>
                   </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className={item.netBuyCount6mo ? "text-emerald-400" : "text-black/50 dark:text-white/50"}>
+                  <td className="px-3.5 py-2.5 text-right">
+                    <span className={item.netBuyCount6mo ? "text-positive" : "text-muted-foreground"}>
                       {formatCount(item.netBuyCount6mo)}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className={item.netSellCount6mo ? "text-red-400" : "text-black/50 dark:text-white/50"}>
+                  <td className="px-3.5 py-2.5 text-right">
+                    <span className={item.netSellCount6mo ? "text-negative" : "text-muted-foreground"}>
                       {formatCount(item.netSellCount6mo)}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-right">
+                  <td className="px-3.5 py-2.5 text-right">
                     <span className={`font-mono font-medium ${netColor}`}>
                       {netShares !== undefined && netShares !== null ? netShares.toLocaleString() : "\u2014"}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className="text-xs text-black/60 dark:text-white/60">
+                  <td className="px-3.5 py-2.5 text-right">
+                    <span className="text-xs text-muted-foreground">
                       {formatLastActivity(item.lastInsiderName, item.lastInsiderType, item.lastInsiderDate)}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-right">
+                  <td className="px-3.5 py-2.5 text-right">
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10"
+                      className="text-subtle-foreground hover:text-negative hover:bg-negative/10"
                       onClick={() => onRemoveSymbol(item.id)}
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
+                      <Trash2 className="size-4" />
                     </Button>
                   </td>
                 </tr>
