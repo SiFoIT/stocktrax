@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
@@ -142,15 +143,15 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
   const getTypeColor = (type: string) => {
     switch (type) {
       case "EQUITY":
-        return "bg-blue-500/20 text-blue-400";
+        return "bg-primary/20 text-primary";
       case "ETF":
         return "bg-purple-500/20 text-purple-400";
       case "CRYPTOCURRENCY":
-        return "bg-amber-500/20 text-amber-400";
+        return "bg-warning/20 text-warning";
       case "INDEX":
-        return "bg-emerald-500/20 text-emerald-400";
+        return "bg-positive/20 text-positive";
       default:
-        return "bg-white/10 text-white/70";
+        return "bg-accent text-muted-foreground";
     }
   };
 
@@ -207,30 +208,28 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
   };
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10">
+    <div className="rounded-lg bg-card border border-border">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-emerald-500/10 to-transparent hover:from-emerald-500/15 transition-all cursor-pointer ${isOpen ? "border-b border-black/10 dark:border-white/10" : ""}`}
+        className={`w-full flex items-center gap-3 px-6 py-4 hover:from-emerald-500/15 transition-colors cursor-pointer ${isOpen ? "border-b border-border" : ""}`}
       >
-        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-          <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-8 h-8 rounded-lg bg-positive/20 flex items-center justify-center">
+          <svg className="w-4 h-4 text-positive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isOpen ? "M6 12h12" : "M12 6v6m0 0v6m0-6h6m-6 0H6"} />
           </svg>
         </div>
-        <h2 className="font-semibold text-black dark:text-white">Add Transaction</h2>
+        <h2 className="font-semibold text-foreground">Add Transaction</h2>
       </button>
       {isOpen && <div className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Row 1: Symbol + Type toggle */}
           <div className="flex gap-4 items-end flex-wrap">
             <div className="flex-1 min-w-[200px] relative">
-              <label className="text-sm font-medium mb-2 block text-black/70 dark:text-white/70">Symbol</label>
+              <label className="text-sm font-medium mb-2 block text-foreground/80">Symbol</label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-black/40 dark:text-white/40">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle-foreground">
+                  <Search className="size-4" />
                 </div>
                 <Input
                   ref={inputRef}
@@ -244,29 +243,29 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
                   onKeyDown={handleKeyDown}
                   autoComplete="off"
                   required
-                  className="pl-10 bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
+                  className="pl-10 bg-muted border-border focus:border-positive/50 focus:bg-accent transition-colors"
                 />
               </div>
               {showSuggestions && suggestions.length > 0 && (
                 <div
                   ref={suggestionsRef}
-                  className="absolute z-50 w-full mt-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl shadow-2xl max-h-80 overflow-auto"
+                  className="absolute z-50 w-full mt-2 bg-popover border border-border rounded-md shadow-md max-h-80 overflow-auto"
                 >
                   {suggestions.map((suggestion, index) => (
                     <div
                       key={suggestion.symbol}
-                      className={`px-4 py-3 cursor-pointer flex justify-between items-center transition-all ${
+                      className={`px-4 py-3 cursor-pointer flex justify-between items-center transition-colors ${
                         index === selectedIndex
-                          ? "bg-gradient-to-r from-emerald-500/20 to-transparent"
-                          : "hover:bg-black/5 dark:hover:bg-white/5"
+                          ? "bg-accent"
+                          : "hover:bg-accent"
                       }`}
                       onClick={() => handleSelectSuggestion(suggestion)}
                     >
                       <div className="flex items-center gap-3">
                         <StockIcon symbol={suggestion.symbol} size="sm" />
                         <div>
-                          <span className="font-medium text-black dark:text-white">{suggestion.symbol}</span>
-                          <span className="text-black/50 dark:text-white/50 text-sm ml-2 truncate max-w-[200px] inline-block align-bottom">
+                          <span className="font-medium text-foreground">{suggestion.symbol}</span>
+                          <span className="text-muted-foreground text-sm ml-2 truncate max-w-[200px] inline-block align-bottom">
                             {suggestion.name}
                           </span>
                         </div>
@@ -280,8 +279,8 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
               )}
             </div>
             <div>
-              <label className="text-sm font-medium mb-2 block text-black/70 dark:text-white/70">Type</label>
-              <div className="flex gap-1 p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+              <label className="text-sm font-medium mb-2 block text-foreground/80">Type</label>
+              <div className="flex gap-1 p-1 rounded-lg bg-muted border border-border">
                 {(["buy", "sell", "dividend", "transfer_in"] as const).map((type) => (
                   <button
                     key={type}
@@ -290,16 +289,16 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
                       setTransactionType(type);
                       if (type === "transfer_in") setPrice("0");
                     }}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all uppercase ${
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
                       transactionType === type
                         ? type === "buy"
-                          ? "bg-emerald-500 text-white"
+                          ? "bg-positive text-foreground"
                           : type === "sell"
-                          ? "bg-red-500 text-white"
+                          ? "bg-negative text-foreground"
                           : type === "dividend"
-                          ? "bg-amber-500 text-white"
-                          : "bg-blue-500 text-white"
-                        : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                          ? "bg-warning text-foreground"
+                          : "bg-blue-500 text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
                     }`}
                   >
                     {type === "transfer_in" ? "Transfer In" : type}
@@ -312,10 +311,10 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
           {/* Row 2: Shares, Price, Date, Submit */}
           <div className="flex gap-4 items-end flex-wrap">
             <div className="flex-1 min-w-[120px]">
-              <label className="text-sm font-medium mb-2 block text-black/70 dark:text-white/70">
+              <label className="text-sm font-medium mb-2 block text-foreground/80">
                 Shares
                 {transactionType === "sell" && availableShares !== undefined && (
-                  <span className="ml-2 text-xs text-black/40 dark:text-white/40">
+                  <span className="ml-2 text-xs text-subtle-foreground">
                     (Available: {availableShares.toLocaleString()})
                   </span>
                 )}
@@ -326,14 +325,14 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
                 value={shares}
                 onChange={(e) => setShares(e.target.value)}
                 required
-                className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
+                className="bg-muted border-border focus:border-positive/50 focus:bg-accent transition-colors"
               />
             </div>
             <div className="flex-1 min-w-[120px]">
-              <label className="text-sm font-medium mb-2 block text-black/70 dark:text-white/70">
+              <label className="text-sm font-medium mb-2 block text-foreground/80">
                 Price per Share
                 {fetchingPrice && (
-                  <span className="ml-2 text-xs text-emerald-400">(fetching...)</span>
+                  <span className="ml-2 text-xs text-positive">(fetching...)</span>
                 )}
               </label>
               <Input
@@ -343,42 +342,40 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 required
-                className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
+                className="bg-muted border-border focus:border-positive/50 focus:bg-accent transition-colors"
               />
             </div>
             <div className="flex-1 min-w-[140px]">
-              <label className="text-sm font-medium mb-2 block text-black/70 dark:text-white/70">Date</label>
+              <label className="text-sm font-medium mb-2 block text-foreground/80">Date</label>
               <Input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
-                className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:border-emerald-500/50 focus:bg-white/10 transition-all"
+                className="bg-muted border-border focus:border-positive/50 focus:bg-accent transition-colors"
               />
             </div>
             <button
               type="submit"
               disabled={loading || fetchingPrice}
-              className={`px-6 py-2.5 rounded-xl font-medium transition-all disabled:opacity-50 flex items-center gap-2 text-white ${
+              className={`px-6 py-2.5 rounded-md font-medium transition-colors disabled:opacity-50 flex items-center gap-2 text-foreground ${
                 transactionType === "buy"
-                  ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
                   : transactionType === "sell"
-                  ? "bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
                   : transactionType === "transfer_in"
-                  ? "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
-                  : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                   Adding...
                 </>
               ) : (
                 <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
+                  <Plus className="size-4" />
                   Add {transactionType.charAt(0).toUpperCase() + transactionType.slice(1)}
                 </>
               )}
@@ -386,7 +383,7 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
           </div>
         </form>
         {error && (
-          <p className="text-red-400 text-sm mt-3 bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>
+          <p className="text-negative text-sm mt-3 bg-negative/10 px-3 py-2 rounded-lg">{error}</p>
         )}
       </div>}
     </div>

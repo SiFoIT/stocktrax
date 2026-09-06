@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -112,11 +113,11 @@ export function ScreenEditor({
       {/* Source + Match row */}
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-black/70 dark:text-white/70 whitespace-nowrap">Source:</label>
+          <label className="text-sm font-medium text-foreground/80 whitespace-nowrap">Source:</label>
           <select
             value={source}
             onChange={(e) => onSourceChange(e.target.value)}
-            className="h-9 rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+            className="h-9 rounded-lg border border-border bg-muted px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
           >
             <option value="all">All symbols</option>
             {watchlists.map((w) => (
@@ -133,24 +134,24 @@ export function ScreenEditor({
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-black/70 dark:text-white/70 whitespace-nowrap">Match:</label>
-          <div className="flex rounded-lg border border-black/10 dark:border-white/10 overflow-hidden">
+          <label className="text-sm font-medium text-foreground/80 whitespace-nowrap">Match:</label>
+          <div className="flex rounded-lg border border-border overflow-hidden">
             <button
               onClick={() => onMatchChange("all")}
-              className={`px-3 py-1.5 text-xs font-medium transition-all ${
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 match === "all"
-                  ? "bg-violet-500 text-white"
-                  : "bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white"
+                  ? "bg-muted-foreground text-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
               All (AND)
             </button>
             <button
               onClick={() => onMatchChange("any")}
-              className={`px-3 py-1.5 text-xs font-medium transition-all ${
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                 match === "any"
-                  ? "bg-violet-500 text-white"
-                  : "bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white"
+                  ? "bg-muted-foreground text-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
               Any (OR)
@@ -161,32 +162,30 @@ export function ScreenEditor({
 
       {/* Preset templates */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-medium text-black/50 dark:text-white/50">Presets:</span>
+        <span className="text-xs font-medium text-muted-foreground">Presets:</span>
         {SCREEN_PRESETS.map((preset) => (
           <button
             key={preset.name}
             onClick={() => applyPreset(preset)}
-            className="px-3 py-1 rounded-full text-xs font-medium border border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 transition-all"
+            className="px-3 py-1 rounded-full text-xs font-medium border border-muted-foreground/30 bg-muted-foreground/10 text-muted-foreground hover:bg-muted-foreground/20 transition-colors"
           >
             {preset.name}
           </button>
         ))}
         {customPresets.map((preset) => (
-          <span key={preset.id} className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 transition-all">
+          <span key={preset.id} className="inline-flex items-center gap-1 rounded-full border border-positive/30 bg-positive/10 transition-colors">
             <button
               onClick={() => applyPreset(preset)}
-              className="pl-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300"
+              className="pl-3 py-1 text-xs font-medium text-positive hover:text-positive"
             >
               {preset.name}
             </button>
             <button
               onClick={() => handleDeletePreset(preset.id)}
-              className="pr-2 py-1 text-emerald-600/50 dark:text-emerald-400/50 hover:text-red-400 transition-colors"
+              className="pr-2 py-1 text-positive/50 hover:text-negative transition-colors"
               title="Delete preset"
             >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="size-3" />
             </button>
           </span>
         ))}
@@ -201,18 +200,18 @@ export function ScreenEditor({
                 if (e.key === "Escape") { setSavingPreset(false); setPresetName(""); }
               }}
               placeholder="Preset name…"
-              className="h-7 w-36 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10"
+              className="h-7 w-36 text-xs bg-muted border-border"
             />
             <button
               onClick={handleSavePreset}
               disabled={!presetName.trim() || rules.length === 0}
-              className="px-2 py-1 rounded-full text-xs font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 transition-all"
+              className="px-2 py-1 rounded-full text-xs font-medium bg-positive text-white hover:bg-positive disabled:opacity-40 transition-colors"
             >
               Save
             </button>
             <button
               onClick={() => { setSavingPreset(false); setPresetName(""); }}
-              className="px-1.5 py-1 text-xs text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
+              className="px-1.5 py-1 text-xs text-subtle-foreground hover:text-foreground"
             >
               Cancel
             </button>
@@ -221,7 +220,7 @@ export function ScreenEditor({
           <button
             onClick={() => setSavingPreset(true)}
             disabled={rules.length === 0}
-            className="px-3 py-1 rounded-full text-xs font-medium border border-dashed border-black/20 dark:border-white/20 text-black/50 dark:text-white/50 hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/5 disabled:opacity-30 disabled:hover:border-black/20 disabled:hover:text-black/50 disabled:hover:bg-transparent transition-all"
+            className="px-3 py-1 rounded-full text-xs font-medium border border-dashed border-border-strong text-muted-foreground hover:border-positive/50 hover:text-positive hover:bg-positive/5 disabled:opacity-30 disabled:hover:border-black/20 disabled:hover:text-black/50 disabled:hover:bg-transparent transition-colors"
           >
             + Save Preset
           </button>
@@ -236,7 +235,7 @@ export function ScreenEditor({
             <select
               value={rule.metric}
               onChange={(e) => updateRule(index, { metric: e.target.value })}
-              className="h-9 rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 min-w-[180px]"
+              className="h-9 rounded-lg border border-border bg-muted px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 min-w-[180px]"
             >
               {Object.entries(metricsByCategory).map(([category, metrics]) => (
                 <optgroup key={category} label={category}>
@@ -253,7 +252,7 @@ export function ScreenEditor({
             <select
               value={rule.operator}
               onChange={(e) => updateRule(index, { operator: e.target.value as ScreenOperator })}
-              className="h-9 rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 w-24"
+              className="h-9 rounded-lg border border-border bg-muted px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 w-24"
             >
               {SCREEN_OPERATORS.map((op) => (
                 <option key={op.value} value={op.value}>
@@ -268,36 +267,34 @@ export function ScreenEditor({
               step="any"
               value={rule.value}
               onChange={(e) => updateRule(index, { value: e.target.value === "" || e.target.value === "-" ? 0 : parseFloat(e.target.value) })}
-              className="h-9 w-24 bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:ring-violet-500/50"
+              className="h-9 w-24 bg-muted border-border focus:ring-violet-500/50"
             />
 
             {/* Second value for "between" */}
             {rule.operator === "between" && (
               <>
-                <span className="text-xs text-black/50 dark:text-white/50">and</span>
+                <span className="text-xs text-muted-foreground">and</span>
                 <Input
                   type="number"
                   step="any"
                   value={rule.valueTo ?? 0}
                   onChange={(e) => updateRule(index, { valueTo: e.target.value === "" || e.target.value === "-" ? 0 : parseFloat(e.target.value) })}
-                  className="h-9 w-24 bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus:ring-violet-500/50"
+                  className="h-9 w-24 bg-muted border-border focus:ring-violet-500/50"
                 />
               </>
             )}
 
             {/* Unit hint */}
-            <span className="text-xs text-black/40 dark:text-white/40 min-w-[20px]">
+            <span className="text-xs text-subtle-foreground min-w-[20px]">
               {METRICS[rule.metric]?.unit || ""}
             </span>
 
             {/* Remove button */}
             <button
               onClick={() => removeRule(index)}
-              className="p-1.5 rounded-lg text-black/40 dark:text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
+              className="p-1.5 rounded-lg text-subtle-foreground hover:text-negative hover:bg-negative/10 transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="size-4" />
             </button>
           </div>
         ))}
@@ -309,7 +306,7 @@ export function ScreenEditor({
           variant="outline"
           size="sm"
           onClick={addRule}
-          className="bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 hover:bg-black/10 dark:hover:bg-white/10"
+          className="bg-muted border-border hover:bg-accent"
         >
           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12m6-6H6" />
@@ -320,18 +317,16 @@ export function ScreenEditor({
           size="sm"
           onClick={onRun}
           disabled={running || rules.length === 0}
-          className="bg-violet-500 hover:bg-violet-600 text-white"
+          className="bg-muted-foreground hover:bg-muted-foreground text-foreground"
         >
           {running ? (
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
               Scanning...
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              <Search className="size-4" />
               Run Screen
             </div>
           )}

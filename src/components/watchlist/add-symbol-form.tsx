@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StockIcon } from "@/components/ui/stock-icon";
@@ -128,38 +129,38 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
   const getTypeColor = (type: string) => {
     switch (type) {
       case "EQUITY":
-        return "bg-blue-500/20 text-blue-400";
+        return "bg-primary/20 text-primary";
       case "ETF":
         return "bg-purple-500/20 text-purple-400";
       case "CRYPTOCURRENCY":
-        return "bg-amber-500/20 text-amber-400";
+        return "bg-warning/20 text-warning";
       case "INDEX":
-        return "bg-emerald-500/20 text-emerald-400";
+        return "bg-positive/20 text-positive";
       default:
-        return "bg-white/10 text-white/70";
+        return "bg-accent text-muted-foreground";
     }
   };
 
   const suggestionsList = showSuggestions && suggestions.length > 0 && (
     <div
       ref={suggestionsRef}
-      className="absolute z-50 w-full mt-2 bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl max-h-80 overflow-auto"
+      className="absolute z-50 w-full mt-2 bg-gray-900/95 border border-border rounded-md max-h-80 overflow-auto"
     >
       {suggestions.map((suggestion, index) => (
         <div
           key={suggestion.symbol}
-          className={`px-4 py-3 cursor-pointer flex justify-between items-center transition-all ${
+          className={`px-4 py-3 cursor-pointer flex justify-between items-center transition-colors ${
             index === selectedIndex
-              ? "bg-gradient-to-r from-blue-500/20 to-transparent"
-              : "hover:bg-white/5"
+              ? "bg-accent"
+              : "hover:bg-muted"
           }`}
           onClick={() => handleSelectSuggestion(suggestion)}
         >
           <div className="flex items-center gap-3">
             <StockIcon symbol={suggestion.symbol} size="sm" />
             <div>
-              <span className="font-medium text-white">{suggestion.symbol}</span>
-              <span className="text-white/50 text-sm ml-2 truncate max-w-[200px] inline-block align-bottom">
+              <span className="font-medium text-foreground">{suggestion.symbol}</span>
+              <span className="text-muted-foreground text-sm ml-2 truncate max-w-[200px] inline-block align-bottom">
                 {suggestion.name}
               </span>
             </div>
@@ -175,11 +176,9 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
   if (compact) {
     return (
       <form onSubmit={handleSubmit} className="flex gap-2 items-center">
-        <div className="relative w-[28rem]">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+        <div className="relative w-52 lg:w-64">
+          <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground">
+            <Search className="size-3.5" />
           </div>
           <Input
             ref={inputRef}
@@ -192,7 +191,7 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             onKeyDown={handleKeyDown}
             autoComplete="off"
-            className="h-10 pl-10 text-sm bg-white/5 border-white/10 focus:border-blue-500/50 focus:bg-white/10 transition-all"
+            className="h-8 pl-8 text-sm"
           />
           {suggestionsList}
         </div>
@@ -200,45 +199,39 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
           type="submit"
           size="sm"
           disabled={loading}
-          className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 h-10 px-4"
+          className="h-8"
         >
           {loading ? (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
           ) : (
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
+              <Plus className="size-4" />
               Add
             </div>
           )}
         </Button>
         {error && (
-          <span className="text-red-400 text-xs bg-red-500/10 px-2 py-1 rounded-lg">{error}</span>
+          <span className="text-negative text-xs bg-negative/10 px-2 py-1 rounded-lg">{error}</span>
         )}
       </form>
     );
   }
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-white/[0.07] to-white/[0.02] border border-white/10 overflow-hidden">
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10 bg-gradient-to-r from-blue-500/10 to-transparent">
-        <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-          <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
+    <div className="rounded-lg bg-card border border-border overflow-hidden">
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-border">
+        <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+          <Plus className="size-4 text-primary" />
         </div>
-        <h2 className="font-semibold text-white">Add Symbol</h2>
+        <h2 className="font-semibold text-foreground">Add Symbol</h2>
       </div>
       <div className="p-6">
         <form onSubmit={handleSubmit} className="flex gap-4 items-end">
           <div className="flex-1 relative">
-            <label className="text-sm font-medium mb-2 block text-white/70">Symbol</label>
+            <label className="text-sm font-medium mb-2 block text-muted-foreground">Symbol</label>
             <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground">
+                <Search className="size-3.5" />
               </div>
               <Input
                 ref={inputRef}
@@ -252,7 +245,7 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
                 onKeyDown={handleKeyDown}
                 autoComplete="off"
                 required
-                className="pl-10 bg-white/5 border-white/10 focus:border-blue-500/50"
+                className="pl-10 bg-muted border-border focus:border-primary/50"
               />
             </div>
             {suggestionsList}
@@ -260,25 +253,23 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
           <Button
             type="submit"
             disabled={loading}
-            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {loading ? (
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                 Adding...
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
+                <Plus className="size-4" />
                 Add Symbol
               </div>
             )}
           </Button>
         </form>
         {error && (
-          <p className="text-red-400 text-sm mt-3 bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>
+          <p className="text-negative text-sm mt-3 bg-negative/10 px-3 py-2 rounded-lg">{error}</p>
         )}
       </div>
     </div>

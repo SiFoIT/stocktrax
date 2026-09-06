@@ -86,15 +86,15 @@ export function ScreenContent({ screen, onScreenUpdated }: ScreenContentProps) {
 
   if (!screen) {
     return (
-      <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 p-12">
+      <div className="rounded-lg bg-card border border-border p-12">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-violet-500/20 flex items-center justify-center">
-            <svg className="w-8 h-8 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-muted-foreground/20 flex items-center justify-center">
+            <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12m6-6H6" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-black dark:text-white mb-2">No Screen Selected</h3>
-          <p className="text-black/50 dark:text-white/50">Create your first screen using the dropdown above.</p>
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Screen Selected</h3>
+          <p className="text-muted-foreground">Create your first screen using the dropdown above.</p>
         </div>
       </div>
     );
@@ -102,18 +102,18 @@ export function ScreenContent({ screen, onScreenUpdated }: ScreenContentProps) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
+      <div className="rounded-lg bg-card border border-border overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-violet-500/10 to-transparent">
+        <div className="px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
-              <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-8 h-8 rounded-lg bg-muted-foreground/20 flex items-center justify-center">
+              <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
             </div>
             <div>
-              <h2 className="font-semibold text-black dark:text-white">{screen.name}</h2>
-              <p className="text-xs text-black/50 dark:text-white/50">
+              <h2 className="font-semibold text-foreground">{screen.name}</h2>
+              <p className="text-xs text-muted-foreground">
                 {rules.length} rule{rules.length !== 1 ? "s" : ""} configured
               </p>
             </div>
@@ -136,9 +136,9 @@ export function ScreenContent({ screen, onScreenUpdated }: ScreenContentProps) {
       </div>
 
       {/* Results */}
-      <div className="rounded-2xl bg-gradient-to-br from-black/[0.03] to-black/[0.01] dark:from-white/[0.07] dark:to-white/[0.02] border border-black/10 dark:border-white/10 overflow-hidden">
-        <div className="px-6 py-4 border-b border-black/10 dark:border-white/10 bg-gradient-to-r from-violet-500/5 to-transparent">
-          <h3 className="text-sm font-semibold text-black dark:text-white">Results</h3>
+      <div className="rounded-lg bg-card border border-border overflow-hidden">
+        <div className="px-6 py-4 border-b border-border bg-accent">
+          <h3 className="text-sm font-semibold text-foreground">Results</h3>
         </div>
         <div className="p-4">
           <ScreenResults

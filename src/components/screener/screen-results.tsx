@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { METRICS, type ScreenRule } from "@/lib/screener/metrics";
 import type { ScreenResult } from "@/lib/screener/api";
 
@@ -29,7 +30,7 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
 
   if (results === null) {
     return (
-      <div className="flex items-center justify-center py-16 text-black/40 dark:text-white/40">
+      <div className="flex items-center justify-center py-16 text-subtle-foreground">
         <div className="text-center">
           <svg className="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -69,15 +70,13 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
   const renderSortHeader = (label: string, sortKeyName: string) => (
     <th
       key={sortKeyName}
-      className="px-3 py-2 text-left text-xs font-medium text-black/50 dark:text-white/50 cursor-pointer hover:text-black dark:hover:text-white transition-colors whitespace-nowrap"
+      className="px-3 py-2 text-left text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors whitespace-nowrap"
       onClick={() => handleSort(sortKeyName)}
     >
       <div className="flex items-center gap-1">
         {label}
         {sortKey === sortKeyName && (
-          <svg className={`w-3 h-3 transition-transform ${sortDir === "asc" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          <ChevronDown className={`size-3 transition-transform ${sortDir === "asc" ? "rotate-180" : ""}`} />
         )}
       </div>
     </th>
@@ -87,16 +86,16 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
     <div>
       {/* Summary bar */}
       <div className="flex items-center gap-4 mb-3 text-sm">
-        <span className="text-black/50 dark:text-white/50">
-          Scanned <span className="font-semibold text-black dark:text-white">{totalScanned}</span> symbols
+        <span className="text-muted-foreground">
+          Scanned <span className="font-semibold text-foreground">{totalScanned}</span> symbols
         </span>
-        <span className="text-black/50 dark:text-white/50">
-          <span className="font-semibold text-violet-500">{matchCount}</span> match{matchCount !== 1 ? "es" : ""}
+        <span className="text-muted-foreground">
+          <span className="font-semibold text-muted-foreground">{matchCount}</span> match{matchCount !== 1 ? "es" : ""}
         </span>
       </div>
 
       {results.length === 0 ? (
-        <div className="flex items-center justify-center py-12 text-black/40 dark:text-white/40">
+        <div className="flex items-center justify-center py-12 text-subtle-foreground">
           <div className="text-center">
             <svg className="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
@@ -108,9 +107,9 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-black/10 dark:border-white/10">
+              <tr className="border-b border-border">
                 {renderSortHeader("Symbol", "symbol")}
-                <th className="px-3 py-2 text-left text-xs font-medium text-black/50 dark:text-white/50">Name</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Name</th>
                 {renderSortHeader("Price", "price")}
                 {renderSortHeader("Today's Change", "changePercent")}
                 {usedMetrics.map((key) => renderSortHeader(METRICS[key]?.label ?? key, key))}
@@ -120,17 +119,17 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
               {sortedResults.map((result) => (
                 <tr
                   key={result.symbol}
-                  className="border-b border-black/5 dark:border-white/5 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
+                  className="border-b border-border hover:bg-accent/40 transition-colors"
                 >
-                  <td className="px-3 py-2.5 font-semibold text-black dark:text-white">{result.symbol}</td>
-                  <td className="px-3 py-2.5 text-black/60 dark:text-white/60 max-w-[200px] truncate">
+                  <td className="px-3 py-2.5 font-semibold text-foreground">{result.symbol}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground max-w-[200px] truncate">
                     {result.shortName ?? ""}
                   </td>
-                  <td className="px-3 py-2.5 font-mono text-black dark:text-white">
+                  <td className="px-3 py-2.5 font-mono text-foreground">
                     {result.price != null ? `$${result.price.toFixed(2)}` : "N/A"}
                   </td>
                   <td className={`px-3 py-2.5 font-mono ${
-                    (result.changePercent ?? 0) >= 0 ? "text-emerald-500" : "text-red-500"
+                    (result.changePercent ?? 0) >= 0 ? "text-positive" : "text-negative"
                   }`}>
                     {result.changePercent != null ? `${result.changePercent >= 0 ? "+" : ""}${result.changePercent.toFixed(2)}%` : "N/A"}
                   </td>
@@ -138,7 +137,7 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
                     const metricDef = METRICS[key];
                     const value = result.metricValues[key];
                     return (
-                      <td key={key} className="px-3 py-2.5 font-mono text-black/70 dark:text-white/70">
+                      <td key={key} className="px-3 py-2.5 font-mono text-foreground/80">
                         {formatMetricValue(value, metricDef?.unit ?? "")}
                       </td>
                     );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   collectSettings,
@@ -189,18 +190,18 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950 border border-white/10 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden max-h-[90vh] flex flex-col"
+        className="bg-card border border-border rounded-lg max-w-lg w-full overflow-hidden max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-cyan-500/10 to-transparent shrink-0">
+        <div className="relative overflow-hidden shrink-0">
           <div className="relative flex items-start justify-between p-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-md bg-cyan-500/20 flex items-center justify-center">
                 <svg
                   className="w-5 h-5 text-cyan-400"
                   fill="none"
@@ -216,8 +217,8 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                 </svg>
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">Data & Backup</h2>
-                <p className="text-sm text-white/50">
+                <h2 className="text-base font-semibold tracking-tight text-foreground">Data & Backup</h2>
+                <p className="text-sm text-muted-foreground">
                   Export or import your data
                 </p>
               </div>
@@ -226,21 +227,9 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-white/50 hover:text-white hover:bg-white/10"
+              className="text-muted-foreground hover:text-foreground hover:bg-accent"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              <X className="size-5" />
             </Button>
           </div>
         </div>
@@ -248,11 +237,11 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
         {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto">
           {/* Export Section */}
-          <div className="rounded-xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/10 bg-gradient-to-r from-emerald-500/20 to-transparent">
-              <h3 className="text-sm font-semibold flex items-center gap-2 text-white">
+          <div className="rounded-lg bg-card border border-border overflow-hidden">
+            <div className="px-4 py-3 border-b border-border bg-accent">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
                 <svg
-                  className="w-4 h-4 text-emerald-400"
+                  className="w-4 h-4 text-positive"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -266,7 +255,7 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                 </svg>
                 Export
               </h3>
-              <p className="text-xs text-white/50 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Back up your watchlists, portfolios, and settings
               </p>
             </div>
@@ -275,11 +264,11 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                 <button
                   onClick={handleExportToICloud}
                   disabled={isExporting}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-white/5 border border-transparent hover:bg-white/10 hover:border-white/10 transition-all disabled:opacity-50"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-muted border border-transparent hover:bg-accent hover:border-border transition-colors disabled:opacity-50"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/30 to-cyan-500/30 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
                     <svg
-                      className="w-4 h-4 text-blue-400"
+                      className="w-4 h-4 text-primary"
                       fill="currentColor"
                       viewBox="0 0 24 24"
                     >
@@ -287,10 +276,10 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                     </svg>
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-sm font-medium text-foreground">
                       Save to iCloud
                     </p>
-                    <p className="text-xs text-white/50">
+                    <p className="text-xs text-muted-foreground">
                       Automatically syncs across devices
                     </p>
                   </div>
@@ -300,11 +289,11 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
               <button
                 onClick={handleExportToFile}
                 disabled={isExporting}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-white/5 border border-transparent hover:bg-white/10 hover:border-white/10 transition-all disabled:opacity-50"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-muted border border-transparent hover:bg-accent hover:border-border transition-colors disabled:opacity-50"
               >
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/30 to-teal-500/30 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
                   <svg
-                    className="w-4 h-4 text-emerald-400"
+                    className="w-4 h-4 text-positive"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -318,8 +307,8 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                   </svg>
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-medium text-white">Download File</p>
-                  <p className="text-xs text-white/50">
+                  <p className="text-sm font-medium text-foreground">Download File</p>
+                  <p className="text-xs text-muted-foreground">
                     Save JSON backup to your computer
                   </p>
                 </div>
@@ -329,8 +318,8 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                 <div
                   className={`px-3 py-2 rounded-lg text-sm ${
                     exportMessage.type === "success"
-                      ? "bg-emerald-500/20 text-emerald-300"
-                      : "bg-red-500/20 text-red-300"
+                      ? "bg-positive/20 text-positive"
+                      : "bg-negative/20 text-negative"
                   }`}
                 >
                   {exportMessage.text}
@@ -340,11 +329,11 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
           </div>
 
           {/* Import Section */}
-          <div className="rounded-xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/10 bg-gradient-to-r from-amber-500/20 to-transparent">
-              <h3 className="text-sm font-semibold flex items-center gap-2 text-white">
+          <div className="rounded-lg bg-card border border-border overflow-hidden">
+            <div className="px-4 py-3 border-b border-border bg-accent">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
                 <svg
-                  className="w-4 h-4 text-amber-400"
+                  className="w-4 h-4 text-warning"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -358,7 +347,7 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                 </svg>
                 Import
               </h3>
-              <p className="text-xs text-white/50 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Restore from a backup file
               </p>
             </div>
@@ -367,8 +356,8 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                 <div
                   className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
                     isDragging
-                      ? "border-amber-500/50 bg-amber-500/10"
-                      : "border-white/10 hover:border-white/20"
+                      ? "border-warning/50 bg-warning/10"
+                      : "border-border hover:border-border-strong"
                   }`}
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -388,7 +377,7 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                     }}
                   />
                   <svg
-                    className="w-10 h-10 mx-auto text-white/30 mb-3"
+                    className="w-10 h-10 mx-auto text-subtle-foreground mb-3"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -400,14 +389,14 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                       d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                     />
                   </svg>
-                  <p className="text-sm text-white/50 mb-2">
+                  <p className="text-sm text-muted-foreground mb-2">
                     Drag and drop a backup file here, or
                   </p>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
-                    className="border-white/20 text-white hover:bg-white/10"
+                    className="border-border-strong text-foreground hover:bg-accent"
                   >
                     Choose File
                   </Button>
@@ -416,42 +405,42 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
 
               {importStatus === "preview" && importData && (
                 <div className="space-y-4">
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                    <p className="text-sm text-amber-300 font-medium">
+                  <div className="bg-warning/10 border border-warning/20 rounded-lg p-3">
+                    <p className="text-sm text-warning font-medium">
                       Warning: This will replace all existing data
                     </p>
-                    <p className="text-xs text-amber-300/70 mt-1">
+                    <p className="text-xs text-warning/70 mt-1">
                       Your current watchlists, portfolios, and settings will be
                       overwritten.
                     </p>
                   </div>
 
-                  <div className="bg-white/5 rounded-lg p-3 space-y-2">
-                    <p className="text-xs text-white/50">
+                  <div className="bg-muted rounded-lg p-3 space-y-2">
+                    <p className="text-xs text-muted-foreground">
                       Backup from: {formatDate(importData.exportedAt)}
                     </p>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-white/50">Portfolios:</span>
-                        <span className="text-white font-medium">
+                        <span className="text-muted-foreground">Portfolios:</span>
+                        <span className="text-foreground font-medium">
                           {importData.data.portfolios.length}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-white/50">Holdings:</span>
-                        <span className="text-white font-medium">
+                        <span className="text-muted-foreground">Holdings:</span>
+                        <span className="text-foreground font-medium">
                           {importData.data.holdings.length}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-white/50">Transactions:</span>
-                        <span className="text-white font-medium">
+                        <span className="text-muted-foreground">Transactions:</span>
+                        <span className="text-foreground font-medium">
                           {importData.data.transactions.length}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-white/50">Watchlists:</span>
-                        <span className="text-white font-medium">
+                        <span className="text-muted-foreground">Watchlists:</span>
+                        <span className="text-foreground font-medium">
                           {importData.data.watchlists.length}
                         </span>
                       </div>
@@ -463,14 +452,14 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                       variant="outline"
                       size="sm"
                       onClick={handleImportCancel}
-                      className="flex-1 border-white/20 text-white hover:bg-white/10"
+                      className="flex-1 border-border-strong text-foreground hover:bg-accent"
                     >
                       Cancel
                     </Button>
                     <Button
                       size="sm"
                       onClick={handleImportConfirm}
-                      className="flex-1 bg-amber-500 hover:bg-amber-600 text-black"
+                      className="flex-1 bg-warning hover:bg-warning text-black"
                     >
                       Import
                     </Button>
@@ -480,24 +469,24 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
 
               {importStatus === "importing" && (
                 <div className="text-center py-6">
-                  <div className="w-8 h-8 border-2 border-white/20 border-t-amber-400 rounded-full animate-spin mx-auto mb-3" />
-                  <p className="text-sm text-white/50">Importing data...</p>
+                  <div className="w-8 h-8 border-2 border-border-strong border-t-amber-400 rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">Importing data...</p>
                 </div>
               )}
 
               {importStatus === "success" && importResult && (
                 <div className="space-y-4">
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
-                    <p className="text-sm text-emerald-300 font-medium">
+                  <div className="bg-positive/10 border border-positive/20 rounded-lg p-3">
+                    <p className="text-sm text-positive font-medium">
                       Import successful!
                     </p>
-                    <p className="text-xs text-emerald-300/70 mt-1">
+                    <p className="text-xs text-positive/70 mt-1">
                       Refresh the page to see your imported data.
                     </p>
                   </div>
 
-                  <div className="bg-white/5 rounded-lg p-3 space-y-1 text-sm">
-                    <p className="text-white/70">
+                  <div className="bg-muted rounded-lg p-3 space-y-1 text-sm">
+                    <p className="text-muted-foreground">
                       Imported {importResult.portfolios} portfolios,{" "}
                       {importResult.holdings} holdings,{" "}
                       {importResult.transactions} transactions,{" "}
@@ -509,7 +498,7 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                   <Button
                     size="sm"
                     onClick={() => window.location.reload()}
-                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-black"
+                    className="w-full bg-positive hover:bg-positive text-black"
                   >
                     Refresh Page
                   </Button>
@@ -518,18 +507,18 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
 
               {importStatus === "error" && (
                 <div className="space-y-4">
-                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                    <p className="text-sm text-red-300 font-medium">
+                  <div className="bg-negative/10 border border-negative/20 rounded-lg p-3">
+                    <p className="text-sm text-negative font-medium">
                       Import failed
                     </p>
-                    <p className="text-xs text-red-300/70 mt-1">{importError}</p>
+                    <p className="text-xs text-negative/70 mt-1">{importError}</p>
                   </div>
 
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleImportCancel}
-                    className="w-full border-white/20 text-white hover:bg-white/10"
+                    className="w-full border-border-strong text-foreground hover:bg-accent"
                   >
                     Try Again
                   </Button>
