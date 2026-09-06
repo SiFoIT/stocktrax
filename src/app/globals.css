@@ -69,11 +69,11 @@
   --border-strong: rgba(0, 0, 0, 0.16);
   --input: rgba(0, 0, 0, 0.16);
   --ring: #2f6fe0;
-  --chart-1: #4f8ff7;
-  --chart-2: #3bb8a5;
-  --chart-3: #8b7cf6;
-  --chart-4: #d9a441;
-  --chart-5: #e0637a;
+  --chart-1: #1a6df5;
+  --chart-2: #2a8275;
+  --chart-3: #705df4;
+  --chart-4: #986d1e;
+  --chart-5: #d73654;
 }
 
 .dark {

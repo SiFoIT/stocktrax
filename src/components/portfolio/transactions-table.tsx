@@ -34,10 +34,31 @@ function toInputDate(dateStr: string): string {
   return d.toISOString().split("T")[0];
 }
 
-function getTypeBadge() {
-  // The Type column names the type, and the Total column carries the sign, so the
-  // badge only has to be legible - it does not need to be ten different colours.
-  return "bg-muted text-muted-foreground border-border";
+function getTypeBadge(type: string) {
+  // Colour-coded so a long ledger can be scanned by type. Theme-aware tokens, not
+  // Tailwind -400 shades, so the badges stay legible in light mode too.
+  switch (type) {
+    case "buy":
+    case "contribution":
+      return "bg-positive/15 text-positive border-positive/25";
+    case "sell":
+    case "transfer_out":
+      return "bg-negative/15 text-negative border-negative/25";
+    case "dividend":
+      return "bg-warning/15 text-warning border-warning/25";
+    case "transfer_in":
+      return "bg-primary/15 text-primary border-primary/25";
+    case "deposit":
+      return "bg-chart-2/15 text-chart-2 border-chart-2/25";
+    case "refund":
+      return "bg-chart-5/15 text-chart-5 border-chart-5/25";
+    case "fx_conversion":
+      return "bg-chart-1/15 text-chart-1 border-chart-1/25";
+    case "referral":
+      return "bg-chart-3/15 text-chart-3 border-chart-3/25";
+    default:
+      return "bg-muted text-muted-foreground border-border";
+  }
 }
 
 function formatTypeLabel(type: string): string {
@@ -288,7 +309,7 @@ export function TransactionsTable({
           </td>
         )}
         <td className="px-3.5 py-2.5">
-          <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-semibold border ${getTypeBadge()}`}>
+          <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-medium border ${getTypeBadge(txn.type)}`}>
             {formatTypeLabel(txn.type)}
           </span>
         </td>
