@@ -339,7 +339,7 @@ export function AppHeader({
           StockTrax
         </Link>
 
-        <nav ref={navRef} className="-mb-px flex gap-0.5 overflow-x-auto" aria-label="Sections">
+        <nav ref={navRef} className="-mb-px flex flex-wrap gap-0.5" aria-label="Sections">
           <button type="button" onClick={() => handleTabClick("general")} data-active={activeTab === "general"} className={`${tabClass} shrink-0 px-3`}>
             General
           </button>
