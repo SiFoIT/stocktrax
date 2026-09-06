@@ -34,10 +34,6 @@ export function getChangeColor(value: number | undefined): string {
   return value >= 0 ? "text-positive" : "text-negative";
 }
 
-export function getChangeBg(value: number | undefined): string {
-  if (value === undefined) return "bg-muted";
-  return value >= 0 ? "bg-positive/10" : "bg-negative/10";
-}
 
 /** Format a ratio (0-1) as percentage, e.g. 0.5 -> "50.00%" */
 export function formatPercentRatio(value: number | undefined): string {
