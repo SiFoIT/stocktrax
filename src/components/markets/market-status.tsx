@@ -3,29 +3,11 @@
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { formatUpdatedTime } from "@/lib/utils";
-import { isMarketOpen } from "@/lib/markets/calendar";
 
 interface MarketStatusProps {
   onRefresh: () => void;
   isLoading: boolean;
   updatedAt?: Date | null;
-}
-
-export function MarketStatusIndicator() {
-  const open = isMarketOpen();
-
-  return (
-    <div className="flex items-center gap-2">
-      <div
-        className={`w-2 h-2 rounded-full ${
-          open ? "bg-positive animate-pulse" : "bg-negative"
-        }`}
-      />
-      <span className="text-sm text-foreground/80">
-        Markets {open ? "open" : "closed"}
-      </span>
-    </div>
-  );
 }
 
 export function MarketStatus({ onRefresh, isLoading, updatedAt }: MarketStatusProps) {

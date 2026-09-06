@@ -286,3 +286,61 @@ export function isMarketOpen(date?: Date): boolean {
   const closeMinutes = getEarlyCloseDays(et.year).has(dateStr) ? 13 * 60 : 16 * 60;
   return timeMinutes >= 9 * 60 + 30 && timeMinutes < closeMinutes;
 }
+
+function nextCalendarDay(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const next = new Date(y, m - 1, d + 1);
+  return toDateStr(next.getFullYear(), next.getMonth() + 1, next.getDate());
+}
+
+/**
+ * Build a Date for a wall-clock time in Eastern Time.
+ * Uses the offset approach: treat the wall clock as UTC, measure how far that
+ * instant's ET rendering drifts, then correct by that amount. The probe instant
+ * is only a few hours from the target and market times are never adjacent to a
+ * Sunday 2 AM DST switch, so the offset is always the right one.
+ */
+function easternWallClock(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number
+): Date {
+  const guess = Date.UTC(year, month - 1, day, hour, minute);
+  const et = toEasternComponents(new Date(guess));
+  const etAsUtc = Date.UTC(et.year, et.month - 1, et.day, et.hour, et.minute);
+  return new Date(guess + (guess - etAsUtc));
+}
+
+/**
+ * The next time the NYSE opens or closes.
+ * `open` reports the state *now*, so `at` is the upcoming close when the market
+ * is open and the upcoming open when it is closed. Accounts for weekends,
+ * holidays and 1:00 PM ET early-close half-days.
+ */
+export function getNextMarketTransition(date?: Date): { open: boolean; at: Date } {
+  const d = date ?? new Date();
+  const et = toEasternComponents(d);
+
+  if (isMarketOpen(d)) {
+    const dateStr = toDateStr(et.year, et.month, et.day);
+    const closeHour = getEarlyCloseDays(et.year).has(dateStr) ? 13 : 16;
+    return { open: true, at: easternWallClock(et.year, et.month, et.day, closeHour, 0) };
+  }
+
+  let dateStr = toDateStr(et.year, et.month, et.day);
+  const timeMinutes = et.hour * 60 + et.minute;
+  const opensLaterToday = isTradingDay(dateStr) && timeMinutes < 9 * 60 + 30;
+
+  if (!opensLaterToday) {
+    dateStr = nextCalendarDay(dateStr);
+    let guard = 0;
+    while (!isTradingDay(dateStr) && guard++ < 10) {
+      dateStr = nextCalendarDay(dateStr);
+    }
+  }
+
+  const [y, m, day] = dateStr.split("-").map(Number);
+  return { open: false, at: easternWallClock(y, m, day, 9, 30) };
+}

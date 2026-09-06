@@ -3,11 +3,12 @@ interface SparklineProps {
   width?: number;
   height?: number;
   positive: boolean;
+  className?: string;
 }
 
-export function Sparkline({ data, width = 60, height = 24, positive }: SparklineProps) {
+export function Sparkline({ data, width = 60, height = 24, positive, className }: SparklineProps) {
   if (data.length < 2) {
-    return <div style={{ width, height }} />;
+    return <div style={{ width, height }} className={className} />;
   }
 
   const min = Math.min(...data);
@@ -21,10 +22,10 @@ export function Sparkline({ data, width = 60, height = 24, positive }: Sparkline
   });
 
   const pathD = `M ${points.join(" L ")}`;
-  const strokeColor = positive ? "#22c55e" : "#ef4444";
+  const strokeColor = positive ? "var(--positive)" : "var(--negative)";
 
   return (
-    <svg width={width} height={height} className="overflow-visible">
+    <svg width={width} height={height} className={`overflow-visible ${className ?? ""}`}>
       <path
         d={pathD}
         fill="none"

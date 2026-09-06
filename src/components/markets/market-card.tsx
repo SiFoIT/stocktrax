@@ -1,42 +1,21 @@
 import { Bell } from "lucide-react";
 import { MarketData } from "@/types";
+import { formatPercent } from "@/lib/utils";
 import { Sparkline } from "./sparkline";
 import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
+import { alertBellClass, formatMarketChange, formatMarketPrice, type AlertState } from "./market-format";
 
 interface MarketCardProps {
   data: MarketData;
   onClick?: () => void;
   onChartClick?: () => void;
-  alertState?: { hasRules: boolean; triggered: boolean };
+  alertState?: AlertState;
   onAlertClick?: () => void;
 }
 
 export function MarketCard({ data, onClick, onChartClick, alertState, onAlertClick }: MarketCardProps) {
   const isPositive = data.change >= 0;
   const changeColor = isPositive ? "text-positive" : "text-negative";
-
-  const isCurrency = data.symbol.includes("=X");
-
-  const formatPrice = (price: number) => {
-    if (isCurrency) {
-      return price.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-    }
-    if (price >= 10000) {
-      return price.toLocaleString(undefined, { maximumFractionDigits: 0 });
-    }
-    return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
-
-  const formatChange = (change: number) => {
-    const sign = change >= 0 ? "+" : "";
-    const decimals = isCurrency ? 3 : 2;
-    return `${sign}${change.toFixed(decimals)}`;
-  };
-
-  const formatPercent = (percent: number) => {
-    const sign = percent >= 0 ? "+" : "";
-    return `${sign}${percent.toFixed(2)}%`;
-  };
 
   return (
     <div
@@ -49,11 +28,7 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
             <h3 className="truncate text-sm font-medium text-foreground">{data.name}</h3>
             {onAlertClick && (
               <button
-                className={`shrink-0 rounded p-1 transition-colors ${(() => {
-                  if (alertState?.triggered) return "text-negative hover:bg-negative/10";
-                  if (alertState?.hasRules) return "text-positive hover:bg-positive/10";
-                  return "text-subtle-foreground hover:bg-accent hover:text-foreground";
-                })()}`}
+                className={`shrink-0 rounded p-1 transition-colors ${alertBellClass(alertState)}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onAlertClick();
@@ -87,11 +62,11 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
       </div>
       <div className="flex items-end justify-between">
         <span className="text-lg font-semibold tracking-tight text-foreground">
-          {formatPrice(data.price)}
+          {formatMarketPrice(data.price, data.symbol)}
         </span>
         <div className="text-right">
           <span className={`text-sm font-medium ${changeColor}`}>
-            {formatChange(data.change)}
+            {formatMarketChange(data.change, data.symbol)}
           </span>
           <span className={`block text-xs ${changeColor}`}>
             {formatPercent(data.changePercent)}

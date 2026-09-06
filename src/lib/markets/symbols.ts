@@ -51,3 +51,6 @@ export const CATEGORY_LABELS: Record<Category, string> = {
 };
 
 export const CATEGORIES: Category[] = ["markets", "commodities", "currency", "crypto"];
+
+/** The four indices promoted to full cards at the top of the Markets panel. */
+export const HEADLINE_SYMBOLS = ["^GSPC", "^GSPTSE", "^IXIC", "^DJI"] as const;

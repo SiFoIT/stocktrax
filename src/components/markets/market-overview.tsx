@@ -1,12 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Category, CATEGORIES, CATEGORY_LABELS } from "@/lib/markets/symbols";
-import { MarketData, AlertRuleDTO, AlertHistoryEntry } from "@/types";
+import { Category, CATEGORIES, CATEGORY_LABELS, HEADLINE_SYMBOLS } from "@/lib/markets/symbols";
+import {
+  MarketData,
+  AlertRuleDTO,
+  AlertHistoryEntry,
+  WatchlistItemWithQuote,
+  TriggeredAlertSummary,
+} from "@/types";
 import { Loader2 } from "lucide-react";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { MarketCard } from "./market-card";
-import { MarketStatus, MarketStatusIndicator } from "./market-status";
+import { MarketTable } from "./market-table";
+import { MarketGlance } from "./market-glance";
+import { MarketStatus } from "./market-status";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { AlertsPanel } from "@/components/alerts/alerts-panel";
@@ -23,7 +31,39 @@ import {
 
 type MarketDataByCategory = Record<Category, MarketData[]>;
 
-export function MarketOverview() {
+/**
+ * Two balanced columns of demoted rows: 7 indices + 3 crypto on the left,
+ * 6 currency pairs + 3 commodities on the right.
+ *
+ * Below `lg` the column wrappers become `display: contents`, so all four tables
+ * are direct grid children and `order` puts them in reading order —
+ * Markets, Commodities, Currency, Crypto. Nested columns (rather than a plain
+ * four-child grid) are what keep the tables tightly stacked at `lg`, with no
+ * dead space under the shorter table in a row.
+ */
+const DEMOTED_COLUMNS: { category: Category; order: string }[][] = [
+  [
+    { category: "markets", order: "order-1" },
+    { category: "crypto", order: "order-4" },
+  ],
+  [
+    { category: "currency", order: "order-3" },
+    { category: "commodities", order: "order-2" },
+  ],
+];
+
+interface MarketOverviewProps {
+  /** Owned by the dashboard, which already fetches it for the Watchlists tab. */
+  watchlistItems: WatchlistItemWithQuote[];
+  watchlistLoading: boolean;
+  watchlistAlerts: TriggeredAlertSummary[];
+}
+
+export function MarketOverview({
+  watchlistItems,
+  watchlistLoading,
+  watchlistAlerts,
+}: MarketOverviewProps) {
   const [marketData, setMarketData] = useState<MarketDataByCategory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -130,6 +170,38 @@ export function MarketOverview() {
     }));
   }, [flatMarketData]);
 
+  // The four headline indices become cards; everything else becomes rows.
+  const headlineCards = useMemo(() => {
+    const indices = marketData?.markets ?? [];
+    return HEADLINE_SYMBOLS.map((symbol) => indices.find((d) => d.symbol === symbol)).filter(
+      (d): d is MarketData => d !== undefined
+    );
+  }, [marketData]);
+
+  const demotedByCategory = useMemo(() => {
+    const headline = new Set<string>(HEADLINE_SYMBOLS);
+    const result = {} as MarketDataByCategory;
+    for (const category of CATEGORIES) {
+      result[category] = (marketData?.[category] ?? []).filter((d) => !headline.has(d.symbol));
+    }
+    return result;
+  }, [marketData]);
+
+  const glanceAlertSymbols = useMemo(() => {
+    const symbols = [
+      ...marketAlerts.map((alert) => alert.symbol),
+      ...watchlistAlerts.map((alert) => alert.symbol),
+    ];
+    return [...new Set(symbols)];
+  }, [marketAlerts, watchlistAlerts]);
+
+  /** Every bell on this page opens the market alerts panel; so does the tile. */
+  const handleOpenGlanceAlerts = useCallback(() => {
+    setFocusedAlertSymbol(null);
+    setAlertsPanelOpen(true);
+    loadAlertHistory();
+  }, [loadAlertHistory]);
+
   const handleOpenAlerts = useCallback((symbol: string) => {
     setFocusedAlertSymbol(symbol);
     setAlertsPanelOpen(true);
@@ -159,14 +231,20 @@ export function MarketOverview() {
   return (
     <>
     <div className="space-y-6">
+      <MarketGlance
+        watchlistItems={watchlistItems}
+        watchlistLoading={watchlistLoading}
+        alertSymbols={glanceAlertSymbols}
+        onSelectSymbol={setDetailsSymbol}
+        onOpenAlerts={handleOpenGlanceAlerts}
+      />
+
       <Panel>
         <PanelHeader
           title="Markets"
           meta="Indices, commodities, currency & crypto"
           right={<MarketStatus onRefresh={handleRefresh} isLoading={isLoading} updatedAt={updatedAt} />}
-        >
-          <MarketStatusIndicator />
-        </PanelHeader>
+        />
 
         {/* Market Data Sections */}
         <PanelBody className="space-y-7 p-4">
@@ -180,23 +258,41 @@ export function MarketOverview() {
               <p className="text-muted-foreground">No market data available</p>
             </div>
           ) : (
-            CATEGORIES.map((category) => (
-              <section key={category}>
-                <h3 className="mb-3 text-xs font-medium text-muted-foreground">{CATEGORY_LABELS[category]}</h3>
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {marketData[category]?.map((data) => (
-                    <MarketCard
-                      key={data.symbol}
-                      data={data}
-                      onClick={() => setDetailsSymbol(data.symbol)}
-                      onChartClick={() => setChartIndex(symbolIndexMap.get(data.symbol) ?? 0)}
-                      alertState={marketAlertStates[data.symbol]}
-                      onAlertClick={() => handleOpenAlerts(data.symbol)}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))
+            <>
+              {/* The headline four carry the large price and boxed sparkline. */}
+              <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+                {headlineCards.map((data) => (
+                  <MarketCard
+                    key={data.symbol}
+                    data={data}
+                    onClick={() => setDetailsSymbol(data.symbol)}
+                    onChartClick={() => setChartIndex(symbolIndexMap.get(data.symbol) ?? 0)}
+                    alertState={marketAlertStates[data.symbol]}
+                    onAlertClick={() => handleOpenAlerts(data.symbol)}
+                  />
+                ))}
+              </div>
+
+              {/* Everything else as rows, balanced across two columns on wide screens. */}
+              <div className="grid grid-cols-1 gap-x-8 gap-y-7 lg:grid-cols-2">
+                {DEMOTED_COLUMNS.map((column, i) => (
+                  <div key={i} className="contents lg:block lg:space-y-7">
+                    {column.map(({ category, order }) => (
+                      <MarketTable
+                        key={category}
+                        className={`${order} lg:order-none`}
+                        title={CATEGORY_LABELS[category]}
+                        items={demotedByCategory[category]}
+                        onSelect={setDetailsSymbol}
+                        onChartClick={(symbol) => setChartIndex(symbolIndexMap.get(symbol) ?? 0)}
+                        alertStates={marketAlertStates}
+                        onAlertClick={handleOpenAlerts}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </PanelBody>
       </Panel>

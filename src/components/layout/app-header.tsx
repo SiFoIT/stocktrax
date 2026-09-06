@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, ChevronDown } from "lucide-react";
 import { SettingsMenu } from "@/components/settings/settings-menu";
@@ -331,17 +330,19 @@ export function AppHeader({
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
       <div className="mx-auto flex min-h-[52px] max-w-[1536px] flex-wrap items-center gap-x-7 gap-y-1 px-6">
-        <Link
-          href="/"
+        <button
+          type="button"
+          onClick={() => handleTabClick("general")}
+          aria-label="StockTrax home"
           className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground"
         >
           <span className="size-2 rounded-[2px] bg-primary" />
           StockTrax
-        </Link>
+        </button>
 
         <nav ref={navRef} className="-mb-px flex flex-wrap gap-0.5" aria-label="Sections">
           <button type="button" onClick={() => handleTabClick("general")} data-active={activeTab === "general"} className={`${tabClass} shrink-0 px-3`}>
-            General
+            Markets
           </button>
 
           <div className="relative shrink-0">

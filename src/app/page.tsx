@@ -385,7 +385,13 @@ export default function Dashboard() {
       <div className="mx-auto max-w-[1536px] space-y-4 px-6 py-5">
 
         {/* General Content */}
-        {activeTab === "general" && <MarketOverview />}
+        {activeTab === "general" && (
+          <MarketOverview
+            watchlistItems={watchlistItems}
+            watchlistLoading={watchlistLoading}
+            watchlistAlerts={watchlistAlerts}
+          />
+        )}
 
         {/* Watchlist Content */}
         {activeTab === "watchlist" && (
