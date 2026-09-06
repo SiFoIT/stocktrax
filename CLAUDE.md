@@ -28,13 +28,19 @@ src/
 │   ├── layout.tsx
 │   └── page.tsx                   # Main dashboard (watchlists + portfolios tabs)
 ├── components/
+│   ├── layout/
+│   │   ├── app-header.tsx         # Wordmark + tabs + actions in one 52px row
+│   │   └── nav-dropdown.tsx       # Shared list dropdown for the three nav tabs
 │   ├── charts/
 │   │   ├── allocation-chart.tsx   # Pie chart for portfolio allocation
 │   │   └── price-chart.tsx        # Line/candlestick price chart
 │   ├── portfolio/
 │   │   ├── add-holding-form.tsx
 │   │   └── holdings-table.tsx
-│   ├── ui/                        # shadcn/ui components
+│   ├── ui/                        # shadcn/ui components + restyle primitives
+│   │   ├── panel.tsx              # Panel / PanelHeader / PanelTabs / PanelBody
+│   │   ├── stat-card.tsx          # The one stat tile (dashboard + portfolio page)
+│   │   └── modal.tsx              # Overlay + surface + Escape/scroll-lock
 │   └── watchlist/
 │       ├── add-symbol-form.tsx    # Symbol input with autocomplete
 │       └── watchlist-table.tsx
@@ -109,6 +115,24 @@ exec node server.js
   - Timezone conversion uses offset-based approach (see `toEasternTime` in `src/lib/utils.ts`)
   - Visible range derived from actual data timestamps, not current time
   - Use `subscribeCrosshairMove()` for interactive legend/tooltips
+
+## Design tokens
+
+Defined in `src/app/globals.css`; the full contract is in `docs/ui-restyle-plan.md` §1.
+
+- **Always style from tokens**, never `text-black dark:text-white` pairs: `bg-background`,
+  `bg-card`, `bg-muted`, `bg-accent`, `border-border`, `border-border-strong`,
+  `text-foreground`, `text-muted-foreground`, `text-subtle-foreground`.
+- **One accent.** `--primary` is the only interactive colour (active tab underline,
+  primary button, links). No gradients anywhere.
+- **Colour is for data.** `text-positive` / `text-negative` (via `getChangeColor()`) on
+  numeric changes only; `--warning` only for alert badges and the alerts banner; charts
+  use `--chart-1..5`.
+- **Numbers** are `font-mono` with `tabular-nums` (set globally on `body`).
+- **Radius**: cards `rounded-lg` (8px), controls `rounded-md` (6px). No `shadow-*` on
+  static surfaces, no `backdrop-blur`, no `transition-all`.
+- **Icons** come from `lucide-react` at `size-4` (`size-3.5` in tables). Do not paste
+  inline `<svg>` paths, and do not put decorative icon tiles before headings.
 
 ## Conventions
 

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>StockTrax — proposed restyle (mockup)</title>
+<style>
+  :root{
+    --bg:#0c0e12; --card:#13161b; --card-2:#181c22; --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.14);
+    --fg:#e6e8eb; --muted:#8b919a; --faint:#5c626b;
+    --accent:#4f8ff7; --accent-soft:rgba(79,143,247,.14);
+    --up:#2fb37a; --down:#e5544b; --warn:#d9a441;
+    --sans:-apple-system,"Inter",system-ui,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+  .num{font-variant-numeric:tabular-nums}
+  svg{display:block}
+
+  /* top bar: wordmark + tabs + actions in one row */
+  .topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:28px;background:var(--bg)}
+  .wordmark{font-weight:650;font-size:15px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+  .wordmark i{width:8px;height:8px;border-radius:2px;background:var(--accent);display:inline-block}
+  .tabs{display:flex;height:100%;gap:2px}
+  .tab{display:flex;align-items:center;gap:6px;padding:0 12px;color:var(--muted);height:100%;border-bottom:2px solid transparent;font-weight:500}
+  .tab.active{color:var(--fg);border-bottom-color:var(--accent)}
+  .tab svg{width:12px;height:12px;opacity:.6}
+  .actions{margin-left:auto;display:flex;gap:4px}
+  .ib{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted);border:1px solid transparent}
+  .ib svg{width:16px;height:16px}
+
+  .page{max-width:1232px;margin:0 auto;padding:20px 24px 40px}
+  .crumb{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .crumb a{color:var(--muted);display:flex;align-items:center}
+  .crumb h1{font-size:18px;font-weight:600;margin:0;letter-spacing:-.01em}
+  .crumb .meta{color:var(--faint);font-size:12px;margin-left:4px}
+
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+  .stat .l{color:var(--muted);font-size:12px;margin-bottom:4px;display:flex;align-items:center;gap:5px}
+  .stat .l svg{width:12px;height:12px;opacity:.5}
+  .stat .v{font-size:20px;font-weight:600;letter-spacing:-.01em}
+  .stat .s{font-size:12px;color:var(--muted);margin-top:2px}
+  .up{color:var(--up)} .down{color:var(--down)}
+
+  .seg{display:inline-flex;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:2px;margin-bottom:16px}
+  .seg button{background:none;border:0;color:var(--muted);font:inherit;font-weight:500;padding:5px 12px;border-radius:4px}
+  .seg button.on{background:var(--card-2);color:var(--fg);box-shadow:inset 0 0 0 1px var(--border-strong)}
+
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .panel-h{display:flex;align-items:center;gap:20px;padding:0 16px;height:44px;border-bottom:1px solid var(--border)}
+  .panel-h .t{font-weight:600}
+  .panel-h .t span{color:var(--faint);font-weight:400;margin-left:6px}
+  .subtabs{display:flex;gap:2px;height:100%}
+  .subtabs a{display:flex;align-items:center;padding:0 10px;color:var(--muted);font-size:12.5px;font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .subtabs a.on{color:var(--fg);border-bottom-color:var(--accent)}
+  .panel-h .r{margin-left:auto;display:flex;align-items:center;gap:12px;color:var(--faint);font-size:12px}
+  .btn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:1px solid var(--border-strong);border-radius:6px;color:var(--fg);font:inherit;font-weight:500;background:transparent}
+  .btn svg{width:13px;height:13px;opacity:.7}
+
+  table{width:100%;border-collapse:collapse}
+  th{font-size:11.5px;font-weight:500;color:var(--muted);text-align:right;padding:8px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+  th:first-child{text-align:left}
+  td{padding:9px 14px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+  tr:last-child td{border-bottom:0}
+  tr:hover td{background:rgba(255,255,255,.025)}
+  td.sym{text-align:left;font-family:var(--sans)}
+  td.sym b{font-weight:600;font-size:13px;display:block}
+  td.sym small{color:var(--faint);font-size:11.5px;display:block;margin-top:1px;max-width:190px;overflow:hidden;text-overflow:ellipsis}
+  td .sub{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+  td .sub.up{color:var(--up);opacity:.85} td .sub.down{color:var(--down);opacity:.85}
+  td.dim{color:var(--muted)}
+  td.act{color:var(--faint)} td.act svg{width:14px;height:14px;display:inline-block;margin-left:8px;opacity:.5}
+  .pct{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wordmark"><i></i>StockTrax</div>
+  <nav class="tabs">
+    <a class="tab">General</a>
+    <a class="tab">Watchlists <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></a>
+    <a class="tab active">Portfolios <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></a>
+    <a class="tab">Screens <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></a>
+  </nav>
+  <div class="actions">
+    <div class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div>
+    <div class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></div>
+    <div class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></div>
+  </div>
+</div>
+
+<div class="page">
+  <div class="crumb">
+    <a><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></a>
+    <h1>Dividend Portfolio</h1>
+    <span class="meta">CAD · created Sep 18, 2024</span>
+  </div>
+
+  <div class="stats num">
+    <div class="stat"><div class="l">Total value <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div><div class="v">C$432,857.06</div></div>
+    <div class="stat"><div class="l">Total cost <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div><div class="v">C$277,091.45</div></div>
+    <div class="stat"><div class="l">Total gain/loss <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div><div class="v up">+C$136,415.15</div><div class="s"><span class="up">+49.23%</span> · incl. C$11,345.21 div</div></div>
+    <div class="stat"><div class="l">Holdings</div><div class="v">20</div><div class="s">1 USD · 19 CAD</div></div>
+    <div class="stat"><div class="l">Cash balance</div><div class="v">C$30,695.67</div><div class="s">US$0.03 + C$30,695.63</div></div>
+  </div>
+
+  <div class="seg"><button class="on">Holdings</button><button>Performance</button></div>
+
+  <div class="panel">
+    <div class="panel-h">
+      <div class="t">Holdings<span>20 positions</span></div>
+      <div class="subtabs">
+        <a class="on">Holdings</a><a>Performance</a><a>Dividend</a><a>Insider</a><a>Div returns</a><a>News</a><a>Transactions</a>
+      </div>
+      <div class="r">Updated just now
+        <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>Refresh</button>
+      </div>
+    </div>
+    <table class="num">
+      <thead><tr>
+        <th>Symbol</th><th>Shares</th><th>Avg cost</th><th>Price</th><th>Today</th><th>Value</th><th>% port</th><th>Gain/loss</th><th></th>
+      </tr></thead>
+      <tbody>
+        <tr><td class="sym"><b>TD.TO</b><small>Toronto-Dominion Bank</small></td><td class="dim">265.438</td><td class="dim">83.44</td><td>168.24</td><td class="down">−440.62<span class="sub down">−0.98%</span></td><td>44,657.22</td><td class="pct">11.1%</td><td class="up">+22,509.21<span class="sub up">+101.63%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>T.TO</b><small>Telus Corporation</small></td><td class="dim">848.115</td><td class="dim">24.00</td><td>13.39</td><td class="down">−8.48<span class="sub down">−0.07%</span></td><td>11,356.25</td><td class="pct">2.8%</td><td class="down">−8,994.95<span class="sub down">−44.20%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>TRP.TO</b><small>TC Energy Corp.</small></td><td class="dim">157.966</td><td class="dim">48.49</td><td>86.53</td><td class="down">−22.12<span class="sub down">−0.16%</span></td><td>13,668.83</td><td class="pct">3.4%</td><td class="up">+6,009.58<span class="sub up">+78.46%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>RY.TO</b><small>Royal Bank of Canada</small></td><td class="dim">72.351</td><td class="dim">130.28</td><td>291.48</td><td class="down">−64.39<span class="sub down">−0.30%</span></td><td>21,088.87</td><td class="pct">5.2%</td><td class="up">+11,663.00<span class="sub up">+123.73%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>NA.TO</b><small>National Bank of Canada</small></td><td class="dim">62.114</td><td class="dim">97.43</td><td>217.91</td><td class="up">+0.62<span class="sub up">+0.00%</span></td><td>13,535.24</td><td class="pct">3.4%</td><td class="up">+7,483.63<span class="sub up">+123.66%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>MFC.TO</b><small>Manulife Financial</small></td><td class="dim">309.010</td><td class="dim">23.74</td><td>61.34</td><td class="down">−24.72<span class="sub down">−0.13%</span></td><td>18,954.65</td><td class="pct">4.7%</td><td class="up">+11,618.88<span class="sub up">+158.39%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>CASH.TO</b><small>Global X High Interest Savings ETF</small></td><td class="dim">82.246</td><td class="dim">50.04</td><td>50.02</td><td class="up">+0.82<span class="sub up">+0.02%</span></td><td>4,113.94</td><td class="pct">1.0%</td><td class="down">−1.65<span class="sub down">−0.04%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>FTS.TO</b><small>Fortis Inc</small></td><td class="dim">206.798</td><td class="dim">52.54</td><td>76.47</td><td class="down">−20.68<span class="sub down">−0.13%</span></td><td>15,813.81</td><td class="pct">3.9%</td><td class="up">+4,949.16<span class="sub up">+45.55%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>EMA.TO</b><small>Emera Incorporated</small></td><td class="dim">105.096</td><td class="dim">52.01</td><td>69.73</td><td class="up">+44.14<span class="sub up">+0.61%</span></td><td>7,328.31</td><td class="pct">1.8%</td><td class="up">+1,862.45<span class="sub up">+34.07%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>CPX.TO</b><small>Capital Power Corporation</small></td><td class="dim">157.250</td><td class="dim">40.36</td><td>63.03</td><td class="up">+111.65<span class="sub up">+1.14%</span></td><td>9,911.46</td><td class="pct">2.5%</td><td class="up">+3,564.18<span class="sub up">+56.15%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>CM.TO</b><small>Canadian Imperial Bank of Commerce</small></td><td class="dim">234.494</td><td class="dim">59.93</td><td>162.75</td><td class="down">−58.62<span class="sub down">−0.15%</span></td><td>38,163.95</td><td class="pct">9.5%</td><td class="up">+24,110.14<span class="sub up">+171.56%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>BNS.TO</b><small>Bank of Nova Scotia</small></td><td class="dim">211.939</td><td class="dim">63.20</td><td>129.65</td><td class="down">−237.37<span class="sub down">−0.86%</span></td><td>27,477.85</td><td class="pct">6.8%</td><td class="up">+14,082.77<span class="sub up">+105.13%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>BMO.TO</b><small>Bank of Montreal</small></td><td class="dim">93.949</td><td class="dim">123.01</td><td>242.76</td><td class="down">−75.16<span class="sub down">−0.33%</span></td><td>22,806.94</td><td class="pct">5.7%</td><td class="up">+11,250.19<span class="sub up">+97.35%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+        <tr><td class="sym"><b>BCE.TO</b><small>BCE Inc</small></td><td class="dim">485.520</td><td class="dim">56.73</td><td>32.79</td><td class="down">−19.42<span class="sub down">−0.12%</span></td><td>15,920.20</td><td class="pct">4.0%</td><td class="down">−11,625.02<span class="sub down">−42.20%</span></td><td class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>
