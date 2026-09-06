@@ -14,7 +14,6 @@ interface MarketTableProps {
   onChartClick?: (symbol: string) => void;
   alertStates?: Record<string, AlertState>;
   onAlertClick?: (symbol: string) => void;
-  className?: string;
 }
 
 const headerCell = "px-3 py-2 text-[11.5px] font-medium text-muted-foreground";
@@ -31,12 +30,11 @@ export function MarketTable({
   onChartClick,
   alertStates,
   onAlertClick,
-  className,
 }: MarketTableProps) {
   if (items.length === 0) return null;
 
   return (
-    <section className={className}>
+    <section>
       <h3 className="mb-2 text-xs font-medium text-muted-foreground">{title}</h3>
       <div className="overflow-x-auto">
         <table className="w-full">

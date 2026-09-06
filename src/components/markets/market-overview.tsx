@@ -32,25 +32,12 @@ import {
 type MarketDataByCategory = Record<Category, MarketData[]>;
 
 /**
- * Two balanced columns of demoted rows: 7 indices + 3 crypto on the left,
- * 6 currency pairs + 3 commodities on the right.
- *
- * Below `lg` the column wrappers become `display: contents`, so all four tables
- * are direct grid children and `order` puts them in reading order —
- * Markets, Commodities, Currency, Crypto. Nested columns (rather than a plain
- * four-child grid) are what keep the tables tightly stacked at `lg`, with no
- * dead space under the shorter table in a row.
+ * Demoted rows read left to right, top to bottom: Markets, Commodities,
+ * Currency, Crypto. A plain two-column grid gives exactly that, and keeps each
+ * row's section headings on the same line. The cost is slack under the shorter
+ * table in a row, since grid rows are as tall as their tallest item.
  */
-const DEMOTED_COLUMNS: { category: Category; order: string }[][] = [
-  [
-    { category: "markets", order: "order-1" },
-    { category: "crypto", order: "order-4" },
-  ],
-  [
-    { category: "currency", order: "order-3" },
-    { category: "commodities", order: "order-2" },
-  ],
-];
+const DEMOTED_ORDER: Category[] = ["markets", "commodities", "currency", "crypto"];
 
 interface MarketOverviewProps {
   /** Owned by the dashboard, which already fetches it for the Watchlists tab. */
@@ -274,22 +261,17 @@ export function MarketOverview({
               </div>
 
               {/* Everything else as rows, balanced across two columns on wide screens. */}
-              <div className="grid grid-cols-1 gap-x-8 gap-y-7 lg:grid-cols-2">
-                {DEMOTED_COLUMNS.map((column, i) => (
-                  <div key={i} className="contents lg:block lg:space-y-7">
-                    {column.map(({ category, order }) => (
-                      <MarketTable
-                        key={category}
-                        className={`${order} lg:order-none`}
-                        title={CATEGORY_LABELS[category]}
-                        items={demotedByCategory[category]}
-                        onSelect={setDetailsSymbol}
-                        onChartClick={(symbol) => setChartIndex(symbolIndexMap.get(symbol) ?? 0)}
-                        alertStates={marketAlertStates}
-                        onAlertClick={handleOpenAlerts}
-                      />
-                    ))}
-                  </div>
+              <div className="grid grid-cols-1 items-start gap-x-8 gap-y-7 lg:grid-cols-2">
+                {DEMOTED_ORDER.map((category) => (
+                  <MarketTable
+                    key={category}
+                    title={CATEGORY_LABELS[category]}
+                    items={demotedByCategory[category]}
+                    onSelect={setDetailsSymbol}
+                    onChartClick={(symbol) => setChartIndex(symbolIndexMap.get(symbol) ?? 0)}
+                    alertStates={marketAlertStates}
+                    onAlertClick={handleOpenAlerts}
+                  />
                 ))}
               </div>
             </>
