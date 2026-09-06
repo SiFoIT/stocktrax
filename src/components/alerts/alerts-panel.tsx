@@ -32,8 +32,8 @@ interface AlertsPanelProps {
 const WATCHLIST_METRICS: AlertMetric[] = ["daily_change_percent", "last_price", "price_vs_anchor"];
 const HOLDING_METRICS: AlertMetric[] = ["holding_gain_percent", "price_vs_anchor", "last_price"];
 
-const SELECT_CLASS = "w-full rounded-lg border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/30 px-3 py-2 text-sm";
-const LABEL_CLASS = "text-xs font-semibold text-black/60 dark:text-white/60 block";
+const SELECT_CLASS = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm";
+const LABEL_CLASS = "text-xs font-semibold text-muted-foreground block";
 
 export function AlertsPanel({
   open,
@@ -172,14 +172,14 @@ export function AlertsPanel({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex justify-end" onClick={onClose}>
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="p-5 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 bg-black/60 flex justify-end" onClick={onClose}>
+      <div className="w-full max-w-md bg-card h-full flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="p-5 border-b border-border flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">{scope === "market" ? "Market Alerts" : scope === "watchlist" ? "Watchlist Alerts" : "Portfolio Alerts"}</h2>
-            <p className="text-sm text-black/50 dark:text-white/50">Create and review alert rules tied to this {scope === "market" ? "market overview" : scope === "watchlist" ? "watchlist" : "portfolio"}.</p>
+            <p className="text-sm text-muted-foreground">Create and review alert rules tied to this {scope === "market" ? "market overview" : scope === "watchlist" ? "watchlist" : "portfolio"}.</p>
           </div>
-          <Button variant="ghost" onClick={onClose} className="text-black/60 dark:text-white/60">
+          <Button variant="ghost" onClick={onClose} className="text-muted-foreground">
             Close
           </Button>
         </div>
@@ -187,7 +187,7 @@ export function AlertsPanel({
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
           <section>
             <h3 className="text-sm font-semibold mb-3">Create alert</h3>
-            <form onSubmit={handleSubmit} className="space-y-3 bg-black/5 dark:bg-white/5 rounded-xl p-4">
+            <form onSubmit={handleSubmit} className="space-y-3 bg-muted rounded-md p-4">
               <label className={LABEL_CLASS}>Target <InfoTip text="The symbol this alert watches." /></label>
               <select
                 className={SELECT_CLASS}
@@ -289,16 +289,16 @@ export function AlertsPanel({
               <Button type="submit" disabled={submitting} className="w-full">
                 {submitting ? "Saving..." : "Create alert"}
               </Button>
-              {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+              {error && <p className="text-sm text-negative mt-2">{error}</p>}
             </form>
           </section>
 
           <section>
             <h3 className="text-sm font-semibold mb-3">Active rules</h3>
             <div className="space-y-3">
-              {rules.length === 0 && <p className="text-sm text-black/50 dark:text-white/50">No alert rules yet.</p>}
+              {rules.length === 0 && <p className="text-sm text-muted-foreground">No alert rules yet.</p>}
               {rules.map((rule) => (
-                <div key={rule.id} className="rounded-xl border border-black/10 dark:border-white/10 p-3">
+                <div key={rule.id} className="rounded-md border border-border p-3">
                   {editingRuleId === rule.id ? (
                     /* Edit mode */
                     <div className="space-y-3">
@@ -378,17 +378,17 @@ export function AlertsPanel({
                           Cancel
                         </Button>
                       </div>
-                      {editError && <p className="text-sm text-red-500">{editError}</p>}
+                      {editError && <p className="text-sm text-negative">{editError}</p>}
                     </div>
                   ) : (
                     /* Read-only mode */
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-semibold">{rule.symbol}</p>
-                        <p className="text-xs text-black/50 dark:text-white/50">
+                        <p className="text-xs text-muted-foreground">
                           {ALERT_METRIC_LABELS[rule.metric]} · {ALERT_OPERATOR_LABELS[rule.operator]} {rule.threshold}
                         </p>
-                        <p className="text-xs text-black/40 dark:text-white/40">{ALERT_RESET_LABELS[rule.resetStrategy]}</p>
+                        <p className="text-xs text-subtle-foreground">{ALERT_RESET_LABELS[rule.resetStrategy]}</p>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" variant="ghost" onClick={() => startEditing(rule)} title="Edit rule">
@@ -413,12 +413,12 @@ export function AlertsPanel({
           <section>
             <h3 className="text-sm font-semibold mb-3">Latest alerts</h3>
             <div className="space-y-2">
-              {alerts.length === 0 && <p className="text-sm text-black/50 dark:text-white/50">No alerts triggered yet.</p>}
+              {alerts.length === 0 && <p className="text-sm text-muted-foreground">No alerts triggered yet.</p>}
               {alerts.map((alert) => (
-                <div key={alert.id} className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+                <div key={alert.id} className="rounded-lg bg-warning/10 border border-warning/20 p-3">
                   <p className="text-sm font-semibold">{alert.symbol}</p>
-                  <p className="text-xs text-black/60 dark:text-white/60">{alert.message}</p>
-                  <p className="text-[11px] text-black/40 dark:text-white/40 mt-1">
+                  <p className="text-xs text-muted-foreground">{alert.message}</p>
+                  <p className="text-[11px] text-subtle-foreground mt-1">
                     {new Date(alert.triggeredAt).toLocaleString()}
                   </p>
                 </div>
@@ -429,12 +429,12 @@ export function AlertsPanel({
           <section>
             <h3 className="text-sm font-semibold mb-3">History</h3>
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {groupedHistory.length === 0 && <p className="text-sm text-black/50 dark:text-white/50">No history yet.</p>}
+              {groupedHistory.length === 0 && <p className="text-sm text-muted-foreground">No history yet.</p>}
               {groupedHistory.map((entry) => (
-                <div key={entry.id} className="border border-black/10 dark:border-white/10 rounded-lg p-3">
+                <div key={entry.id} className="border border-border rounded-lg p-3">
                   <p className="text-sm font-semibold">{entry.symbol}</p>
-                  <p className="text-xs text-black/60 dark:text-white/60">{entry.message}</p>
-                  <p className="text-[11px] text-black/40 dark:text-white/40 mt-1">
+                  <p className="text-xs text-muted-foreground">{entry.message}</p>
+                  <p className="text-[11px] text-subtle-foreground mt-1">
                     {new Date(entry.triggeredAt).toLocaleString()}
                   </p>
                 </div>

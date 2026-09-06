@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { ChevronRight, X } from "lucide-react";
 import { PriceChart } from "@/components/charts/price-chart";
 import { formatPercent, getChangeColor } from "@/lib/utils";
 
@@ -123,20 +124,20 @@ export function PriceChartModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
       onClick={onClose}
     >
       <div className="flex flex-row items-stretch gap-2 max-h-[90vh]">
         {/* Sidebar panel — outside the modal */}
         {panelExpanded && (
           <div
-            className="w-[180px] shrink-0 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950 border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className="w-[180px] shrink-0 bg-card border border-border rounded-lg flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Collapse button */}
             <button
               onClick={togglePanel}
-              className="w-full flex items-center justify-center h-9 text-white/40 hover:text-white/70 hover:bg-white/5 transition-all shrink-0 border-b border-white/10"
+              className="w-full flex items-center justify-center h-9 text-subtle-foreground hover:text-muted-foreground hover:bg-muted transition-colors shrink-0 border-b border-border"
               title="Collapse stock list"
             >
               <svg
@@ -156,10 +157,10 @@ export function PriceChartModal({
                   key={item.symbol}
                   data-active={idx === currentIndex ? "true" : undefined}
                   onClick={() => jumpTo(idx)}
-                  className={`w-full flex items-center justify-between px-3 py-1.5 text-left text-sm transition-all ${
+                  className={`w-full flex items-center justify-between px-3 py-1.5 text-left text-sm transition-colors ${
                     idx === currentIndex
-                      ? "bg-blue-500/20 text-white"
-                      : "text-white/60 hover:text-white hover:bg-white/5"
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
                   <span className="font-medium truncate">{item.symbol}</span>
@@ -176,17 +177,17 @@ export function PriceChartModal({
 
         {/* Modal — full width for chart */}
         <div
-          className="relative bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950 border border-white/10 rounded-2xl shadow-2xl w-[95vw] max-w-6xl flex flex-col overflow-hidden"
+          className="relative bg-card border border-border rounded-lg w-[95vw] max-w-6xl flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 bg-gradient-to-r from-purple-500/10 to-transparent shrink-0">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
             <div className="flex items-center gap-3">
               {/* Panel toggle (when collapsed) */}
               {!panelExpanded && (
                 <button
                   onClick={togglePanel}
-                  className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                  className="flex size-8 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                   title="Show stock list"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,7 +198,7 @@ export function PriceChartModal({
               {/* Left arrow */}
               <button
                 onClick={() => navigate(-1)}
-                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                className="flex size-8 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 title="Previous (Left Arrow)"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -206,32 +207,28 @@ export function PriceChartModal({
               </button>
               {/* Symbol + position */}
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold text-white">{currentSymbol}</span>
-                <span className="text-sm text-white/40">
+                <span className="text-base font-semibold tracking-tight text-foreground">{currentSymbol}</span>
+                <span className="text-sm text-subtle-foreground">
                   {currentIndex + 1}/{symbols.length}
                 </span>
               </div>
               {/* Right arrow */}
               <button
                 onClick={() => navigate(1)}
-                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                className="flex size-8 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 title="Next (Right Arrow)"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                <ChevronRight className="size-4" />
               </button>
             </div>
 
             {/* Close */}
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-all"
+              className="flex size-8 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               title="Close (Escape)"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="size-4" />
             </button>
           </div>
 

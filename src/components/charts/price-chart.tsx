@@ -94,8 +94,8 @@ function formatPercent(value: number | undefined): string {
 }
 
 function getChangeColor(value: number | undefined): string {
-  if (value === undefined) return "text-white/50";
-  return value >= 0 ? "text-emerald-400" : "text-red-400";
+  if (value === undefined) return "text-muted-foreground";
+  return value >= 0 ? "text-positive" : "text-negative";
 }
 
 function formatLegendTime(time: Time, isIntraday: boolean): string {
@@ -548,16 +548,16 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
       <div className="flex gap-3 justify-between items-center">
         {/* Time Range Buttons */}
         <div className="flex items-center gap-3">
-          <div className="flex gap-1 p-1 rounded-xl bg-black/5 dark:bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+          <div className="inline-flex rounded-md border border-border bg-muted p-0.5">
             {ranges.map((range) => (
               <button
                 key={range}
                 onClick={() => handleRangeChange(range)}
                 disabled={loading}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
                   activeRange === range
-                    ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg"
-                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                    ? "bg-card text-foreground shadow-[inset_0_0_0_1px_var(--border-strong)]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
                 } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 {range}
@@ -571,53 +571,53 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
           )}
           {/* MA Toggle Buttons - only on daily+ timeframes */}
           {activeRange !== "1D" && activeRange !== "5D" && (
-            <div className="flex gap-1 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+            <div className="inline-flex rounded-md border border-border bg-muted p-0.5">
               <button
                 onClick={() => setShow50SMA((v) => !v)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                   show50SMA
-                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                    ? "bg-warning/20 text-warning border border-warning/30"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
                 }`}
               >
                 MA50
               </button>
               <button
                 onClick={() => setShow200SMA((v) => !v)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                   show200SMA
                     ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
-                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
                 }`}
               >
                 MA200
               </button>
               <button
                 onClick={() => setShowEMA12((v) => !v)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                   showEMA12
                     ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
                 }`}
               >
                 EMA12
               </button>
               <button
                 onClick={() => setShowEMA26((v) => !v)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                   showEMA26
                     ? "bg-pink-500/20 text-pink-400 border border-pink-500/30"
-                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
                 }`}
               >
                 EMA26
               </button>
               <button
                 onClick={() => setShowBB((v) => !v)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                   showBB
                     ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
-                    : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
                 }`}
               >
                 BB
@@ -627,13 +627,13 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
         </div>
 
         {/* Chart Type Toggle */}
-        <div className="flex gap-1 p-1 rounded-xl bg-black/5 dark:bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+        <div className="inline-flex rounded-md border border-border bg-muted p-0.5">
           <button
             onClick={() => setChartType("line")}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
               chartType === "line"
-                ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg"
-                : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                ? "bg-card text-foreground shadow-[inset_0_0_0_1px_var(--border-strong)]"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -643,10 +643,10 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
           </button>
           <button
             onClick={() => setChartType("candle")}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
               chartType === "candle"
-                ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg"
-                : "text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white hover:bg-black/10 dark:hover:bg-white/10"
+                ? "bg-card text-foreground shadow-[inset_0_0_0_1px_var(--border-strong)]"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -658,76 +658,76 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
       </div>
 
       {/* Chart Container */}
-      <div className="rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-white/10 p-4 overflow-hidden">
+      <div className="rounded-md bg-card border border-border p-4 overflow-hidden">
         <div className="relative" style={{ minHeight: height + 80 }}>
           {data.length === 0 && !loading ? (
             <div className="flex flex-col items-center justify-center h-[300px] gap-3">
-              <div className="w-12 h-12 rounded-xl bg-black/5 dark:bg-white/5 flex items-center justify-center">
-                <svg className="w-6 h-6 text-black/30 dark:text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center">
+                <svg className="w-6 h-6 text-subtle-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <span className="text-black/50 dark:text-white/50 text-sm">No price data available</span>
+              <span className="text-muted-foreground text-sm">No price data available</span>
             </div>
           ) : (
             <>
               {/* Loading overlay */}
               {loading && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 backdrop-blur-[1px] rounded-xl">
-                  <div className="w-8 h-8 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 rounded-md">
+                  <div className="w-8 h-8 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
                 </div>
               )}
               {/* OHLCV Legend */}
               {legendData && (
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-2 font-mono">
-                  <span className="text-black/50 dark:text-white/50">{legendData.time}</span>
+                  <span className="text-muted-foreground">{legendData.time}</span>
                   {chartType === "candle" ? (
                     <>
-                      <span className="text-black/50 dark:text-white/50">
-                        O: <span className="text-black dark:text-white">{legendData.open.toFixed(2)}</span>
+                      <span className="text-muted-foreground">
+                        O: <span className="text-foreground">{legendData.open.toFixed(2)}</span>
                       </span>
-                      <span className="text-black/50 dark:text-white/50">
-                        H: <span className="text-black dark:text-white">{legendData.high.toFixed(2)}</span>
+                      <span className="text-muted-foreground">
+                        H: <span className="text-foreground">{legendData.high.toFixed(2)}</span>
                       </span>
-                      <span className="text-black/50 dark:text-white/50">
-                        L: <span className="text-black dark:text-white">{legendData.low.toFixed(2)}</span>
+                      <span className="text-muted-foreground">
+                        L: <span className="text-foreground">{legendData.low.toFixed(2)}</span>
                       </span>
-                      <span className="text-black/50 dark:text-white/50">
-                        C: <span className={legendData.close >= legendData.open ? "text-emerald-500" : "text-red-500"}>
+                      <span className="text-muted-foreground">
+                        C: <span className={legendData.close >= legendData.open ? "text-positive" : "text-negative"}>
                           {legendData.close.toFixed(2)}
                         </span>
                       </span>
                     </>
                   ) : (
-                    <span className="text-black/50 dark:text-white/50">
-                      Close: <span className="text-black dark:text-white">{legendData.close.toFixed(2)}</span>
+                    <span className="text-muted-foreground">
+                      Close: <span className="text-foreground">{legendData.close.toFixed(2)}</span>
                     </span>
                   )}
-                  <span className="text-black/50 dark:text-white/50">
-                    Vol: <span className="text-black dark:text-white">{formatVolume(legendData.volume, 2)}</span>
+                  <span className="text-muted-foreground">
+                    Vol: <span className="text-foreground">{formatVolume(legendData.volume, 2)}</span>
                   </span>
                   {show50SMA && legendData.sma50 !== undefined && (
-                    <span className="text-black/50 dark:text-white/50">
-                      MA50: <span className="text-amber-500">{legendData.sma50.toFixed(2)}</span>
+                    <span className="text-muted-foreground">
+                      MA50: <span className="text-warning">{legendData.sma50.toFixed(2)}</span>
                     </span>
                   )}
                   {show200SMA && legendData.sma200 !== undefined && (
-                    <span className="text-black/50 dark:text-white/50">
+                    <span className="text-muted-foreground">
                       MA200: <span className="text-purple-500">{legendData.sma200.toFixed(2)}</span>
                     </span>
                   )}
                   {showEMA12 && legendData.ema12 !== undefined && (
-                    <span className="text-black/50 dark:text-white/50">
+                    <span className="text-muted-foreground">
                       EMA12: <span className="text-cyan-500">{legendData.ema12.toFixed(2)}</span>
                     </span>
                   )}
                   {showEMA26 && legendData.ema26 !== undefined && (
-                    <span className="text-black/50 dark:text-white/50">
+                    <span className="text-muted-foreground">
                       EMA26: <span className="text-pink-500">{legendData.ema26.toFixed(2)}</span>
                     </span>
                   )}
                   {showBB && legendData.bbUpper !== undefined && legendData.bbMiddle !== undefined && legendData.bbLower !== undefined && (
-                    <span className="text-black/50 dark:text-white/50">
+                    <span className="text-muted-foreground">
                       BB: <span className="text-indigo-400">{legendData.bbUpper.toFixed(2)} / {legendData.bbMiddle.toFixed(2)} / {legendData.bbLower.toFixed(2)}</span>
                     </span>
                   )}
