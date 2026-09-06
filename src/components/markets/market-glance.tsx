@@ -5,6 +5,7 @@ import { WatchlistItemWithQuote } from "@/types";
 import { formatPercent, getChangeColor } from "@/lib/utils";
 import { getNextMarketTransition } from "@/lib/markets/calendar";
 import { StatCard } from "@/components/ui/stat-card";
+import { StockIcon } from "@/components/ui/stock-icon";
 
 /**
  * Placeholders keep every tile at its final height from the first paint, so the
@@ -110,7 +111,18 @@ export function MarketGlance({
   ) => (
     <StatCard
       label={label}
-      value={item ? formatPercent(item.changePercent) : NO_VALUE}
+      value={
+        item ? (
+          // The 24px icon sits inside the value line's 28px leading, so adding it
+          // does not change the tile's height.
+          <span className="flex items-center gap-2">
+            <StockIcon symbol={item.symbol} size="sm" />
+            <span>{formatPercent(item.changePercent)}</span>
+          </span>
+        ) : (
+          NO_VALUE
+        )
+      }
       valueClass={item ? getChangeColor(item.changePercent) : "text-muted-foreground"}
       sub={
         item ? (
