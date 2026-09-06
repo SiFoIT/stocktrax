@@ -30,13 +30,13 @@ export function formatPercent(value: number | undefined): string {
 }
 
 export function getChangeColor(value: number | undefined): string {
-  if (value === undefined) return "text-black/50 dark:text-white/50";
-  return value >= 0 ? "text-emerald-400" : "text-red-400";
+  if (value === undefined) return "text-muted-foreground";
+  return value >= 0 ? "text-positive" : "text-negative";
 }
 
 export function getChangeBg(value: number | undefined): string {
-  if (value === undefined) return "bg-black/5 dark:bg-white/5";
-  return value >= 0 ? "bg-emerald-500/10" : "bg-red-500/10";
+  if (value === undefined) return "bg-muted";
+  return value >= 0 ? "bg-positive/10" : "bg-negative/10";
 }
 
 /** Format a ratio (0-1) as percentage, e.g. 0.5 -> "50.00%" */
