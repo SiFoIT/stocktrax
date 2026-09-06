@@ -409,7 +409,7 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                     <p className="text-sm text-warning font-medium">
                       Warning: This will replace all existing data
                     </p>
-                    <p className="text-xs text-warning/70 mt-1">
+                    <p className="text-xs text-warning mt-1">
                       Your current watchlists, portfolios, and settings will be
                       overwritten.
                     </p>
@@ -480,7 +480,7 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                     <p className="text-sm text-positive font-medium">
                       Import successful!
                     </p>
-                    <p className="text-xs text-positive/70 mt-1">
+                    <p className="text-xs text-positive mt-1">
                       Refresh the page to see your imported data.
                     </p>
                   </div>
@@ -511,7 +511,7 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
                     <p className="text-sm text-negative font-medium">
                       Import failed
                     </p>
-                    <p className="text-xs text-negative/70 mt-1">{importError}</p>
+                    <p className="text-xs text-negative mt-1">{importError}</p>
                   </div>
 
                   <Button

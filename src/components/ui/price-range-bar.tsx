@@ -16,7 +16,7 @@ export function PriceRangeBar({ low, current, high, compact = false, showDistanc
 
     return (
       <div className="w-32 mx-auto">
-        <div className="relative h-1.5 rounded-full bg-muted">
+        <div className="relative h-1.5 rounded-full bg-foreground/15">
           <div
             className="absolute top-1/2 size-2 -translate-y-1/2 rounded-full bg-primary"
             style={{ left: `calc(${Math.min(Math.max(position, 0), 100)}% - 5px)` }}
@@ -28,8 +28,8 @@ export function PriceRangeBar({ low, current, high, compact = false, showDistanc
         </div>
         {showDistance && (
           <div className="flex justify-between text-[10px] -mt-0.5">
-            <span className="text-positive/70">+{aboveLow.toFixed(1)}%</span>
-            <span className="text-negative/70">{offHigh === 0 ? "0.0%" : `${offHigh.toFixed(1)}%`}</span>
+            <span className="text-positive">+{aboveLow.toFixed(1)}%</span>
+            <span className="text-negative">{offHigh === 0 ? "0.0%" : `${offHigh.toFixed(1)}%`}</span>
           </div>
         )}
       </div>
@@ -38,7 +38,7 @@ export function PriceRangeBar({ low, current, high, compact = false, showDistanc
 
   return (
     <div className="py-2">
-      <div className="relative h-1.5 rounded-full bg-muted">
+      <div className="relative h-1.5 rounded-full bg-foreground/15">
         <div
           className="absolute top-1/2 size-2.5 -translate-y-1/2 rounded-full bg-primary"
           style={{ left: `calc(${Math.min(Math.max(position, 0), 100)}% - 6px)` }}

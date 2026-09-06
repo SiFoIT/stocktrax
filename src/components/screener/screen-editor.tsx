@@ -182,7 +182,7 @@ export function ScreenEditor({
             </button>
             <button
               onClick={() => handleDeletePreset(preset.id)}
-              className="pr-2 py-1 text-positive/50 hover:text-negative transition-colors"
+              className="pr-2 py-1 text-positive hover:text-negative transition-colors"
               title="Delete preset"
             >
               <X className="size-3" />

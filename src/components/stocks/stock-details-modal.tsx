@@ -195,7 +195,7 @@ function PriceRangeBar({ low, current, high, label }: { low: number; current: nu
       <div className="flex justify-between text-xs text-muted-foreground mb-1">
         <span>{label}</span>
       </div>
-      <div className="relative h-1.5 rounded-full bg-muted">
+      <div className="relative h-1.5 rounded-full bg-foreground/15">
         <div
           className="absolute top-1/2 size-2.5 -translate-y-1/2 rounded-full bg-primary"
           style={{ left: `calc(${Math.min(Math.max(position, 0), 100)}% - 6px)` }}

@@ -747,7 +747,7 @@ export default function PortfolioPage() {
               <p className={`break-words text-lg font-semibold tracking-tight sm:text-xl ${totalGainLoss >= 0 ? "text-positive" : "text-negative"}`}>
                 {totalGainLoss >= 0 ? "+" : "-"}{formatCurrency(Math.abs(totalGainLoss), "CAD")}
               </p>
-              <p className={`mt-0.5 text-xs ${totalGainLoss >= 0 ? "text-positive/70" : "text-negative/70"}`}>
+              <p className={`mt-0.5 text-xs ${totalGainLoss >= 0 ? "text-positive" : "text-negative"}`}>
                 {totalGainLossPercent >= 0 ? "+" : ""}{totalGainLossPercent.toFixed(2)}%{dividendsCadTotal > 0 ? ` · incl. ${formatCurrency(dividendsCadTotal, "CAD")} div` : ""}
               </p>
             </div>
