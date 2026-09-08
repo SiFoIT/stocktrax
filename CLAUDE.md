@@ -49,6 +49,17 @@ src/
 │   ├── db/
 │   │   ├── index.ts               # Drizzle client
 │   │   └── schema.ts              # Database schema
+│   ├── digest/                    # Daily/weekly email digest
+│   │   ├── build.ts               # Fetches data, assembles DigestData
+│   │   ├── select.ts              # Pure selection rules (movers, thresholds)
+│   │   ├── render.ts              # HTML + plain-text email renderers
+│   │   ├── send.ts                # nodemailer transport + digest_log
+│   │   ├── scheduler.ts           # 60s tick started from instrumentation.ts
+│   │   ├── due.ts                 # Pure "is a send due" timing rules
+│   │   ├── snapshots.ts           # Daily portfolio value snapshots
+│   │   └── time.ts                # Timezone-aware date-string helpers
+│   ├── portfolio-summary.ts       # Dashboard calculation (route + digest)
+│   ├── settings.ts                # Server-side settings with env fallback
 │   └── utils.ts                   # cn() utility
 └── types/index.ts                 # Shared TypeScript types
 ```
@@ -63,6 +74,9 @@ Tables defined in `src/lib/db/schema.ts`:
 - **stock_cache**: symbol (PK), data (JSON), fetchedAt
 - **watchlists**: id, name, createdAt
 - **watchlist_items**: id, watchlistId, symbol, addedAt
+- **settings**: key (PK), value (JSON), updatedAt — server-side only
+- **portfolio_snapshots**: id, portfolioId, date, marketValue, costBasis, dayChange
+- **digest_log**: id, kind, status, subject, error, sentAt
 
 After schema changes, run: `npx drizzle-kit push`
 
@@ -74,6 +88,7 @@ After schema changes, run: `npx drizzle-kit push`
 npm run dev      # Start dev server
 npm run build    # Production build
 npm run lint     # Run ESLint
+npm test         # Run Vitest
 ```
 
 Database file: `data/stocktrax.db`
@@ -102,6 +117,9 @@ exec node server.js
 
 ## Key Features
 
+- **Email digest**: Daily and weekly summaries over SMTP. Scheduled in-process
+  from `src/instrumentation.ts`; see `docs/digest-plan.md` for the settled
+  design and `docs/mockups/digest-email.html` for the rendering reference.
 - **Watchlists**: Track symbols with live prices, multiple watchlists via dropdown
 - **Portfolios**: Track holdings with cost basis, gain/loss calculations
 - **Price Charts**: Line and candlestick, time ranges (1Y/3M/5D/1D), preferences persisted per list

@@ -7,8 +7,14 @@ import {
   cashTransactions,
   watchlists,
   watchlistItems,
+  portfolioSnapshots,
+  settings as settingsTable,
 } from "@/lib/db/schema";
-import { BACKUP_VERSION, BackupData } from "@/lib/backup/settings-registry";
+import {
+  BACKUP_VERSION,
+  BackupData,
+  EXCLUDED_SETTING_KEYS,
+} from "@/lib/backup/settings-registry";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 
@@ -26,6 +32,8 @@ export async function GET(request: NextRequest) {
       cashTransactionsData,
       watchlistsData,
       watchlistItemsData,
+      snapshotsData,
+      serverSettingsData,
     ] = await Promise.all([
       db.select().from(portfolios),
       db.select().from(holdings),
@@ -33,6 +41,8 @@ export async function GET(request: NextRequest) {
       db.select().from(cashTransactions),
       db.select().from(watchlists),
       db.select().from(watchlistItems),
+      db.select().from(portfolioSnapshots),
+      db.select().from(settingsTable),
     ]);
 
     // Parse settings from query param (passed from client)
@@ -59,8 +69,12 @@ export async function GET(request: NextRequest) {
         cashTransactions: cashTransactionsData,
         watchlists: watchlistsData,
         watchlistItems: watchlistItemsData,
+        portfolioSnapshots: snapshotsData,
       },
       settings,
+      serverSettings: serverSettingsData
+        .filter((row) => !EXCLUDED_SETTING_KEYS.includes(row.key as (typeof EXCLUDED_SETTING_KEYS)[number]))
+        .map((row) => ({ key: row.key, value: row.value })),
     };
 
     const jsonContent = JSON.stringify(backup, null, 2);

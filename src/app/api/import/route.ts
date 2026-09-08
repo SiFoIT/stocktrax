@@ -7,6 +7,8 @@ import {
   cashTransactions,
   watchlists,
   watchlistItems,
+  portfolioSnapshots,
+  settings as settingsTable,
 } from "@/lib/db/schema";
 import { z } from "zod";
 import { BACKUP_VERSION } from "@/lib/backup/settings-registry";
@@ -59,7 +61,21 @@ const backupSchema = z.object({
       symbol: z.string(),
       addedAt: z.union([z.string(), z.date(), z.number()]),
     })),
+    portfolioSnapshots: z.array(z.object({
+      id: z.number(),
+      portfolioId: z.number(),
+      date: z.string(),
+      marketValue: z.number(),
+      costBasis: z.number(),
+      dayChange: z.number(),
+      currency: z.string(),
+      createdAt: z.union([z.string(), z.date(), z.number()]),
+    })).optional().default([]),
   }),
+  serverSettings: z.array(z.object({
+    key: z.string(),
+    value: z.string(),
+  })).optional().default([]),
   settings: z.object({
     theme: z.string().nullable(),
     defaultTab: z.string().nullable(),
@@ -105,6 +121,7 @@ export async function POST(request: NextRequest) {
     db.transaction((tx) => {
       // Delete all existing data (order matters for foreign keys)
       tx.delete(transactions).run();
+      tx.delete(portfolioSnapshots).run();
       tx.delete(holdings).run();
       tx.delete(cashTransactions).run();
       tx.delete(portfolios).run();
@@ -157,6 +174,32 @@ export async function POST(request: NextRequest) {
           watchlistId: item.watchlistId,
           symbol: item.symbol,
           addedAt: parseDate(item.addedAt),
+        }).run();
+      }
+
+      for (const snap of backup.data.portfolioSnapshots) {
+        tx.insert(portfolioSnapshots).values({
+          id: snap.id,
+          portfolioId: snap.portfolioId,
+          date: snap.date,
+          marketValue: snap.marketValue,
+          costBasis: snap.costBasis,
+          dayChange: snap.dayChange,
+          currency: snap.currency,
+          createdAt: parseDate(snap.createdAt),
+        }).run();
+      }
+
+      // Server settings merge rather than replace: the SMTP password is never
+      // in a backup, so wiping the table would silently break sending.
+      for (const setting of backup.serverSettings) {
+        tx.insert(settingsTable).values({
+          key: setting.key,
+          value: setting.value,
+          updatedAt: new Date(),
+        }).onConflictDoUpdate({
+          target: settingsTable.key,
+          set: { value: setting.value, updatedAt: new Date() },
         }).run();
       }
 

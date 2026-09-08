@@ -11,8 +11,19 @@ export const BACKUP_SETTINGS: SettingEntry[] = [
   { key: /^chart_prefs_/, type: "pattern" }, // Matches chart_prefs_*
 ];
 
-// Tables to exclude from backup (cache tables, not user data)
-export const EXCLUDED_TABLES = ["stockCache"] as const;
+// Tables to exclude from backup (cache and run-state tables, not user data)
+export const EXCLUDED_TABLES = ["stockCache", "digestLog"] as const;
+
+/**
+ * Server-side setting keys kept out of a backup: the SMTP password because a
+ * backup file is plain JSON the user may store anywhere, and the last-sent
+ * markers because they are per-deployment run state, not a preference.
+ */
+export const EXCLUDED_SETTING_KEYS = [
+  "smtp.pass",
+  "digest.lastSent.daily",
+  "digest.lastSent.weekly",
+] as const;
 
 // Export format version - increment when making breaking changes
 export const BACKUP_VERSION = "1.0";
@@ -27,7 +38,10 @@ export interface BackupData {
     cashTransactions?: unknown[];
     watchlists: unknown[];
     watchlistItems: unknown[];
+    portfolioSnapshots?: unknown[];
   };
+  /** Server-side settings (SMTP, digest schedule), secrets removed. */
+  serverSettings?: { key: string; value: string }[];
   settings: {
     theme: string | null;
     defaultTab: string | null;

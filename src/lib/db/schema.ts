@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import {
   alertScopes,
   alertMetrics,
@@ -192,3 +192,65 @@ export const screenPresets = sqliteTable("screen_presets", {
 
 export type ScreenPresetRow = typeof screenPresets.$inferSelect;
 export type NewScreenPresetRow = typeof screenPresets.$inferInsert;
+
+/**
+ * Server-side key/value settings. Values are JSON-encoded so a caller gets
+ * back the type it stored. Client preferences stay in localStorage; this is
+ * only for what the server itself needs to know (SMTP, digest schedule).
+ */
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+/**
+ * One row per portfolio per trading day, written by the digest scheduler.
+ * Week-over-week change is a lookup against these rather than a re-pricing of
+ * today's holdings a week back, so it stays correct through buys, sells and
+ * cash movements.
+ */
+export const portfolioSnapshots = sqliteTable("portfolio_snapshots", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  portfolioId: integer("portfolio_id")
+    .notNull()
+    .references(() => portfolios.id, { onDelete: "cascade" }),
+  /** Trading date in the digest timezone, `YYYY-MM-DD`. */
+  date: text("date").notNull(),
+  marketValue: real("market_value").notNull(),
+  costBasis: real("cost_basis").notNull(),
+  dayChange: real("day_change").notNull().default(0),
+  currency: text("currency").notNull().default("CAD"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+}, (table) => [
+  uniqueIndex("idx_portfolio_snapshots_portfolio_date").on(table.portfolioId, table.date),
+  index("idx_portfolio_snapshots_date").on(table.date),
+]);
+
+export const digestKinds = ["daily", "weekly", "test"] as const;
+export const digestStatuses = ["sent", "failed", "skipped"] as const;
+
+/** Send history, so the settings modal can report what happened last. */
+export const digestLog = sqliteTable("digest_log", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  kind: text("kind", { enum: digestKinds }).notNull(),
+  status: text("status", { enum: digestStatuses }).notNull(),
+  subject: text("subject"),
+  error: text("error"),
+  sentAt: integer("sent_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+}, (table) => [
+  index("idx_digest_log_sent_at").on(table.sentAt),
+]);
+
+export type Setting = typeof settings.$inferSelect;
+export type PortfolioSnapshot = typeof portfolioSnapshots.$inferSelect;
+export type NewPortfolioSnapshot = typeof portfolioSnapshots.$inferInsert;
+export type DigestLogEntry = typeof digestLog.$inferSelect;
+export type DigestKind = (typeof digestKinds)[number];
+export type DigestStatus = (typeof digestStatuses)[number];

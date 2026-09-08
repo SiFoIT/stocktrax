@@ -39,6 +39,12 @@ A self-hosted stock portfolio and watchlist tracker with real-time market data, 
 - Reset strategies: manual, recovery, cooldown, baseline, end of day
 - Alert history tracking and triggered alert badges
 
+### Email Digest
+- **Daily** summary after the close on trading days: markets, portfolio move, movers, watchlist moves, alerts fired, dividends received
+- **Weekly** summary on Saturday morning: the week against the indices, best and worst, dividends, upcoming ex-dividend dates, and every holding and watchlist symbol with its weekly change
+- Sends over plain SMTP, so Gmail, SendGrid, Mailgun, Resend or a self-hosted relay all work
+- Optional privacy switch keeps the percentages and drops every dollar figure
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -79,6 +85,64 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 npm run build
 npm start
 ```
+
+## Email Digest
+
+Configure it in **Settings → Email digest**. Nothing is sent until you enable
+the daily or weekly toggle.
+
+### Gmail
+
+Gmail needs an App Password; your account password will not work.
+
+1. Turn on 2-Step Verification in your Google account.
+2. Create an App Password under **Security → App passwords**.
+3. In StockTrax, enter:
+
+| Field | Value |
+|---|---|
+| SMTP host | `smtp.gmail.com` |
+| Port | `587` (leave Implicit TLS off) |
+| Username | your full Gmail address |
+| App password | the 16-character password |
+| From | `StockTrax <you@gmail.com>` |
+| To | one or more addresses, comma-separated |
+
+Then press **Send test email**. Any other SMTP relay works the same way with
+its own host, port and credentials.
+
+### Configuring without the UI
+
+For a headless deployment, these environment variables act as a fallback for
+any field left empty in the UI:
+
+```
+SMTP_HOST  SMTP_PORT  SMTP_SECURE  SMTP_USER  SMTP_PASS
+DIGEST_FROM  DIGEST_TO  DIGEST_APP_URL
+```
+
+`DIGEST_APP_URL` is optional and only adds an "Open StockTrax" link to the
+email footer.
+
+### Scheduling
+
+The app schedules the sends itself while it is running: no cron, no sidecar.
+A send missed because the container was down goes out on the next check that
+same day, and is skipped after midnight rather than arriving late.
+
+To drive it from an external scheduler instead, leave both toggles off and
+POST to the endpoint:
+
+```bash
+curl -X POST http://localhost:3000/api/digest -H 'Content-Type: application/json' -d '{"kind":"daily"}'
+```
+
+### A note on access
+
+StockTrax has no login. Anyone who can reach the app can open these settings
+and trigger a send to the configured address. The SMTP password is never
+returned by the API and is excluded from backup exports, but treat network
+access to the app as equivalent to access to the mailbox it sends from.
 
 ## Docker
 

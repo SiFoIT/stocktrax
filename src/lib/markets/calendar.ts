@@ -213,7 +213,7 @@ function getEarlyCloseDays(year: number): Set<string> {
 
 // --- Trading day logic ---
 
-function isTradingDay(dateStr: string): boolean {
+export function isTradingDay(dateStr: string): boolean {
   const [y, m, d] = dateStr.split("-").map(Number);
   const dow = new Date(y, m - 1, d).getDay();
   // Weekend

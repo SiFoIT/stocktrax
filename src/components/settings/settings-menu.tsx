@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Check, Database, Info, Monitor, Moon, Settings, Sliders, Sun } from "lucide-react";
+import { Check, Database, Info, Mail, Monitor, Moon, Settings, Sliders, Sun } from "lucide-react";
 import { DEFAULT_THEME, useTheme, type ThemePreference } from "@/contexts/theme-context";
 import { GeneralSettingsModal } from "./general-settings-modal";
 import { DataSettingsModal } from "./data-settings-modal";
+import { DigestSettingsModal } from "./digest-settings-modal";
 
 const THEME_OPTIONS = [
   { value: "light", label: "Light", Icon: Sun },
@@ -21,6 +22,7 @@ export function SettingsMenu() {
   const [openMenu, setOpenMenu] = useState<"theme" | "settings" | null>(null);
   const [showGeneralSettings, setShowGeneralSettings] = useState(false);
   const [showDataSettings, setShowDataSettings] = useState(false);
+  const [showDigestSettings, setShowDigestSettings] = useState(false);
   const { theme, hydrated, resolvedTheme, setTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -156,6 +158,23 @@ export function SettingsMenu() {
                 </div>
               </button>
 
+              {/* Email Digest Settings */}
+              <button
+                onClick={() => {
+                  setShowDigestSettings(true);
+                  setIsOpen(false);
+                }}
+                className="w-full px-3 py-2.5 rounded-lg hover:bg-accent transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Mail className="size-4 text-muted-foreground" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-foreground">Email digest</p>
+                    <p className="text-xs text-muted-foreground">Daily & weekly summaries</p>
+                  </div>
+                </div>
+              </button>
+
               {/* Divider */}
               <div className="my-2 border-t border-border" />
 
@@ -182,6 +201,11 @@ export function SettingsMenu() {
       {/* Data Settings Modal */}
       {showDataSettings && (
         <DataSettingsModal onClose={() => setShowDataSettings(false)} />
+      )}
+
+      {/* Email Digest Modal */}
+      {showDigestSettings && (
+        <DigestSettingsModal onClose={() => setShowDigestSettings(false)} />
       )}
     </div>
   );
