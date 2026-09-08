@@ -1,41 +1,104 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Database, Info, Moon, Settings, Sliders, Sun } from "lucide-react";
-import { useTheme } from "@/contexts/theme-context";
+import { Check, Database, Info, Monitor, Moon, Settings, Sliders, Sun } from "lucide-react";
+import { useTheme, type ThemePreference } from "@/contexts/theme-context";
 import { GeneralSettingsModal } from "./general-settings-modal";
 import { DataSettingsModal } from "./data-settings-modal";
 
+const THEME_OPTIONS = [
+  { value: "light", label: "Light", Icon: Sun },
+  { value: "dark", label: "Dark", Icon: Moon },
+  { value: "system", label: "System", Icon: Monitor },
+] as const satisfies readonly { value: ThemePreference; label: string; Icon: typeof Sun }[];
+
 export function SettingsMenu() {
-  const [isOpen, setIsOpen] = useState(false);
+  // The two menus are mutually exclusive, so one piece of state closes both.
+  const [openMenu, setOpenMenu] = useState<"theme" | "settings" | null>(null);
   const [showGeneralSettings, setShowGeneralSettings] = useState(false);
   const [showDataSettings, setShowDataSettings] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const isOpen = openMenu === "settings";
+  const setIsOpen = (open: boolean) => setOpenMenu(open ? "settings" : null);
+
+  const activeOption = THEME_OPTIONS.find((o) => o.value === theme) ?? THEME_OPTIONS[1];
+  const ActiveThemeIcon = activeOption.Icon;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
+        setOpenMenu(null);
       }
     };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenMenu(null);
+    };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, []);
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Theme Toggle Button */}
-      <button
-        onClick={toggleTheme}
-        className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-      >
-        {theme === "dark" ? <Moon className="size-4" /> : <Sun className="size-4" />}
-      </button>
+    <div className="flex items-center gap-2" ref={menuRef}>
+      {/* Theme Menu */}
+      <div className="relative">
+        <button
+          onClick={() => setOpenMenu(openMenu === "theme" ? null : "theme")}
+          className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          aria-label={`Theme: ${activeOption.label}`}
+          aria-haspopup="menu"
+          aria-expanded={openMenu === "theme"}
+        >
+          <ActiveThemeIcon className="size-4" />
+        </button>
+
+        {openMenu === "theme" && (
+          <div
+            role="menu"
+            aria-label="Theme"
+            className="absolute top-full right-0 z-50 mt-1 w-44 overflow-hidden rounded-md border border-border bg-popover p-1"
+          >
+            {THEME_OPTIONS.map(({ value, label, Icon }) => {
+              const selected = theme === value;
+              return (
+                <button
+                  key={value}
+                  role="menuitemradio"
+                  aria-checked={selected}
+                  onClick={() => {
+                    setTheme(value);
+                    setOpenMenu(null);
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-accent ${
+                    selected ? "text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  <span className="flex-1 text-sm">
+                    {label}
+                    {/* Says which way "system" currently resolves, which the icon cannot. */}
+                    {value === "system" && (
+                      <span className="text-muted-foreground">
+                        {" · "}
+                        {resolvedTheme === "dark" ? "Dark" : "Light"}
+                      </span>
+                    )}
+                  </span>
+                  {selected && <Check className="size-3.5 shrink-0 text-primary" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Settings Button */}
-      <div className="relative" ref={menuRef}>
+      <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
