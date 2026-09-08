@@ -35,6 +35,22 @@ const HOLDING_METRICS: AlertMetric[] = ["holding_gain_percent", "price_vs_anchor
 const SELECT_CLASS = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm";
 const LABEL_CLASS = "text-xs font-semibold text-muted-foreground block";
 
+/** A rule that has fired and not re-armed is the only kind Reset can act on. */
+function isTriggered(rule: AlertRuleDTO): boolean {
+  return rule.isMuted || rule.needsRecovery || !!rule.cooldownUntil;
+}
+
+/**
+ * Why a rule is currently not armed. Without this the row looks identical
+ * before and after a reset, so the button appeared to do nothing.
+ */
+function ruleStatus(rule: AlertRuleDTO): string | null {
+  if (rule.isMuted) return "Muted";
+  if (rule.needsRecovery) return "Awaiting recovery";
+  if (rule.cooldownUntil && new Date(rule.cooldownUntil) > new Date()) return "Cooling down";
+  return null;
+}
+
 export function AlertsPanel({
   open,
   scope,
@@ -58,6 +74,33 @@ export function AlertsPanel({
   const [cooldownMinutes, setCooldownMinutes] = useState<number>(60);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Which rule has an action in flight, and the last failure per rule, so a
+  // Reset that cannot reach the server says so instead of doing nothing.
+  const [pendingRuleId, setPendingRuleId] = useState<number | null>(null);
+  const [ruleErrors, setRuleErrors] = useState<Record<number, string>>({});
+
+  const runRuleAction = useCallback(
+    async (id: number, action: (id: number) => Promise<void>) => {
+      setPendingRuleId(id);
+      setRuleErrors((prev) => {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      try {
+        await action(id);
+      } catch (err) {
+        setRuleErrors((prev) => ({
+          ...prev,
+          [id]: err instanceof Error ? err.message : "Request failed",
+        }));
+      } finally {
+        setPendingRuleId(null);
+      }
+    },
+    []
+  );
 
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
   const [editMetric, setEditMetric] = useState<AlertMetric>("daily_change_percent");
@@ -382,27 +425,51 @@ export function AlertsPanel({
                     </div>
                   ) : (
                     /* Read-only mode */
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-semibold">{rule.symbol}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {ALERT_METRIC_LABELS[rule.metric]} · {ALERT_OPERATOR_LABELS[rule.operator]} {rule.threshold}
-                        </p>
-                        <p className="text-xs text-subtle-foreground">{ALERT_RESET_LABELS[rule.resetStrategy]}</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold">{rule.symbol}</p>
+                            {ruleStatus(rule) && (
+                              <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                                {ruleStatus(rule)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {ALERT_METRIC_LABELS[rule.metric]} · {ALERT_OPERATOR_LABELS[rule.operator]} {rule.threshold}
+                          </p>
+                          <p className="text-xs text-subtle-foreground">{ALERT_RESET_LABELS[rule.resetStrategy]}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="ghost" onClick={() => startEditing(rule)} title="Edit rule">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => runRuleAction(rule.id, onResetRule)}
+                            /* An armed rule has nothing to reset. */
+                            disabled={pendingRuleId === rule.id || !isTriggered(rule)}
+                            title={isTriggered(rule) ? "Re-arm this rule" : "Rule is already armed"}
+                          >
+                            {pendingRuleId === rule.id ? "..." : "Reset"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => runRuleAction(rule.id, onDeleteRule)}
+                            disabled={pendingRuleId === rule.id}
+                          >
+                            Remove
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => startEditing(rule)} title="Edit rule">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => onResetRule(rule.id)}>
-                          Reset
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => onDeleteRule(rule.id)}>
-                          Remove
-                        </Button>
-                      </div>
+                      {ruleErrors[rule.id] && (
+                        <p className="text-xs text-negative">{ruleErrors[rule.id]}</p>
+                      )}
                     </div>
                   )}
                 </div>

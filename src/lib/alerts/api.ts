@@ -101,7 +101,11 @@ export async function createAlertRule(input: CreateAlertRuleInput) {
 }
 
 export async function deleteAlertRule(id: number) {
-  await fetch(`/api/alerts/rules/${id}`, { method: "DELETE" });
+  const response = await fetch(`/api/alerts/rules/${id}`, { method: "DELETE" });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.error ?? "Failed to delete alert rule");
+  }
 }
 
 export async function updateAlertRule(id: number, updates: Partial<CreateAlertRuleInput>) {
@@ -118,11 +122,16 @@ export async function updateAlertRule(id: number, updates: Partial<CreateAlertRu
 }
 
 export async function resetAlertRule(id: number) {
-  await fetch(`/api/alerts/rules/${id}`, {
+  const response = await fetch(`/api/alerts/rules/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "reset" }),
   });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.error ?? "Failed to reset alert rule");
+  }
+  return (await response.json()) as AlertRuleDTO;
 }
 
 export async function fetchAlertHistory(scope?: AlertScope, limit = 50) {
