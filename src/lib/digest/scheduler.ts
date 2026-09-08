@@ -1,4 +1,10 @@
-import { getDigestConfig, getSetting, setSetting } from "@/lib/settings";
+import {
+  getDigestConfig,
+  getSetting,
+  getSmtpConfig,
+  isSmtpConfigured,
+  setSetting,
+} from "@/lib/settings";
 import { digestWeek, zonedDateStr, zonedTimeStr } from "@/lib/digest/time";
 import { decideDue, type DueDecision } from "@/lib/digest/due";
 import { writeSnapshots } from "@/lib/digest/snapshots";
@@ -38,6 +44,13 @@ export async function runTick(now = new Date()): Promise<DueDecision | null> {
 
     if (decision.snapshot) {
       await writeSnapshots(today);
+    }
+
+    // Both digests default to on, so an install that never configured email
+    // would otherwise log a failed send every trading day. Snapshots above
+    // still accumulate, ready for whenever email is set up.
+    if (!isSmtpConfigured(await getSmtpConfig())) {
+      return decision;
     }
 
     if (decision.daily) {

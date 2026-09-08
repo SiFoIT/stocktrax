@@ -88,8 +88,8 @@ npm start
 
 ## Email Digest
 
-Configure it in **Settings → Email digest**. Nothing is sent until you enable
-the daily or weekly toggle.
+Configure it in **Settings → Email digest**. Both digests are on by default,
+but nothing is sent until you fill in the SMTP details below.
 
 ### Gmail
 

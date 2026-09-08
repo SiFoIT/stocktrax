@@ -90,6 +90,10 @@ centre, any change to how alerts are evaluated.
   writes its snapshot and sets `lastSent.daily`, and logs a `skipped` row in
   `digest_log` so "Last sent" can say why. The weekly is never skipped.
 - **Multiple recipients**: `smtp.to` accepts a comma-separated list.
+- **Both digests default to on**, because a user who fills in SMTP wants the
+  emails. The scheduler skips sending entirely while SMTP is unconfigured, so
+  a fresh install logs nothing; snapshots still accumulate so the first weekly
+  after setup has a baseline.
 - **Empty sections are omitted.** A quiet day is the header, tiles, the
   portfolio block and the footer.
 - **Light palette only.** Gmail dark mode inverts colours unpredictably; a
@@ -187,8 +191,8 @@ digest_log          id, kind TEXT 'daily'|'weekly'|'test', sent_at,
 Settings keys (all JSON values):
 
 ```
-digest.daily.enabled   boolean  false
-digest.weekly.enabled  boolean  false
+digest.daily.enabled   boolean  true
+digest.weekly.enabled  boolean  true
 digest.daily.time      "HH:MM"  "17:00"
 digest.weekly.time     "HH:MM"  "08:00"
 digest.timezone        IANA     "America/Toronto"

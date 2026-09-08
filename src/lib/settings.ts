@@ -32,8 +32,11 @@ export const TRANSIENT_SETTING_KEYS = [
 ] as const;
 
 export const DIGEST_DEFAULTS = {
-  "digest.daily.enabled": false,
-  "digest.weekly.enabled": false,
+  // On by default: the digest is the point of configuring email at all.
+  // Nothing can actually send until SMTP is filled in, and the scheduler
+  // stays silent until then rather than logging a failure every day.
+  "digest.daily.enabled": true,
+  "digest.weekly.enabled": true,
   "digest.daily.time": "17:00",
   "digest.weekly.time": "08:00",
   "digest.timezone": "America/Toronto",
@@ -135,6 +138,11 @@ export function parseRecipients(raw: string): string[] {
     .split(",")
     .map((address) => address.trim())
     .filter(Boolean);
+}
+
+/** Enough detail to attempt a send. */
+export function isSmtpConfigured(config: SmtpConfig): boolean {
+  return config.host !== "" && config.from !== "" && config.to.length > 0;
 }
 
 export async function getSmtpConfig(): Promise<SmtpConfig> {
