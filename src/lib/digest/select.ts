@@ -69,8 +69,13 @@ export function selectMovers(
 }
 
 /**
- * Watchlist rows worth mentioning in the daily, biggest move first.
- * A threshold of zero turns the section off entirely.
+ * Watchlist rows worth mentioning in the daily. A threshold of zero turns the
+ * section off entirely.
+ *
+ * Printed as one descending run, matching the movers list and the weekly
+ * tables: biggest gain at the top, biggest loss at the bottom. Sorting by the
+ * size of the move instead would drop a heavy faller into the middle of the
+ * gainers, which is where it reads as a gain.
  */
 export function selectWatchlistRows(
   rows: DigestWatchlistRow[],
@@ -79,7 +84,7 @@ export function selectWatchlistRows(
   if (thresholdPct <= 0) return [];
   return rows
     .filter((row) => Math.abs(row.changePercent) >= thresholdPct)
-    .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent));
+    .sort((a, b) => b.changePercent - a.changePercent);
 }
 
 /** Best and worst performers of the week, best-first and worst-first. */

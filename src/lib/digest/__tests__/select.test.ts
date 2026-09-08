@@ -74,13 +74,19 @@ describe("selectMovers", () => {
 });
 
 describe("selectWatchlistRows", () => {
-  it("keeps moves at or beyond the threshold, biggest first", () => {
+  it("keeps moves at or beyond the threshold, as one descending run", () => {
     const rows = selectWatchlistRows(
-      [watchRow("SMALL", 1.2), watchRow("UP", 3.2), watchRow("DOWN", -5.1)],
+      [
+        watchRow("SMALL", 1.2),
+        watchRow("UP", 3.2),
+        watchRow("DOWN", -5.1),
+        watchRow("BEST", 8.1),
+        watchRow("DIP", -2.4),
+      ],
       2
     );
 
-    expect(rows.map((r) => r.symbol)).toEqual(["DOWN", "UP"]);
+    expect(rows.map((r) => r.symbol)).toEqual(["BEST", "UP", "DIP", "DOWN"]);
   });
 
   it("treats a threshold of zero as the section being switched off", () => {
@@ -135,7 +141,10 @@ describe("isQuietDay", () => {
     kind: "daily",
     dateLabel: "Mon Sep 8, 2026",
     markets: [],
-    portfolio: { value: 1000, change: 1, changePercent: 0.1 },
+    portfolio: {
+      rows: [{ name: "Dividend Portfolio", value: 1000, change: 1, changePercent: 0.1 }],
+      total: null,
+    },
     movers: [],
     watchlist: [],
     watchlistThreshold: 2,
@@ -149,7 +158,11 @@ describe("isQuietDay", () => {
   });
 
   it("is not quiet once the portfolio moves past the threshold", () => {
-    expect(isQuietDay({ ...base, portfolio: { value: 1000, change: 9, changePercent: -0.9 } }, 0.5)).toBe(false);
+    const moved = {
+      rows: [{ name: "Dividend Portfolio", value: 1000, change: 9, changePercent: -0.9 }],
+      total: null,
+    };
+    expect(isQuietDay({ ...base, portfolio: moved }, 0.5)).toBe(false);
   });
 
   it("is not quiet when an alert fired", () => {

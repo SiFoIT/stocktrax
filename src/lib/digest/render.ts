@@ -3,6 +3,8 @@ import type {
   DigestData,
   DigestMarketTile,
   DigestMover,
+  DigestPortfolioRow,
+  DigestPortfolioSection,
   RenderOptions,
   WeeklyDigestData,
 } from "@/lib/digest/types";
@@ -69,6 +71,14 @@ export function signedMoney(value: number): string {
   return signed(value, money0(value));
 }
 
+/** An index level or FX rate: grouped, and never more precise than it needs. */
+export function level(value: number, decimals: number): string {
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
 export function percent(value: number, digits = 1): string {
   return signed(value, `${Math.abs(value).toFixed(digits)}%`);
 }
@@ -77,6 +87,14 @@ function colorOf(value: number): string {
   if (value > 0) return C.positive;
   if (value < 0) return C.negative;
   return C.muted;
+}
+
+/** Each portfolio, then the total when there is more than one to add up. */
+function sectionRows(
+  section: DigestPortfolioSection
+): { row: DigestPortfolioRow; isTotal: boolean }[] {
+  const rows = section.rows.map((row) => ({ row, isTotal: false }));
+  return section.total ? [...rows, { row: section.total, isTotal: true }] : rows;
 }
 
 // --- HTML building blocks ---
@@ -92,28 +110,58 @@ function heading(text: string): string {
 function marketTiles(tiles: DigestMarketTile[], label: string): string {
   const cells = tiles
     .map((tile) => {
-      const change = tile.changePercent;
-      const value =
-        tile.rate !== undefined
-          ? `${tile.rate.toFixed(3)}${
-              change === null
-                ? ""
-                : ` <span style="font-size:13px;color:${colorOf(change)};">${percent(change)}</span>`
-            }`
-          : change === null
-            ? "&mdash;"
-            : `<span style="color:${colorOf(change)};">${percent(change)}</span>`;
+      // A five-digit index level and its change share ~108px of tile, so the
+      // change runs smaller than the level rather than beneath it.
+      const lvl = tile.value === null ? null : level(tile.value, tile.decimals);
+      const change =
+        tile.changePercent === null
+          ? null
+          : `<span style="font-size:12px;color:${colorOf(tile.changePercent)};">${percent(
+              tile.changePercent
+            )}</span>`;
+      const value = lvl && change ? `${lvl} ${change}` : (lvl ?? change ?? "&mdash;");
 
       return `<td width="25%" style="padding:10px 12px;background:${C.tile};border-radius:6px;">
 <div style="font-size:11px;color:${C.muted};text-transform:uppercase;letter-spacing:.06em;">${escapeHtml(
         tile.label
       )}</div>
-<div style="font-family:${MONO};font-size:16px;margin-top:2px;">${value}</div></td>`;
+<div style="font-family:${MONO};font-size:15px;margin-top:2px;white-space:nowrap;">${value}</div></td>`;
     })
     .join(`<td width="8"></td>`);
 
   return `<div style="${LABEL}margin-bottom:8px;">${escapeHtml(label)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${cells}</tr></table>`;
+}
+
+/** One portfolio's row. The total is the same row, ruled off and set bold. */
+function portfolioRow(
+  row: DigestPortfolioRow,
+  options: RenderOptions,
+  digits: number,
+  isTotal: boolean
+): string {
+  const color = colorOf(row.change);
+  const cell = `padding:6px 0;border-top:1px solid ${isTotal ? C.borderStrong : C.border};`;
+  const weight = isTotal ? "font-weight:600;" : "";
+  const estimated = row.estimated
+    ? ` <span style="font-size:12px;color:${C.faint};">est.</span>`
+    : "";
+
+  const cells = options.showDollars
+    ? `<td align="right" style="${cell}${weight}font-family:${MONO};">${money0(row.value)}</td>
+<td align="right" width="110" style="padding:6px 14px 6px 28px;border-top:1px solid ${
+        isTotal ? C.borderStrong : C.border
+      };${weight}font-family:${MONO};color:${color};">${signedMoney(row.change)}</td>
+<td align="right" width="96" style="${cell}${weight}font-family:${MONO};color:${color};">${percent(
+        row.changePercent,
+        digits
+      )}${estimated}</td>`
+    : `<td align="right" colspan="3" style="${cell}${weight}font-family:${MONO};color:${color};">${percent(
+        row.changePercent,
+        digits
+      )}${estimated}</td>`;
+
+  return `<tr><td style="${cell}${weight}">${escapeHtml(row.name)}</td>${cells}</tr>`;
 }
 
 function portfolioLine(
@@ -124,30 +172,13 @@ function portfolioLine(
   digits = 1
 ): string {
   if (!data.portfolio) return "";
-  const { value, change, changePercent } = data.portfolio;
-  const color = colorOf(change);
-  const estimated =
-    "estimated" in data.portfolio && data.portfolio.estimated
-      ? ` <span style="font-size:12px;color:${C.faint};">est.</span>`
-      : "";
-
-  const cells = options.showDollars
-    ? `<td align="right" style="${CELL}font-family:${MONO};">${money0(value)}</td>
-<td align="right" width="110" style="padding:6px 14px 6px 28px;border-top:1px solid ${C.border};font-family:${MONO};color:${color};">${signedMoney(
-        change
-      )}</td>
-<td align="right" width="96" style="${CELL}font-family:${MONO};color:${color};">${percent(
-        changePercent,
-        digits
-      )}${estimated}</td>`
-    : `<td align="right" colspan="3" style="${CELL}font-family:${MONO};color:${color};">${percent(
-        changePercent,
-        digits
-      )}${estimated}</td>`;
+  const rows = sectionRows(data.portfolio)
+    .map(({ row, isTotal }) => portfolioRow(row, options, digits, isTotal))
+    .join("");
 
   return `${heading(label)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">
-<tr><td style="${CELL}">Portfolio</td>${cells}</tr>${extraRow}</table>`;
+${rows}${extraRow}</table>`;
 }
 
 function moverRows(movers: DigestMover[], options: RenderOptions, withName: boolean): string {
@@ -189,7 +220,7 @@ function shell(headerRight: string, body: string, appUrl: string): string {
 </td></tr>
 ${body}
 <tr><td style="padding:12px 24px;background:${C.tile};border-top:1px solid ${C.border};font-size:12px;color:${C.muted};">
-Prices delayed 15&ndash;20 min &middot; Values in CAD${links}
+Closing prices &middot; Values in CAD${links}
 </td></tr>
 </table>
 </td></tr>
@@ -489,6 +520,15 @@ export function renderHtml(data: DigestData, options: RenderOptions): string {
 
 // --- Plain text ---
 
+function textMarketTiles(tiles: DigestMarketTile[], heading: string): string[] {
+  const lines = tiles.map((tile) => {
+    const lvl = tile.value === null ? "—" : level(tile.value, tile.decimals);
+    const change = tile.changePercent === null ? "—" : percent(tile.changePercent);
+    return `  ${tile.label.padEnd(10)} ${lvl.padStart(9)} ${change.padStart(6)}`;
+  });
+  return [heading, ...lines, ""];
+}
+
 function textPortfolio(
   data: DigestData,
   label: string,
@@ -496,12 +536,21 @@ function textPortfolio(
   digits = 1
 ): string[] {
   if (!data.portfolio) return [];
-  const { value, change, changePercent } = data.portfolio;
-  const estimated = "estimated" in data.portfolio && data.portfolio.estimated ? " est." : "";
-  const body = options.showDollars
-    ? `${money0(value)}  ${signedMoney(change)}  ${percent(changePercent, digits)}${estimated}`
-    : `${percent(changePercent, digits)}${estimated}`;
-  return [label.toUpperCase(), `  ${body}`, ""];
+  const rows = sectionRows(data.portfolio);
+  const width = Math.max(...rows.map(({ row }) => row.name.length));
+
+  const lines = rows.map(({ row }) => {
+    const estimated = row.estimated ? " est." : "";
+    const body = options.showDollars
+      ? `${money0(row.value).padStart(10)}  ${signedMoney(row.change).padStart(9)}  ${percent(
+          row.changePercent,
+          digits
+        ).padStart(7)}`
+      : percent(row.changePercent, digits).padStart(7);
+    return `  ${row.name.padEnd(width)}  ${body}${estimated}`;
+  });
+
+  return [label.toUpperCase(), ...lines, ""];
 }
 
 function textMovers(movers: DigestMover[], options: RenderOptions): string[] {
@@ -514,13 +563,7 @@ function textMovers(movers: DigestMover[], options: RenderOptions): string[] {
 function renderDailyText(data: DailyDigestData, options: RenderOptions): string {
   const lines: string[] = [`StockTrax daily · ${data.dateLabel}`, ""];
 
-  lines.push("MARKETS · TODAY");
-  for (const tile of data.markets) {
-    const change = tile.changePercent === null ? "—" : percent(tile.changePercent);
-    const rate = tile.rate !== undefined ? `${tile.rate.toFixed(3)} ` : "";
-    lines.push(`  ${tile.label.padEnd(10)} ${rate}${change}`);
-  }
-  lines.push("");
+  lines.push(...textMarketTiles(data.markets, "MARKETS · TODAY"));
 
   lines.push(...textPortfolio(data, "Portfolio · today", options, 2));
 
@@ -558,7 +601,7 @@ function renderDailyText(data: DailyDigestData, options: RenderOptions): string 
     );
   }
 
-  lines.push("Prices delayed 15–20 min · Values in CAD");
+  lines.push("Closing prices · Values in CAD");
   if (data.appUrl) lines.push(data.appUrl);
   return lines.join("\n");
 }
@@ -566,13 +609,7 @@ function renderDailyText(data: DailyDigestData, options: RenderOptions): string 
 function renderWeeklyText(data: WeeklyDigestData, options: RenderOptions): string {
   const lines: string[] = [`StockTrax weekly · ${data.rangeLabel}`, ""];
 
-  lines.push("MARKETS · THIS WEEK");
-  for (const tile of data.markets) {
-    const change = tile.changePercent === null ? "—" : percent(tile.changePercent);
-    const rate = tile.rate !== undefined ? `${tile.rate.toFixed(3)} ` : "";
-    lines.push(`  ${tile.label.padEnd(10)} ${rate}${change}`);
-  }
-  lines.push("");
+  lines.push(...textMarketTiles(data.markets, "MARKETS · THIS WEEK"));
 
   lines.push(...textPortfolio(data, "Portfolio · this week", options));
 
@@ -669,7 +706,7 @@ function renderWeeklyText(data: WeeklyDigestData, options: RenderOptions): strin
     lines.push("");
   }
 
-  lines.push("Prices delayed 15–20 min · Values in CAD");
+  lines.push("Closing prices · Values in CAD");
   if (data.appUrl) lines.push(data.appUrl);
   return lines.join("\n");
 }

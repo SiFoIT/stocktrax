@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Check, Eye, Loader2, Mail, Send, TriangleAlert } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { DEFAULT_TIMEZONE, resolveTimezone, TIMEZONE_GROUPS, TIMEZONES } from "@/lib/timezones";
 import { cn } from "@/lib/utils";
 
 interface SmtpForm {
@@ -18,8 +19,6 @@ interface SmtpForm {
 interface DigestForm {
   dailyEnabled: boolean;
   weeklyEnabled: boolean;
-  dailyTime: string;
-  weeklyTime: string;
   timezone: string;
   watchlistMovePct: number;
   showDollars: boolean;
@@ -110,11 +109,14 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
     void load();
   }, [load]);
 
-  // The browser knows the user's zone; the server cannot guess it.
+  // The browser knows the user's zone; the server cannot guess it. Resolved
+  // against the offered list so a reader in, say, Winnipeg lands on Central
+  // rather than on the default.
   useEffect(() => {
     setDigest((current) => {
       if (!current || current.timezone) return current;
-      return { ...current, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return { ...current, timezone: resolveTimezone(detected ?? DEFAULT_TIMEZONE) };
     });
   }, []);
 
@@ -307,49 +309,44 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
             <h3 className="text-sm font-semibold text-foreground">Schedule</h3>
           </div>
           <div className="space-y-3 p-4">
-            <div className="flex items-start justify-between gap-4">
-              <Toggle
-                className="min-w-0 flex-1"
-                checked={digest.dailyEnabled}
-                onChange={(dailyEnabled) => setDigest({ ...digest, dailyEnabled })}
-                label="Daily digest"
-                hint="Trading days only, after the close."
-              />
-              <input
-                type="time"
-                aria-label="Daily send time"
-                className={cn(FIELD, "w-36 shrink-0")}
-                value={digest.dailyTime}
-                onChange={(e) => setDigest({ ...digest, dailyTime: e.target.value })}
-              />
-            </div>
+            <Toggle
+              checked={digest.dailyEnabled}
+              onChange={(dailyEnabled) => setDigest({ ...digest, dailyEnabled })}
+              label="Daily digest"
+              hint="Trading days at 5:00 PM Eastern, after the close."
+            />
 
-            <div className="flex items-start justify-between gap-4">
-              <Toggle
-                className="min-w-0 flex-1"
-                checked={digest.weeklyEnabled}
-                onChange={(weeklyEnabled) => setDigest({ ...digest, weeklyEnabled })}
-                label="Weekly digest"
-                hint="Saturday morning, covering the week just ended."
-              />
-              <input
-                type="time"
-                aria-label="Weekly send time"
-                className={cn(FIELD, "w-36 shrink-0")}
-                value={digest.weeklyTime}
-                onChange={(e) => setDigest({ ...digest, weeklyTime: e.target.value })}
-              />
-            </div>
+            <Toggle
+              checked={digest.weeklyEnabled}
+              onChange={(weeklyEnabled) => setDigest({ ...digest, weeklyEnabled })}
+              label="Weekly digest"
+              hint="Saturdays at 8:00 AM your time, covering the week just ended."
+            />
 
             <div>
-              <label className={LABEL} htmlFor="digest-tz">Timezone</label>
-              <input
+              <label className={LABEL} htmlFor="digest-tz">
+                Your timezone — sets when the weekly arrives
+              </label>
+              <select
                 id="digest-tz"
                 className={FIELD}
                 value={digest.timezone}
-                placeholder="America/Toronto"
                 onChange={(e) => setDigest({ ...digest, timezone: e.target.value })}
-              />
+              >
+                {/* A zone saved before this list existed still shows itself. */}
+                {digest.timezone && !TIMEZONES.some((z) => z.id === digest.timezone) && (
+                  <option value={digest.timezone}>{digest.timezone}</option>
+                )}
+                {TIMEZONE_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.zones.map((zone) => (
+                      <option key={zone.id} value={zone.id}>
+                        {zone.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </div>
           </div>
         </section>

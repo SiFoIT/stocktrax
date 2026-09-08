@@ -32,13 +32,12 @@ export const TRANSIENT_SETTING_KEYS = [
 ] as const;
 
 export const DIGEST_DEFAULTS = {
+  // The send times are not settings: see DAILY_TIME / WEEKLY_TIME in due.ts.
   // On by default: the digest is the point of configuring email at all.
   // Nothing can actually send until SMTP is filled in, and the scheduler
   // stays silent until then rather than logging a failure every day.
   "digest.daily.enabled": true,
   "digest.weekly.enabled": true,
-  "digest.daily.time": "17:00",
-  "digest.weekly.time": "08:00",
   "digest.timezone": "America/Toronto",
   "digest.watchlistMovePct": 2,
   "digest.showDollars": true,
@@ -162,8 +161,6 @@ export async function getSmtpConfig(): Promise<SmtpConfig> {
 export interface DigestConfig {
   dailyEnabled: boolean;
   weeklyEnabled: boolean;
-  dailyTime: string;
-  weeklyTime: string;
   timezone: string;
   watchlistMovePct: number;
   showDollars: boolean;
@@ -176,8 +173,6 @@ export async function getDigestConfig(): Promise<DigestConfig> {
   const [
     dailyEnabled,
     weeklyEnabled,
-    dailyTime,
-    weeklyTime,
     timezone,
     watchlistMovePct,
     showDollars,
@@ -187,8 +182,6 @@ export async function getDigestConfig(): Promise<DigestConfig> {
   ] = await Promise.all([
     getSetting("digest.daily.enabled", DIGEST_DEFAULTS["digest.daily.enabled"] as boolean),
     getSetting("digest.weekly.enabled", DIGEST_DEFAULTS["digest.weekly.enabled"] as boolean),
-    getSetting("digest.daily.time", DIGEST_DEFAULTS["digest.daily.time"] as string),
-    getSetting("digest.weekly.time", DIGEST_DEFAULTS["digest.weekly.time"] as string),
     getSetting("digest.timezone", DIGEST_DEFAULTS["digest.timezone"] as string),
     getSetting("digest.watchlistMovePct", DIGEST_DEFAULTS["digest.watchlistMovePct"] as number),
     getSetting("digest.showDollars", DIGEST_DEFAULTS["digest.showDollars"] as boolean),
@@ -200,8 +193,6 @@ export async function getDigestConfig(): Promise<DigestConfig> {
   return {
     dailyEnabled,
     weeklyEnabled,
-    dailyTime,
-    weeklyTime,
     timezone,
     watchlistMovePct,
     showDollars,

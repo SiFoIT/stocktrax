@@ -9,12 +9,18 @@ const daily: DailyDigestData = {
   kind: "daily",
   dateLabel: "Mon Sep 8, 2026",
   markets: [
-    { label: "S&P 500", changePercent: 0.6 },
-    { label: "TSX", changePercent: 0.3 },
-    { label: "Nasdaq", changePercent: 0.9 },
-    { label: "CAD/USD", changePercent: -0.2, rate: 0.734 },
+    { label: "S&P 500", value: 6812.44, decimals: 0, changePercent: 0.6 },
+    { label: "TSX", value: 29411.7, decimals: 0, changePercent: 0.3 },
+    { label: "Nasdaq", value: 23104.9, decimals: 0, changePercent: 0.9 },
+    { label: "CAD/USD", value: 0.7261, decimals: 3, changePercent: -0.2 },
   ],
-  portfolio: { value: 184210, change: 1340, changePercent: 0.73 },
+  portfolio: {
+    rows: [
+      { name: "Dividend Portfolio", value: 184210, change: 1340, changePercent: 0.73 },
+      { name: "TFSA", value: 42800, change: -310, changePercent: -0.72 },
+    ],
+    total: { name: "Total", value: 227010, change: 1030, changePercent: 0.46 },
+  },
   movers: [
     { symbol: "NVDA", name: "NVIDIA", changePercent: 4.1, changeAmount: 610 },
     { symbol: "ENB.TO", name: "Enbridge", changePercent: -1.9, changeAmount: -180 },
@@ -30,12 +36,24 @@ const weekly: WeeklyDigestData = {
   kind: "weekly",
   rangeLabel: "Sep 1 – 5, 2026",
   markets: [
-    { label: "S&P 500", changePercent: 1.1 },
-    { label: "TSX", changePercent: 0.8 },
-    { label: "Nasdaq", changePercent: 1.6 },
-    { label: "CAD/USD", changePercent: 0.4, rate: 0.734 },
+    { label: "S&P 500", value: 6812.44, decimals: 0, changePercent: 1.1 },
+    { label: "TSX", value: 29411.7, decimals: 0, changePercent: 0.8 },
+    { label: "Nasdaq", value: 23104.9, decimals: 0, changePercent: 1.6 },
+    { label: "CAD/USD", value: 0.7261, decimals: 3, changePercent: 0.4 },
   ],
-  portfolio: { value: 184210, change: 2910, changePercent: 1.6, estimated: false },
+  // A lone portfolio: its own row is the total, so no Total line is added.
+  portfolio: {
+    rows: [
+      {
+        name: "Dividend Portfolio",
+        value: 184210,
+        change: 2910,
+        changePercent: 1.6,
+        estimated: false,
+      },
+    ],
+    total: null,
+  },
   allTime: { amount: 22905, percent: 14.2, sinceLabel: "Mar 2021", cagr: 9.8, years: 5.5 },
   best: [{ symbol: "NVDA", name: "NVIDIA", changePercent: 7.2, changeAmount: 1050 }],
   worst: [{ symbol: "ENB.TO", name: "Enbridge", changePercent: -3, changeAmount: -290 }],
@@ -75,13 +93,15 @@ describe("plain text", () => {
       "StockTrax daily · Mon Sep 8, 2026
 
       MARKETS · TODAY
-        S&P 500    +0.6%
-        TSX        +0.3%
-        Nasdaq     +0.9%
-        CAD/USD    0.734 −0.2%
+        S&P 500        6,812  +0.6%
+        TSX           29,412  +0.3%
+        Nasdaq        23,105  +0.9%
+        CAD/USD        0.726  −0.2%
 
       PORTFOLIO · TODAY
-        $184,210  +$1,340  +0.73%
+        Dividend Portfolio    $184,210    +$1,340   +0.73%
+        TFSA                   $42,800      −$310   −0.72%
+        Total                 $227,010    +$1,030   +0.46%
 
       MOVERS
         NVDA         +4.1%  +$610
@@ -96,7 +116,7 @@ describe("plain text", () => {
       DIVIDENDS
         Received $84.00 from ENB.TO
 
-      Prices delayed 15–20 min · Values in CAD
+      Closing prices · Values in CAD
       https://stocktrax.example"
     `);
   });
@@ -107,6 +127,47 @@ describe("plain text", () => {
     expect(text).toContain("All time +$22,905 (+14.2%) since Mar 2021 · CAGR 9.8% per year over 5.5 yrs");
     expect(text).toContain("ALL HOLDINGS · BY WEEK CHANGE");
     expect(text).toContain("WATCHLIST · TECH");
+  });
+});
+
+describe("market tiles", () => {
+  it("prints the level before the change, indices whole and FX to three places", () => {
+    const html = renderHtml(daily, WITH_DOLLARS);
+    expect(html).toContain("6,812");
+    expect(html).toContain("29,412");
+    expect(html).toContain("0.726");
+    expect(html).toContain("+0.6%");
+  });
+
+  it("falls back to a dash when Yahoo returned nothing", () => {
+    const dark: DailyDigestData = {
+      ...daily,
+      markets: [{ label: "S&P 500", value: null, decimals: 0, changePercent: null }],
+    };
+    expect(renderHtml(dark, WITH_DOLLARS)).toContain("&mdash;");
+    expect(renderText(dark, WITH_DOLLARS)).toContain("—");
+  });
+});
+
+describe("portfolio rows", () => {
+  it("names each portfolio and totals them", () => {
+    for (const output of [renderHtml(daily, WITH_DOLLARS), renderText(daily, WITH_DOLLARS)]) {
+      expect(output).toContain("Dividend Portfolio");
+      expect(output).toContain("TFSA");
+      expect(output).toContain("Total");
+    }
+  });
+
+  it("leaves a lone portfolio without a total that would repeat it", () => {
+    const text = renderText(weekly, WITH_DOLLARS);
+    expect(text).toContain("Dividend Portfolio");
+    expect(text).not.toContain("Total");
+  });
+
+  it("keeps the names when dollar figures are switched off", () => {
+    const html = renderHtml(daily, NO_DOLLARS);
+    expect(html).toContain("Dividend Portfolio");
+    expect(html).toContain("TFSA");
   });
 });
 
@@ -159,7 +220,7 @@ describe("empty sections", () => {
 describe("privacy switch", () => {
   // Per-share prices stay: they are public market data and say nothing about
   // how much the reader holds. What goes is every figure that reveals size.
-  const SIZES = ["184,210", "1,340", "2,910", "22,905", "610", "180", "1,050", "290", "33,150", "9,400", "84.00", "214", "1,870", "2,000"];
+  const SIZES = ["184,210", "1,340", "2,910", "22,905", "610", "180", "1,050", "290", "33,150", "9,400", "84.00", "214", "1,870", "2,000", "42,800", "310", "227,010", "1,030"];
 
   it("drops every portfolio figure from the daily", () => {
     for (const output of [renderHtml(daily, NO_DOLLARS), renderText(daily, NO_DOLLARS)]) {
@@ -191,7 +252,10 @@ describe("estimated week change", () => {
   it("marks a week priced without a stored snapshot", () => {
     const estimated: WeeklyDigestData = {
       ...weekly,
-      portfolio: { ...weekly.portfolio!, estimated: true },
+      portfolio: {
+        ...weekly.portfolio!,
+        rows: [{ ...weekly.portfolio!.rows[0], estimated: true }],
+      },
     };
     expect(renderText(estimated, WITH_DOLLARS)).toContain("est.");
     expect(renderHtml(estimated, WITH_DOLLARS)).toContain("est.");

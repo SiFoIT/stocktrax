@@ -6,8 +6,6 @@ import { digestWeek, formatRangeLabel, mostRecentFriday, zonedDateStr, zonedTime
 const config: DigestConfig = {
   dailyEnabled: true,
   weeklyEnabled: true,
-  dailyTime: "17:00",
-  weeklyTime: "08:00",
   timezone: "America/Toronto",
   watchlistMovePct: 2,
   showDollars: true,
@@ -20,11 +18,18 @@ const config: DigestConfig = {
 const TUESDAY = "2026-09-08";
 const SATURDAY = "2026-09-12";
 const LABOR_DAY = "2026-09-07";
+const FRIDAY = "2026-09-11";
 
+// A Toronto reader sits in market time, so localTime tracks nowTime unless a
+// test is specifically about the two clocks disagreeing.
 function due(over: Partial<Parameters<typeof decideDue>[0]> = {}) {
+  const today = over.today ?? TUESDAY;
+  const nowTime = over.nowTime ?? "17:00";
   return decideDue({
-    today: TUESDAY,
-    nowTime: "17:00",
+    today,
+    nowTime,
+    localToday: today,
+    localTime: nowTime,
     config,
     lastDaily: null,
     lastWeekly: null,
@@ -78,6 +83,27 @@ describe("decideDue", () => {
   it("does not send the weekly before its time, or twice", () => {
     expect(due({ today: SATURDAY, nowTime: "07:59" }).weekly).toBe(false);
     expect(due({ today: SATURDAY, nowTime: "09:00", lastWeekly: SATURDAY }).weekly).toBe(false);
+  });
+
+  it("holds the weekly while New York is still trading on Friday", () => {
+    // Auckland reaches Saturday breakfast while the market date is Friday.
+    const auckland = { today: FRIDAY, nowTime: "15:00", localToday: SATURDAY, localTime: "08:00" };
+    expect(due(auckland).weekly).toBe(false);
+  });
+
+  it("holds the weekly while the reader is still on Friday evening", () => {
+    // The market date turns Saturday at 21:00 Friday in Vancouver.
+    const vancouver = { today: SATURDAY, nowTime: "00:30", localToday: FRIDAY, localTime: "21:30" };
+    expect(due(vancouver).weekly).toBe(false);
+  });
+
+  it("sends once both clocks agree it is Saturday and the reader is up", () => {
+    const vancouver = { today: SATURDAY, nowTime: "11:00", localToday: SATURDAY, localTime: "08:00" };
+    expect(due(vancouver).weekly).toBe(true);
+
+    // Auckland's Saturday evening, the first moment the market week is over.
+    const auckland = { today: SATURDAY, nowTime: "00:30", localToday: SATURDAY, localTime: "17:30" };
+    expect(due(auckland).weekly).toBe(true);
   });
 
   it("does not send the weekly on any other day", () => {

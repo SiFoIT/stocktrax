@@ -29,9 +29,14 @@ const settingsSchema = z.object({
     .object({
       dailyEnabled: z.boolean(),
       weeklyEnabled: z.boolean(),
-      dailyTime: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:MM"),
-      weeklyTime: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:MM"),
-      timezone: z.string().trim().min(1).max(64),
+      // A zone Intl rejects would throw inside every scheduler tick, so it is
+      // refused here rather than logged once a minute forever.
+      timezone: z
+        .string()
+        .trim()
+        .min(1)
+        .max(64)
+        .refine(isValidTimezone, "Unknown timezone"),
       watchlistMovePct: z.coerce.number().min(0).max(100),
       showDollars: z.boolean(),
       skipQuietDays: z.boolean(),
@@ -40,6 +45,15 @@ const settingsSchema = z.object({
     .partial()
     .optional(),
 });
+
+function isValidTimezone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function GET() {
   try {
@@ -68,8 +82,6 @@ export async function GET() {
       digest: {
         dailyEnabled: config.dailyEnabled,
         weeklyEnabled: config.weeklyEnabled,
-        dailyTime: config.dailyTime,
-        weeklyTime: config.weeklyTime,
         timezone: config.timezone,
         watchlistMovePct: config.watchlistMovePct,
         showDollars: config.showDollars,
@@ -115,8 +127,6 @@ export async function PUT(request: NextRequest) {
       const d = body.digest;
       if (d.dailyEnabled !== undefined) updates["digest.daily.enabled"] = d.dailyEnabled;
       if (d.weeklyEnabled !== undefined) updates["digest.weekly.enabled"] = d.weeklyEnabled;
-      if (d.dailyTime !== undefined) updates["digest.daily.time"] = d.dailyTime;
-      if (d.weeklyTime !== undefined) updates["digest.weekly.time"] = d.weeklyTime;
       if (d.timezone !== undefined) updates["digest.timezone"] = d.timezone;
       if (d.watchlistMovePct !== undefined)
         updates["digest.watchlistMovePct"] = d.watchlistMovePct;

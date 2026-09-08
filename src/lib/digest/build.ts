@@ -4,7 +4,7 @@ import { getQuote, getHistoricalPricesMultiDate, getDividendInfo } from "@/lib/a
 import type { QuoteWithRange } from "@/lib/api/yahoo-finance";
 import { getPortfolioSummary } from "@/lib/portfolio-summary";
 import { getDigestConfig, type DigestConfig } from "@/lib/settings";
-import { getSnapshotTotals } from "@/lib/digest/snapshots";
+import { getSnapshot, getSnapshotTotals } from "@/lib/digest/snapshots";
 import {
   addDays,
   dateStrToUtc,
@@ -12,6 +12,7 @@ import {
   formatDateLabel,
   formatMonthLabel,
   formatRangeLabel,
+  MARKET_TIMEZONE,
   utcToDateStr,
   weekdayName,
   zonedDateStr,
@@ -30,17 +31,23 @@ import type {
   DigestHoldingRow,
   DigestMarketTile,
   DigestMover,
+  DigestPortfolioRow,
+  DigestPortfolioSection,
   DigestWatchlistGroup,
   DigestWatchlistRow,
   WeeklyDigestData,
 } from "@/lib/digest/types";
 
-/** The four tiles at the top of both emails. */
-const MARKET_TILES: { symbol: string; label: string; isRate?: boolean }[] = [
-  { symbol: "^GSPC", label: "S&P 500" },
-  { symbol: "^GSPTSE", label: "TSX" },
-  { symbol: "^IXIC", label: "Nasdaq" },
-  { symbol: "CADUSD=X", label: "CAD/USD", isRate: true },
+/**
+ * The four tiles at the top of both emails. Index levels are whole numbers —
+ * four or five digits leave no room for decimals beside the change — while the
+ * FX rate needs three to say anything at all.
+ */
+const MARKET_TILES: { symbol: string; label: string; decimals: number }[] = [
+  { symbol: "^GSPC", label: "S&P 500", decimals: 0 },
+  { symbol: "^GSPTSE", label: "TSX", decimals: 0 },
+  { symbol: "^IXIC", label: "Nasdaq", decimals: 0 },
+  { symbol: "CADUSD=X", label: "CAD/USD", decimals: 3 },
 ];
 
 export {
@@ -86,8 +93,9 @@ async function loadDailyMarketTiles(): Promise<DigestMarketTile[]> {
 
   return results.map(({ tile, quote }) => ({
     label: tile.label,
+    value: quote?.price ?? null,
+    decimals: tile.decimals,
     changePercent: quote?.changePercent ?? null,
-    rate: tile.isRate ? quote?.price : undefined,
   }));
 }
 
@@ -109,8 +117,9 @@ async function loadWeeklyMarketTiles(baseline: string): Promise<DigestMarketTile
 
   return results.map(({ tile, quote, changePercent }) => ({
     label: tile.label,
+    value: quote?.price ?? null,
+    decimals: tile.decimals,
     changePercent,
-    rate: tile.isRate ? quote?.price : undefined,
   }));
 }
 
@@ -156,6 +165,18 @@ function mergePositions(
 }
 
 /**
+ * Rows plus a total. A lone portfolio stands on its own: a "Total" underneath
+ * one row would only repeat it.
+ */
+function toSection(
+  rows: DigestPortfolioRow[],
+  total: DigestPortfolioRow
+): DigestPortfolioSection | null {
+  if (rows.length === 0) return null;
+  return { rows, total: rows.length > 1 ? total : null };
+}
+
+/**
  * Transaction dates are date-only values stored as UTC midnight, so they are
  * compared as UTC calendar dates. Rendering them in the user's timezone would
  * shift each one a day earlier.
@@ -171,7 +192,7 @@ export async function buildDailyDigest(
   config?: DigestConfig
 ): Promise<DailyDigestData> {
   const cfg = config ?? (await getDigestConfig());
-  const today = zonedDateStr(now, cfg.timezone);
+  const today = zonedDateStr(now, MARKET_TIMEZONE);
 
   const [summary, allHoldings, watchlistRows, watchlistItems, allTransactions] =
     await Promise.all([
@@ -199,7 +220,7 @@ export async function buildDailyDigest(
     where: gte(schema.alerts.triggeredAt, dayAgo),
   });
   const alerts = recentAlerts
-    .filter((alert) => zonedDateStr(new Date(alert.triggeredAt), cfg.timezone) === today)
+    .filter((alert) => zonedDateStr(new Date(alert.triggeredAt), MARKET_TIMEZONE) === today)
     .map((alert) => ({ symbol: alert.symbol, message: alert.message }));
 
   const holdingById = new Map(allHoldings.map((h) => [h.id, h]));
@@ -237,14 +258,21 @@ export async function buildDailyDigest(
   ];
 
   const totals = summary.totals;
-  const portfolio =
-    summary.portfolios.length > 0
-      ? {
-          value: totals.marketValue,
-          change: totals.todayReturn,
-          changePercent: totals.todayReturnPercent,
-        }
-      : null;
+  const dayRows: DigestPortfolioRow[] = summary.portfolios
+    .filter((p) => p.marketValue > 0)
+    .sort((a, b) => b.marketValue - a.marketValue)
+    .map((p) => ({
+      name: p.name,
+      value: p.marketValue,
+      change: p.todayReturn,
+      changePercent: p.todayReturnPercent,
+    }));
+  const portfolio = toSection(dayRows, {
+    name: "Total",
+    value: totals.marketValue,
+    change: totals.todayReturn,
+    changePercent: totals.todayReturnPercent,
+  });
 
   return {
     kind: "daily",
@@ -269,7 +297,7 @@ export async function buildWeeklyDigest(
   config?: DigestConfig
 ): Promise<WeeklyDigestData> {
   const cfg = config ?? (await getDigestConfig());
-  const today = zonedDateStr(now, cfg.timezone);
+  const today = zonedDateStr(now, MARKET_TIMEZONE);
   const week = digestWeek(today);
   const baselineDate = dateStrToUtc(week.baseline);
 
@@ -306,6 +334,24 @@ export async function buildWeeklyDigest(
 
   const positions = mergePositions(activeHoldings, bundle.quotes, bundle.usdCad);
 
+  const cadOf = (symbol: string, fallbackCurrency: string) => {
+    const currency = bundle.quotes.get(symbol)?.currency || fallbackCurrency;
+    return currency === "USD" ? bundle.usdCad : 1;
+  };
+
+  // What each portfolio was worth at the baseline, priced from today's shares.
+  // Only used where a snapshot is missing, and the row says so.
+  const startValueByPortfolio = new Map<number, number>();
+  for (const holding of activeHoldings) {
+    const base = baselinePrices.get(holding.symbol);
+    if (!base) continue;
+    const value = base * holding.shares * cadOf(holding.symbol, holding.currency);
+    startValueByPortfolio.set(
+      holding.portfolioId,
+      (startValueByPortfolio.get(holding.portfolioId) ?? 0) + value
+    );
+  }
+
   // Week movers, priced against the previous Friday's close.
   const weekMovers: DigestMover[] = [];
   const holdingRows: DigestHoldingRow[] = [];
@@ -333,35 +379,48 @@ export async function buildWeeklyDigest(
 
   // Portfolio week change: a stored snapshot is authoritative because it
   // survives mid-week trades. Without one, re-price today's shares a week back
-  // and label the result estimated.
+  // and label the result estimated. Decided per row, since a portfolio created
+  // mid-week has no snapshot while its neighbours do.
   const totals = summary.totals;
-  const snapshot = await getSnapshotTotals(week.baseline);
-  let portfolio: WeeklyDigestData["portfolio"] = null;
+  const against = (value: number, base: number, name: string, estimated: boolean) => {
+    const change = base > 0 ? value - base : 0;
+    return {
+      name,
+      value,
+      change,
+      changePercent: base > 0 ? (change / base) * 100 : 0,
+      estimated,
+    };
+  };
 
-  if (summary.portfolios.length > 0) {
-    if (snapshot && snapshot.marketValue > 0) {
-      const change = totals.marketValue - snapshot.marketValue;
-      portfolio = {
-        value: totals.marketValue,
-        change,
-        changePercent: (change / snapshot.marketValue) * 100,
-        estimated: false,
-      };
-    } else {
-      let startValue = 0;
-      for (const position of positions) {
-        const base = baselinePrices.get(position.symbol);
-        if (base) startValue += base * position.shares * position.fx;
-      }
-      const change = startValue > 0 ? totals.marketValue - startValue : 0;
-      portfolio = {
-        value: totals.marketValue,
-        change,
-        changePercent: startValue > 0 ? (change / startValue) * 100 : 0,
-        estimated: true,
-      };
-    }
-  }
+  const weekRows = await Promise.all(
+    summary.portfolios
+      .filter((p) => p.marketValue > 0)
+      .sort((a, b) => b.marketValue - a.marketValue)
+      .map(async (p): Promise<DigestPortfolioRow> => {
+        const snapshot = await getSnapshot(p.id, week.baseline);
+        const stored = snapshot && snapshot.marketValue > 0 ? snapshot.marketValue : null;
+        return against(
+          p.marketValue,
+          stored ?? startValueByPortfolio.get(p.id) ?? 0,
+          p.name,
+          stored === null
+        );
+      })
+  );
+
+  const snapshotTotals = await getSnapshotTotals(week.baseline);
+  const storedTotal =
+    snapshotTotals && snapshotTotals.marketValue > 0 ? snapshotTotals.marketValue : null;
+  const portfolio = toSection(
+    weekRows,
+    against(
+      totals.marketValue,
+      storedTotal ?? [...startValueByPortfolio.values()].reduce((sum, v) => sum + v, 0),
+      "Total",
+      storedTotal === null
+    )
+  );
 
   const earliest = new Date(totals.earliestTransactionDate);
   const years = (now.getTime() - earliest.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
@@ -387,10 +446,6 @@ export async function buildWeeklyDigest(
 
   const holdingById = new Map(allHoldings.map((h) => [h.id, h]));
   const inWeek = (dateStr: string) => dateStr >= week.start && dateStr <= week.end;
-  const cadOf = (symbol: string, fallbackCurrency: string) => {
-    const currency = bundle.quotes.get(symbol)?.currency || fallbackCurrency;
-    return currency === "USD" ? bundle.usdCad : 1;
-  };
 
   let weekDividends = 0;
   let ytdDividends = 0;
@@ -447,7 +502,7 @@ export async function buildWeeklyDigest(
   const weekAlerts = (
     await db.query.alerts.findMany({ where: gte(schema.alerts.triggeredAt, weekStartUtc) })
   ).filter((alert) => {
-    const dateStr = zonedDateStr(new Date(alert.triggeredAt), cfg.timezone);
+    const dateStr = zonedDateStr(new Date(alert.triggeredAt), MARKET_TIMEZONE);
     return inWeek(dateStr);
   });
 

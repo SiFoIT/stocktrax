@@ -9,13 +9,17 @@
 
 export interface DigestMarketTile {
   label: string;
+  /** The index level or FX rate. Null when Yahoo returned nothing. */
+  value: number | null;
+  /** Decimals for `value`: 0 for an index level, 3 for the FX rate. */
+  decimals: number;
   /** Null when Yahoo returned nothing; the tile renders a dash. */
   changePercent: number | null;
-  /** Only the FX tile carries a level, shown before the change. */
-  rate?: number;
 }
 
-export interface DigestPortfolioLine {
+/** One portfolio's line, or the total across them all. */
+export interface DigestPortfolioRow {
+  name: string;
   value: number;
   change: number;
   changePercent: number;
@@ -24,6 +28,21 @@ export interface DigestPortfolioLine {
    * back rather than from a stored snapshot, which ignores mid-week trades.
    */
   estimated?: boolean;
+}
+
+export interface DigestPortfolioSection {
+  /** One row per portfolio holding something, largest first. */
+  rows: DigestPortfolioRow[];
+  /** Null with a single portfolio, whose own row is already the total. */
+  total: DigestPortfolioRow | null;
+}
+
+/** The line the digest speaks about as "the portfolio": the total, or the only one. */
+export function portfolioTotal(
+  section: DigestPortfolioSection | null
+): DigestPortfolioRow | null {
+  if (!section) return null;
+  return section.total ?? section.rows[0] ?? null;
 }
 
 /** A holding's move over the period, with its impact on the portfolio. */
@@ -58,7 +77,7 @@ export interface DailyDigestData {
   /** "Mon Sep 8, 2026" */
   dateLabel: string;
   markets: DigestMarketTile[];
-  portfolio: DigestPortfolioLine | null;
+  portfolio: DigestPortfolioSection | null;
   movers: DigestMover[];
   watchlist: DigestWatchlistRow[];
   /** Echoed into the watchlist section heading. */
@@ -109,7 +128,7 @@ export interface WeeklyDigestData {
   /** "Sep 1 – 5, 2026" */
   rangeLabel: string;
   markets: DigestMarketTile[];
-  portfolio: DigestPortfolioLine | null;
+  portfolio: DigestPortfolioSection | null;
   allTime: DigestAllTime | null;
   best: DigestMover[];
   worst: DigestMover[];
@@ -133,6 +152,6 @@ export interface RenderOptions {
 export function isQuietDay(data: DailyDigestData, thresholdPct: number): boolean {
   if (data.alerts.length > 0) return false;
   if (data.dividends.length > 0) return false;
-  const movePct = Math.abs(data.portfolio?.changePercent ?? 0);
+  const movePct = Math.abs(portfolioTotal(data.portfolio)?.changePercent ?? 0);
   return movePct < thresholdPct;
 }

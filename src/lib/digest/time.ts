@@ -5,6 +5,15 @@
  * user's, and a day boundary that drifts sends the wrong digest.
  */
 
+/**
+ * The market's own timezone. Everything the digest says about a trading day —
+ * which day it is, whether the market was open, the date on the email, which
+ * alerts and dividends belong to it — is a fact about the session, not about
+ * where the reader happens to sit. Only the weekly's arrival time follows the
+ * reader's zone.
+ */
+export const MARKET_TIMEZONE = "America/New_York";
+
 const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const MONTH_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",

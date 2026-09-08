@@ -5,7 +5,7 @@ import {
   isSmtpConfigured,
   setSetting,
 } from "@/lib/settings";
-import { digestWeek, zonedDateStr, zonedTimeStr } from "@/lib/digest/time";
+import { digestWeek, MARKET_TIMEZONE, zonedDateStr, zonedTimeStr } from "@/lib/digest/time";
 import { decideDue, type DueDecision } from "@/lib/digest/due";
 import { writeSnapshots } from "@/lib/digest/snapshots";
 import { sendDigest } from "@/lib/digest/send";
@@ -38,9 +38,19 @@ export async function runTick(now = new Date()): Promise<DueDecision | null> {
       getSetting<string | null>("digest.lastSent.weekly", null),
     ]);
 
-    const today = zonedDateStr(now, config.timezone);
-    const nowTime = zonedTimeStr(now, config.timezone);
-    const decision = decideDue({ today, nowTime, config, lastDaily, lastWeekly });
+    const today = zonedDateStr(now, MARKET_TIMEZONE);
+    const nowTime = zonedTimeStr(now, MARKET_TIMEZONE);
+    const localToday = zonedDateStr(now, config.timezone);
+    const localTime = zonedTimeStr(now, config.timezone);
+    const decision = decideDue({
+      today,
+      nowTime,
+      localToday,
+      localTime,
+      config,
+      lastDaily,
+      lastWeekly,
+    });
 
     if (decision.snapshot) {
       await writeSnapshots(today);

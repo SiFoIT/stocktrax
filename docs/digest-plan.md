@@ -38,10 +38,17 @@ centre, any change to how alerts are evaluated.
   (`register()`), Node runtime only. One `setInterval` ticks every 60 s. No
   sidecar, no extra container. A manual trigger endpoint also exists so an
   external cron can drive it instead.
-- **Daily sends at 17:00 America/Toronto on trading days** (uses the holiday
-  calendar in `src/lib/markets/calendar.ts`). Quotes are 15–20 min delayed,
-  so anything earlier than 16:30 risks a stale close. **Weekly sends Saturday
-  08:00** in the configured timezone. Both times are user-editable.
+- **The send times are fixed, not settings.** Daily at 17:00 on trading days
+  (holiday calendar in `src/lib/markets/calendar.ts`), weekly Saturday at
+  08:00. `DAILY_TIME` / `WEEKLY_TIME` in `due.ts`. The user chooses *whether*
+  to get each email, not when.
+  An editable time buys nothing and costs three things: quotes are 15–20 min
+  delayed so anything before 16:30 reports intraday figures under a "Closing
+  prices" footer; the daily send also gates `writeSnapshots`, so a pre-close
+  time banks a mid-session value as that day's mark; and because
+  `writeSnapshots` skips a date that already has rows, the real close can
+  never replace it. The weekly would then measure from that bad baseline and,
+  finding a snapshot, would not label the result estimated.
 - **Missed sends catch up, once.** If the container was down at 17:00, the
   next tick that same calendar day sends it. A `lastSent.daily` /
   `lastSent.weekly` marker (date string) in `settings` prevents double sends
@@ -62,11 +69,19 @@ centre, any change to how alerts are evaluated.
 - **One combined holdings table** in the weekly, not one per portfolio. A
   symbol held in two portfolios is merged (shares summed). Sorted by weekly
   % change, best to worst. Same for the watchlist table (one per watchlist,
-  since watchlists are the user's own grouping). Portfolios are never
-  broken out anywhere in either email.
+  since watchlists are the user's own grouping).
+- **The portfolio section is the one place portfolios are broken out**: one
+  named row each, then a bold Total when there is more than one. A single
+  portfolio gets its own name and no Total, which would only repeat it.
+  Holdings, movers and watchlists stay merged across portfolios.
+- **Every table reads as one descending run** — biggest gain at the top,
+  biggest loss at the bottom. Sorting by the size of the move instead drops a
+  heavy faller into the middle of the gainers, where it reads as a gain.
 - **Markets-only tile row at the top of both emails**: S&P 500, TSX,
-  Nasdaq, CAD/USD. Today's change in the daily, the week's change in the
-  weekly. Nothing about the portfolio goes in a tile.
+  Nasdaq, CAD/USD. Each tile carries its level and then its change — today's
+  in the daily, the week's in the weekly. Index levels are whole numbers (four
+  or five digits leave no room for decimals beside the change); the FX rate
+  keeps three. Nothing about the portfolio goes in a tile.
 - **The portfolio is one line, not a hero number.** Combined value across
   all portfolios with the change in $ and %, same font size as everything
   else. No per-portfolio breakdown anywhere in either email. All time and
@@ -110,26 +125,28 @@ centre, any change to how alerts are evaluated.
 ### Daily (subject: `StockTrax daily · Mon Sep 8`)
 
 1. **Header**: wordmark, "Daily · <date>".
-2. **Markets**: four tiles, today's %: S&P 500 (`^GSPC`), TSX (`^GSPTSE`),
-   Nasdaq (`^IXIC`), CAD/USD (`CADUSD=X`, rate followed by today's % on the
-   same line, e.g. `0.734 −0.2%`, the % smaller and coloured).
+2. **Markets**: four tiles, level then today's %: S&P 500 (`^GSPC`), TSX
+   (`^GSPTSE`), Nasdaq (`^IXIC`), CAD/USD (`CADUSD=X`) — e.g. `6,812 −0.6%`
+   and `0.726 +0.2%`, the % smaller and coloured.
    Same quotes the Markets page headline cards use.
 3. **Portfolio · today**: section label carries the period, like the Markets
-   label above it. One line: combined value, a gap, then today's $ change and
-   %. No period suffix on the numbers.
+   label above it. One row per portfolio — its name, value, today's $ change
+   and % — then a bold Total row when there is more than one. No period suffix
+   on the numbers.
 4. *(intentionally no All time in the daily)*
 5. **Movers**: holdings that moved more than ±1 % today, top 3 up and top 3
    down by %, each with the $ impact (`shares × change × fx`). Symbol, short
    name, %, $.
 6. **Watchlist**: watchlist symbols that moved more than ±2 % today (threshold
    is a setting, default 2; 0 disables the section). Symbol, name, price, %.
-   Sorted by |%|.
+   Sorted by signed %, so the section reads as one descending run.
 7. **Alerts fired**: rows from `alerts` with `triggeredAt` on this trading
    day. Symbol badge + the stored `message`.
 8. **Dividends**: `transactions` of type `dividend` dated today, summed per
    symbol.
-9. **Footer**: "Prices delayed 15–20 min · Values in CAD · Open StockTrax ·
-   Digest settings". Links use a `DIGEST_APP_URL` setting (default empty →
+9. **Footer**: "Closing prices · Values in CAD · Open StockTrax ·
+   Digest settings". Both sends land after the 16:00 close, so the numbers are
+   closing prices and a delay caveat would be wrong as well as noisy. Links use a `DIGEST_APP_URL` setting (default empty →
    links omitted).
 
 ### Weekly (subject: `StockTrax weekly · Sep 1 – 5`)
@@ -138,8 +155,10 @@ Week = the Monday to Friday just ended. "Last week's close" = the snapshot
 dated the previous Friday (or nearest earlier trading day).
 
 1. **Header**: wordmark, "Weekly · <Mon> – <Fri>, <year>".
-2. **Markets**: same four tiles, week's %.
-3. **Portfolio · this week**: same shape as the daily line, week $ and %.
+2. **Markets**: same four tiles, level and the week's %.
+3. **Portfolio · this week**: same shape as the daily rows, week $ and %. The
+   snapshot baseline is read per portfolio, so "est." lands on the rows that
+   actually lack one.
 4. **All time / CAGR line** under it, small muted text:
    "All time +$22,905 (+14.2%) since Mar 2021 · CAGR 9.8% per year over
    5.5 yrs". The only place these two figures appear.
@@ -193,9 +212,7 @@ Settings keys (all JSON values):
 ```
 digest.daily.enabled   boolean  true
 digest.weekly.enabled  boolean  true
-digest.daily.time      "HH:MM"  "17:00"
-digest.weekly.time     "HH:MM"  "08:00"
-digest.timezone        IANA     "America/Toronto"
+digest.timezone        IANA     "America/Toronto"  (weekly arrival only)
 digest.watchlistMovePct number  2        (0 = no watchlist section)
 digest.showDollars     boolean  true
 digest.skipQuietDays   boolean  false
@@ -234,14 +251,25 @@ Dependencies: `nodemailer`, `@types/nodemailer`, `vitest` (dev).
 
 ## Scheduler logic
 
-On each tick, in the configured timezone:
+**Two clocks.** Dates and the daily's hour are market time
+(`MARKET_TIMEZONE`, America/New_York): which day it is, whether the market was
+open, the date on the email and which alerts and dividends belong to it are
+facts about the session, not about the reader. Pinning them to the reader's
+zone was a latent bug — a reader east of New York would see Tuesday's session
+labelled Wednesday, and the `lastSent` marker would then suppress Wednesday's
+own digest. The reader's zone decides one thing: the hour the weekly lands.
+The weekly needs *both* Saturdays, because the market's Saturday begins on
+Friday evening out west and arrives after a Pacific reader's Saturday
+breakfast in the east.
+
+On each tick:
 
 1. Compute `today` (`YYYY-MM-DD`) and `now` (`HH:MM`).
 2. **Daily**: if enabled, `today` is a trading day (`isMarketOpen`-style
-   check against the holiday calendar, weekday Mon–Fri), `now ≥ dailyTime`,
+   check against the holiday calendar, weekday Mon–Fri), `now ≥ DAILY_TIME`,
    and `lastSent.daily !== today` → `writeSnapshots(today)` then
    `sendDigest("daily")`; on success set `lastSent.daily = today`.
-3. **Weekly**: if enabled, weekday is Saturday, `now ≥ weeklyTime`, and
+3. **Weekly**: if enabled, weekday is Saturday, `now ≥ WEEKLY_TIME`, and
    `lastSent.weekly !== today` → ensure Friday's snapshot exists (write it if
    missing, using current quotes) then `sendDigest("weekly")`; on success set
    `lastSent.weekly = today`.
@@ -259,8 +287,17 @@ and button primitives:
   (placeholder "Saved" when `hasPassword`), from, to (one or more addresses,
   comma-separated). Buttons: **Save**, **Send test email**. Result line
   shows success or the SMTP error verbatim.
-- **Schedule**: Daily toggle + time, Weekly toggle + time, timezone (text
-  input with the browser's zone as the default).
+- **Schedule**: Daily toggle, Weekly toggle, timezone dropdown. No time
+  pickers — each toggle's hint states when that email arrives and on whose
+  clock ("5:00 PM Eastern" / "8:00 AM your time").
+  The dropdown offers ~17 curated zones (`src/lib/timezones.ts`), not the full
+  IANA set: North America first, then one per common offset elsewhere. They are
+  zone ids rather than fixed UTC offsets so daylight saving is carried; a
+  "UTC−5" entry would drift an hour every spring. The browser's reported zone
+  is matched onto the list *by current offset*, so a reader in Winnipeg or
+  Chicago lands on Central instead of on the default. A stored zone that is not
+  on the list still renders as its own option, and the API refuses a zone Intl
+  cannot parse rather than throwing inside every scheduler tick.
 - **Content**: Watchlist move threshold (%, 0 = off), **Show dollar values**
   toggle (default on), **Skip quiet days** toggle (default off) with its
   threshold % shown only when on.
