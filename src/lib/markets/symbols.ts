@@ -3,14 +3,21 @@ export type Category = "markets" | "commodities" | "currency" | "crypto";
 export interface MarketSymbol {
   symbol: string;
   name: string;
+  /**
+   * The front-month index future quoted while the cash index is not trading.
+   * Only the US indices have one: the TSX contract is not reliably on Yahoo.
+   */
+  futures?: { symbol: string; label: string };
 }
 
 export const MARKET_SYMBOLS: Record<Category, MarketSymbol[]> = {
   markets: [
     // US
-    { symbol: "^GSPC", name: "S&P 500" },
-    { symbol: "^DJI", name: "Dow Jones" },
-    { symbol: "^IXIC", name: "Nasdaq" },
+    { symbol: "^GSPC", name: "S&P 500", futures: { symbol: "ES=F", label: "Futures" } },
+    { symbol: "^DJI", name: "Dow Jones", futures: { symbol: "YM=F", label: "Futures" } },
+    // NQ=F tracks the Nasdaq 100, not the Composite this card shows, so it is
+    // labelled for what it actually is.
+    { symbol: "^IXIC", name: "Nasdaq", futures: { symbol: "NQ=F", label: "NDX futures" } },
     // Canada
     { symbol: "^GSPTSE", name: "S&P/TSX Composite" },
     { symbol: "^VIX", name: "VIX" },

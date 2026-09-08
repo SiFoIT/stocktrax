@@ -119,6 +119,21 @@ export interface WatchlistItemWithQuote extends QuoteFields {
   currency?: string;
 }
 
+/**
+ * A front-month index future, shown on a headline card while its cash index is
+ * closed. Only `changePercent` is rendered: the contract trades at a basis to
+ * the index, so its price level under the index's close reads as an error.
+ */
+export interface FuturesQuote {
+  symbol: string;
+  label: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  marketState?: MarketState;
+  lastTradeTime?: string;
+}
+
 export interface MarketData {
   symbol: string;
   name: string;
@@ -127,6 +142,7 @@ export interface MarketData {
   changePercent: number;
   sparklineData: number[];
   extendedHours?: ExtendedHoursData;
+  futures?: FuturesQuote;
 }
 
 export interface TransactionWithSymbol {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { WatchlistItemWithQuote } from "@/types";
+import { FuturesQuote, WatchlistItemWithQuote } from "@/types";
 import { formatPercent, getChangeColor } from "@/lib/utils";
 import { getNextMarketTransition } from "@/lib/markets/calendar";
 import { StatCard } from "@/components/ui/stat-card";
@@ -21,6 +21,8 @@ interface MarketGlanceProps {
   alertSymbols: string[];
   onSelectSymbol: (symbol: string) => void;
   onOpenAlerts: () => void;
+  /** S&P 500 futures, appended to the status tile while the market is closed. */
+  futures?: FuturesQuote | null;
 }
 
 const etTime = new Intl.DateTimeFormat("en-US", {
@@ -76,6 +78,7 @@ export function MarketGlance({
   alertSymbols,
   onSelectSymbol,
   onOpenAlerts,
+  futures,
 }: MarketGlanceProps) {
   const market = useMarketTransition();
 
@@ -156,7 +159,26 @@ export function MarketGlance({
       <StatCard
         label="Market"
         value={market ? (market.open ? "Open" : "Closed") : NO_VALUE}
-        sub={market ? market.label : NO_SUB}
+        sub={
+          market ? (
+            // Gated on this tile's own calendar rather than Yahoo's state, so
+            // "Closed" and the futures line can never contradict each other.
+            <span className="block truncate">
+              {market.label}
+              {!market.open && futures && (
+                <>
+                  {" · "}
+                  {futures.label}{" "}
+                  <span className={getChangeColor(futures.changePercent)}>
+                    {formatPercent(futures.changePercent)}
+                  </span>
+                </>
+              )}
+            </span>
+          ) : (
+            NO_SUB
+          )
+        }
       />
       {moverTile("Watchlist gainer", gainer)}
       {moverTile("Watchlist loser", loser)}

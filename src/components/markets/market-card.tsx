@@ -1,9 +1,15 @@
 import { Bell } from "lucide-react";
 import { MarketData } from "@/types";
-import { formatPercent } from "@/lib/utils";
+import { formatPercent, getChangeColor } from "@/lib/utils";
 import { Sparkline } from "./sparkline";
-import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
-import { alertBellClass, formatMarketChange, formatMarketPrice, type AlertState } from "./market-format";
+import {
+  alertBellClass,
+  formatMarketChange,
+  formatMarketPrice,
+  futuresTooltip,
+  showFutures,
+  type AlertState,
+} from "./market-format";
 
 interface MarketCardProps {
   data: MarketData;
@@ -73,11 +79,22 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
           </span>
         </div>
       </div>
-      {data.extendedHours && (
-        <div className="mt-1.5">
-          <ExtendedHoursLabel extendedHours={data.extendedHours} compact />
-        </div>
-      )}
+      {/*
+        Always occupies a line so the card does not resize at 9:30 when the
+        futures quote drops away.
+      */}
+      <div className="mt-1.5 flex items-center gap-1.5 text-xs">
+        {showFutures(data) && data.futures ? (
+          <span className="flex items-center gap-1.5" title={futuresTooltip(data.futures)}>
+            <span className="text-muted-foreground">{data.futures.label}</span>
+            <span className={getChangeColor(data.futures.changePercent)}>
+              {formatPercent(data.futures.changePercent)}
+            </span>
+          </span>
+        ) : (
+          <span>&nbsp;</span>
+        )}
+      </div>
     </div>
   );
 }

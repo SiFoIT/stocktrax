@@ -1,11 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { getQuote, getTimeSeries } from "@/lib/api/yahoo-finance";
+import { getQuote, getTimeSeries, type QuoteWithRange } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
 import { MARKET_SYMBOLS, Category, CATEGORIES } from "@/lib/markets/symbols";
-import { MarketData } from "@/types";
+import { FuturesQuote, MarketData } from "@/types";
 import { buildSparkline } from "@/lib/markets/session";
 import { CACHE_TTL } from "@/lib/config";
+
+/**
+ * A futures quote is strictly additive: if Yahoo has nothing for the contract,
+ * the card renders exactly as it did before this existed.
+ */
+function buildFuturesQuote(
+  futures: { symbol: string; label: string } | undefined,
+  quote: QuoteWithRange | null
+): FuturesQuote | undefined {
+  if (!futures || !quote) return undefined;
+
+  return {
+    symbol: futures.symbol,
+    label: futures.label,
+    price: quote.price,
+    change: quote.change,
+    changePercent: quote.changePercent,
+    marketState: quote.extendedHours?.marketState,
+    lastTradeTime: quote.lastTradeTime,
+  };
+}
 
 async function fetchCategoryData(category: Category, skipCache: boolean): Promise<MarketData[]> {
   const symbols = MARKET_SYMBOLS[category];
@@ -27,13 +48,16 @@ async function fetchCategoryData(category: Category, skipCache: boolean): Promis
 
   // Fetch fresh data for all symbols in parallel
   const marketData: MarketData[] = await Promise.all(
-    symbols.map(async ({ symbol, name }) => {
+    symbols.map(async ({ symbol, name, futures }) => {
       try {
         // 5d rather than 1d: a 1d window returns nothing over a weekend or
         // holiday, when the tile still has to show the last session.
-        const [quote, timeSeries] = await Promise.all([
+        const [quote, timeSeries, futuresQuote] = await Promise.all([
           getQuote(symbol),
           getTimeSeries(symbol, "5d", "5m"),
+          // includeRange for lastTradeTime, which the card exposes as a tooltip
+          // so a stale weekend quote is inspectable.
+          futures ? getQuote(futures.symbol, true).catch(() => null) : Promise.resolve(null),
         ]);
 
         const price = quote?.price ?? 0;
@@ -47,6 +71,7 @@ async function fetchCategoryData(category: Category, skipCache: boolean): Promis
           changePercent: quote?.changePercent ?? 0,
           sparklineData: buildSparkline(timeSeries, price, price - change),
           extendedHours: quote?.extendedHours,
+          futures: buildFuturesQuote(futures, futuresQuote as QuoteWithRange | null),
         };
       } catch {
         return {
