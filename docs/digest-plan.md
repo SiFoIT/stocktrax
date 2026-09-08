@@ -95,7 +95,8 @@ centre, any change to how alerts are evaluated.
   fallback and shows "est.", exactly as the first real weekly would.
 - **Show dollar values is a render-time privacy switch**, default on. When
   off, every $ figure is dropped and percentages stay: the portfolio line is
-  % only; Movers and Best/Worst lose their $ column; the holdings table loses
+  % only; Movers and Best/Worst keep their price column, since a per-share
+  price says nothing about size; the holdings table loses
   Value and Week $; Dividends and Activity show symbols and counts without
   amounts; the All time line keeps only the %. `DigestData` is unchanged;
   only `render.ts` reads the flag.
@@ -135,8 +136,9 @@ centre, any change to how alerts are evaluated.
    on the numbers.
 4. *(intentionally no All time in the daily)*
 5. **Movers**: holdings that moved more than ±1 % today, top 3 up and top 3
-   down by %, each with the $ impact (`shares × change × fx`). Symbol, short
-   name, %, $.
+   down by %. Symbol, short name, closing price, % — the same shape as a
+   watchlist row, so the two sections read alike. No $ impact: the reader
+   cares which stocks moved, not what it did to the total.
 6. **Watchlist**: watchlist symbols that moved more than ±2 % today (threshold
    is a setting, default 2; 0 disables the section). Symbol, name, price, %.
    Sorted by signed %, so the section reads as one descending run.

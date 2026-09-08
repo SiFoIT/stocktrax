@@ -363,8 +363,8 @@ export async function buildWeeklyDigest(
     weekMovers.push({
       symbol: position.symbol,
       name: position.name,
+      price: position.price,
       changePercent: weekPercent,
-      changeAmount: weekAmount,
     });
     holdingRows.push({
       symbol: position.symbol,

@@ -49,8 +49,9 @@ export function portfolioTotal(
 export interface DigestMover {
   symbol: string;
   name: string;
+  /** Closing price in the symbol's own currency. */
+  price: number;
   changePercent: number;
-  changeAmount: number;
 }
 
 export interface DigestWatchlistRow {

@@ -22,8 +22,8 @@ const daily: DailyDigestData = {
     total: { name: "Total", value: 227010, change: 1030, changePercent: 0.46 },
   },
   movers: [
-    { symbol: "NVDA", name: "NVIDIA", changePercent: 4.1, changeAmount: 610 },
-    { symbol: "ENB.TO", name: "Enbridge", changePercent: -1.9, changeAmount: -180 },
+    { symbol: "NVDA", name: "NVIDIA", price: 124.18, changePercent: 4.1 },
+    { symbol: "ENB.TO", name: "Enbridge", price: 56.4, changePercent: -1.9 },
   ],
   watchlist: [{ symbol: "AMD", name: "Advanced Micro Devices", price: 168.4, changePercent: 3.2 }],
   watchlistThreshold: 2,
@@ -55,8 +55,8 @@ const weekly: WeeklyDigestData = {
     total: null,
   },
   allTime: { amount: 22905, percent: 14.2, sinceLabel: "Mar 2021", cagr: 9.8, years: 5.5 },
-  best: [{ symbol: "NVDA", name: "NVIDIA", changePercent: 7.2, changeAmount: 1050 }],
-  worst: [{ symbol: "ENB.TO", name: "Enbridge", changePercent: -3, changeAmount: -290 }],
+  best: [{ symbol: "NVDA", name: "NVIDIA", price: 124.18, changePercent: 7.2 }],
+  worst: [{ symbol: "ENB.TO", name: "Enbridge", price: 56.4, changePercent: -3 }],
   facts: {
     fiftyTwoWeek: [{ symbol: "NVDA", kind: "high" }],
     dividends: { total: 214, symbols: ["ENB.TO", "RY.TO"], ytd: 1870 },
@@ -104,8 +104,8 @@ describe("plain text", () => {
         Total                 $227,010    +$1,030   +0.46%
 
       MOVERS
-        NVDA         +4.1%  +$610
-        ENB.TO       −1.9%  −$180
+        NVDA          $124.18   +4.1%
+        ENB.TO         $56.40   −1.9%
 
       WATCHLIST · MOVES OVER 2%
         AMD           $168.40   +3.2%
@@ -220,7 +220,7 @@ describe("empty sections", () => {
 describe("privacy switch", () => {
   // Per-share prices stay: they are public market data and say nothing about
   // how much the reader holds. What goes is every figure that reveals size.
-  const SIZES = ["184,210", "1,340", "2,910", "22,905", "610", "180", "1,050", "290", "33,150", "9,400", "84.00", "214", "1,870", "2,000", "42,800", "310", "227,010", "1,030"];
+  const SIZES = ["184,210", "1,340", "2,910", "22,905", "33,150", "9,400", "84.00", "214", "1,870", "2,000", "42,800", "310", "227,010", "1,030"];
 
   it("drops every portfolio figure from the daily", () => {
     for (const output of [renderHtml(daily, NO_DOLLARS), renderText(daily, NO_DOLLARS)]) {
@@ -267,7 +267,7 @@ describe("escaping", () => {
     const hostile: DailyDigestData = {
       ...daily,
       movers: [
-        { symbol: "<script>", name: "Bad & Co", changePercent: 2, changeAmount: 1 },
+        { symbol: "<script>", name: "Bad & Co", price: 1, changePercent: 2 },
       ],
     };
     const html = renderHtml(hostile, WITH_DOLLARS);

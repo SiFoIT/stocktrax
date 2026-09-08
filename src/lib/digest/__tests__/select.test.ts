@@ -29,7 +29,7 @@ function watchRow(symbol: string, changePercent: number): DigestWatchlistRow {
 }
 
 function mover(symbol: string, changePercent: number): DigestMover {
-  return { symbol, name: symbol, changePercent, changeAmount: changePercent * 10 };
+  return { symbol, name: symbol, price: 100, changePercent };
 }
 
 describe("selectMovers", () => {
@@ -60,12 +60,10 @@ describe("selectMovers", () => {
     expect(movers.map((m) => m.changePercent)).toEqual([5, 4, 3, -3, -4, -5]);
   });
 
-  it("converts the dollar impact through the exchange rate", () => {
-    const [usd] = selectMovers([
-      position("NVDA", 4, { shares: 100, change: 2, fx: 1.36 }),
-    ]);
+  it("carries the closing price through in the symbol's own currency", () => {
+    const [usd] = selectMovers([position("NVDA", 4, { price: 124.18, fx: 1.36 })]);
 
-    expect(usd.changeAmount).toBeCloseTo(272, 6);
+    expect(usd.price).toBe(124.18);
   });
 
   it("returns nothing when the market barely moved", () => {

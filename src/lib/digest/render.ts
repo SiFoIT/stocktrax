@@ -12,10 +12,13 @@ import type {
 /**
  * HTML and plain-text renderers for the digest emails.
  *
- * Pure: everything comes from `DigestData` plus the render options. Mail
- * clients strip stylesheets, so layout is tables and inline styles only, and
- * the palette stays light because Gmail's dark mode inverts colours
- * unpredictably. `docs/mockups/digest-email.html` is the visual reference.
+ * Pure: everything comes from `DigestData` plus the render options. Layout is
+ * tables and inline styles, so it reads the same everywhere; one `<style>`
+ * block carries a single phone media query (honoured by Apple Mail and the
+ * Gmail app) that reflows the widest pieces instead of letting the client
+ * shrink the whole card to fit. The palette stays light because Gmail's dark
+ * mode inverts colours unpredictably. `docs/mockups/digest-email.html` is the
+ * visual reference.
  */
 
 const C = {
@@ -40,6 +43,22 @@ const MONO = "Menlo,Consolas,'Courier New',monospace";
 
 const LABEL = `font-size:12px;color:${C.muted};text-transform:uppercase;letter-spacing:.06em;`;
 const CELL = `padding:6px 0;border-top:1px solid ${C.border};`;
+
+/**
+ * Below 480px the market tiles go two-up, the weekly best/worst columns stack,
+ * and the horizontal padding tightens. Without this the four nowrap tiles pin
+ * the layout at ~570px and iOS Mail zooms the whole email out to fit.
+ */
+const PHONE_STYLES = `@media only screen and (max-width:480px){
+.page{padding:12px 6px!important}
+.pad{padding-left:16px!important;padding-right:16px!important}
+.tile{display:inline-block!important;width:48%!important;box-sizing:border-box;vertical-align:top;margin-bottom:8px}
+.tile-r{margin-left:3%}
+.gap{display:none!important}
+.col{display:block!important;width:100%!important;padding-left:0!important;padding-right:0!important;border-left:0!important}
+.col-r{padding-top:16px!important}
+.num{width:auto!important;padding-left:12px!important;padding-right:0!important}
+}`;
 
 // --- Formatting ---
 
@@ -100,7 +119,7 @@ function sectionRows(
 // --- HTML building blocks ---
 
 function section(inner: string, padding = `0 24px 18px`): string {
-  return `<tr><td style="padding:${padding};">${inner}</td></tr>`;
+  return `<tr><td class="pad" style="padding:${padding};">${inner}</td></tr>`;
 }
 
 function heading(text: string): string {
@@ -109,7 +128,7 @@ function heading(text: string): string {
 
 function marketTiles(tiles: DigestMarketTile[], label: string): string {
   const cells = tiles
-    .map((tile) => {
+    .map((tile, index) => {
       // A five-digit index level and its change share ~108px of tile, so the
       // change runs smaller than the level rather than beneath it.
       const lvl = tile.value === null ? null : level(tile.value, tile.decimals);
@@ -121,13 +140,13 @@ function marketTiles(tiles: DigestMarketTile[], label: string): string {
             )}</span>`;
       const value = lvl && change ? `${lvl} ${change}` : (lvl ?? change ?? "&mdash;");
 
-      return `<td width="25%" style="padding:10px 12px;background:${C.tile};border-radius:6px;">
+      return `<td class="tile tile-${index % 2 === 0 ? "l" : "r"}" width="25%" style="padding:10px 12px;background:${C.tile};border-radius:6px;">
 <div style="font-size:11px;color:${C.muted};text-transform:uppercase;letter-spacing:.06em;">${escapeHtml(
         tile.label
       )}</div>
 <div style="font-family:${MONO};font-size:15px;margin-top:2px;white-space:nowrap;">${value}</div></td>`;
     })
-    .join(`<td width="8"></td>`);
+    .join(`<td class="gap" width="8"></td>`);
 
   return `<div style="${LABEL}margin-bottom:8px;">${escapeHtml(label)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${cells}</tr></table>`;
@@ -149,10 +168,10 @@ function portfolioRow(
 
   const cells = options.showDollars
     ? `<td align="right" style="${cell}${weight}font-family:${MONO};">${money0(row.value)}</td>
-<td align="right" width="110" style="padding:6px 14px 6px 28px;border-top:1px solid ${
+<td class="num" align="right" width="110" style="padding:6px 14px 6px 28px;border-top:1px solid ${
         isTotal ? C.borderStrong : C.border
       };${weight}font-family:${MONO};color:${color};">${signedMoney(row.change)}</td>
-<td align="right" width="96" style="${cell}${weight}font-family:${MONO};color:${color};">${percent(
+<td class="num" align="right" width="96" style="${cell}${weight}font-family:${MONO};color:${color};white-space:nowrap;">${percent(
         row.changePercent,
         digits
       )}${estimated}</td>`
@@ -181,23 +200,21 @@ function portfolioLine(
 ${rows}${extraRow}</table>`;
 }
 
-function moverRows(movers: DigestMover[], options: RenderOptions, withName: boolean): string {
+/** Symbol, optional name, closing price, then %. Same shape as a watchlist row. */
+function moverRows(movers: DigestMover[], withName: boolean): string {
   return movers
     .map((mover) => {
       const color = colorOf(mover.changePercent);
       const nameCell = withName
         ? `<td style="padding:5px 0;color:${C.muted};">${escapeHtml(mover.name)}</td>`
         : "";
-      const amountCell = options.showDollars
-        ? `<td align="right" width="90" style="font-family:${MONO};padding:5px 0;color:${color};">${signedMoney(
-            mover.changeAmount
-          )}</td>`
-        : "";
-      return `<tr><td style="padding:5px 0;font-weight:600;">${escapeHtml(
+      return `<tr><td style="padding:5px 0;font-weight:600;white-space:nowrap;">${escapeHtml(
         mover.symbol
-      )}</td>${nameCell}<td align="right" style="font-family:${MONO};padding:5px 0;color:${color};">${percent(
+      )}</td>${nameCell}<td align="right" style="font-family:${MONO};padding:5px 0 5px 12px;white-space:nowrap;">${money2(
+        mover.price
+      )}</td><td class="num" align="right" width="80" style="font-family:${MONO};padding:5px 0 5px 12px;color:${color};white-space:nowrap;">${percent(
         mover.changePercent
-      )}</td>${amountCell}</tr>`;
+      )}</td></tr>`;
     })
     .join("");
 }
@@ -207,25 +224,37 @@ function shell(headerRight: string, body: string, appUrl: string): string {
     ? ` &middot; <a href="${escapeHtml(appUrl)}" style="color:${C.muted};">Open StockTrax</a>`
     : "";
 
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.page};margin:0;padding:24px 12px;font-family:${SANS};color:${C.text};">
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<title>StockTrax ${escapeHtml(headerRight)}</title>
+<style>${PHONE_STYLES}</style>
+</head>
+<body style="margin:0;padding:0;background:${C.page};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="page" style="background:${C.page};margin:0;padding:24px 12px;font-family:${SANS};color:${C.text};">
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
 <tr><td style="background:${C.card};border:1px solid ${C.borderStrong};border-radius:8px;overflow:hidden;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td style="padding:18px 24px 14px;border-bottom:1px solid ${C.border};">
+<tr><td class="pad" style="padding:18px 24px 14px;border-bottom:1px solid ${C.border};">
 <table role="presentation" width="100%"><tr>
 <td style="font-size:13px;font-weight:600;letter-spacing:.04em;color:${C.text};">STOCKTRAX</td>
 <td align="right" style="font-size:13px;color:${C.muted};">${escapeHtml(headerRight)}</td>
 </tr></table>
 </td></tr>
 ${body}
-<tr><td style="padding:12px 24px;background:${C.tile};border-top:1px solid ${C.border};font-size:12px;color:${C.muted};">
+<tr><td class="pad" style="padding:12px 24px;background:${C.tile};border-top:1px solid ${C.border};font-size:12px;color:${C.muted};">
 Closing prices &middot; Values in CAD${links}
 </td></tr>
 </table>
 </td></tr>
 </table>
-</td></tr></table>`;
+</td></tr></table>
+</body>
+</html>`;
 }
 
 // --- Daily ---
@@ -241,11 +270,7 @@ function renderDailyHtml(data: DailyDigestData, options: RenderOptions): string 
   if (data.movers.length > 0) {
     parts.push(
       section(
-        `${heading("Movers")}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">${moverRows(
-          data.movers,
-          options,
-          true
-        )}</table>`
+        `${heading("Movers")}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">${moverRows(data.movers, true)}</table>`
       )
     );
   }
@@ -254,13 +279,13 @@ function renderDailyHtml(data: DailyDigestData, options: RenderOptions): string 
     const rows = data.watchlist
       .map((row) => {
         const color = colorOf(row.changePercent);
-        return `<tr><td style="padding:5px 0;font-weight:600;">${escapeHtml(
+        return `<tr><td style="padding:5px 0;font-weight:600;white-space:nowrap;">${escapeHtml(
           row.symbol
         )}</td><td style="padding:5px 0;color:${C.muted};">${escapeHtml(
           row.name
-        )}</td><td align="right" style="font-family:${MONO};padding:5px 0;">${money2(
+        )}</td><td align="right" style="font-family:${MONO};padding:5px 0 5px 12px;white-space:nowrap;">${money2(
           row.price
-        )}</td><td align="right" width="90" style="font-family:${MONO};padding:5px 0;color:${color};">${percent(
+        )}</td><td class="num" align="right" width="80" style="font-family:${MONO};padding:5px 0 5px 12px;color:${color};white-space:nowrap;">${percent(
           row.changePercent
         )}</td></tr>`;
       })
@@ -335,15 +360,11 @@ function renderWeeklyHtml(data: WeeklyDigestData, options: RenderOptions): strin
 
   if (data.best.length > 0 || data.worst.length > 0) {
     const column = (title: string, movers: DigestMover[], left: boolean) =>
-      `<td width="50%" valign="top" style="${
+      `<td class="col col-${left ? "l" : "r"}" width="50%" valign="top" style="${
         left ? "padding-right:12px;" : `padding-left:12px;border-left:1px solid ${C.border};`
       }">${
         movers.length > 0
-          ? `${heading(title)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">${moverRows(
-              movers,
-              options,
-              false
-            )}</table>`
+          ? `${heading(title)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">${moverRows(movers, false)}</table>`
           : ""
       }</td>`;
 
@@ -462,7 +483,7 @@ function renderWeeklyHtml(data: WeeklyDigestData, options: RenderOptions): strin
           : "";
         return `<tr><td style="padding:4px 0;border-bottom:1px solid ${
           C.rowBorder
-        };font-weight:600;">${escapeHtml(row.symbol)}</td>${cell(money2(row.price))}${cell(
+        };font-weight:600;white-space:nowrap;">${escapeHtml(row.symbol)}</td>${cell(money2(row.price))}${cell(
           percent(row.weekPercent),
           `color:${color};`
         )}${money}</tr>`;
@@ -488,7 +509,7 @@ function renderWeeklyHtml(data: WeeklyDigestData, options: RenderOptions): strin
           `<td align="right" style="font-family:${MONO};padding:4px 0;border-bottom:1px solid ${C.rowBorder};${extra}">${body}</td>`;
         return `<tr><td style="padding:4px 0;border-bottom:1px solid ${
           C.rowBorder
-        };font-weight:600;">${escapeHtml(row.symbol)}</td>${cell(money2(row.price))}${cell(
+        };font-weight:600;white-space:nowrap;">${escapeHtml(row.symbol)}</td>${cell(money2(row.price))}${cell(
           percent(row.changePercent),
           `color:${color};`
         )}${cell(escapeHtml(row.rangeNote ?? ""), `color:${C.muted};`)}</tr>`;
@@ -553,11 +574,13 @@ function textPortfolio(
   return [label.toUpperCase(), ...lines, ""];
 }
 
-function textMovers(movers: DigestMover[], options: RenderOptions): string[] {
-  return movers.map((mover) => {
-    const amount = options.showDollars ? `  ${signedMoney(mover.changeAmount)}` : "";
-    return `  ${mover.symbol.padEnd(10)} ${percent(mover.changePercent).padStart(7)}${amount}`;
-  });
+function textMovers(movers: DigestMover[]): string[] {
+  return movers.map(
+    (mover) =>
+      `  ${mover.symbol.padEnd(10)} ${money2(mover.price).padStart(10)} ${percent(
+        mover.changePercent
+      ).padStart(7)}`
+  );
 }
 
 function renderDailyText(data: DailyDigestData, options: RenderOptions): string {
@@ -568,7 +591,7 @@ function renderDailyText(data: DailyDigestData, options: RenderOptions): string 
   lines.push(...textPortfolio(data, "Portfolio · today", options, 2));
 
   if (data.movers.length > 0) {
-    lines.push("MOVERS", ...textMovers(data.movers, options), "");
+    lines.push("MOVERS", ...textMovers(data.movers), "");
   }
 
   if (data.watchlist.length > 0) {
@@ -625,8 +648,8 @@ function renderWeeklyText(data: WeeklyDigestData, options: RenderOptions): strin
     );
   }
 
-  if (data.best.length > 0) lines.push("BEST THIS WEEK", ...textMovers(data.best, options), "");
-  if (data.worst.length > 0) lines.push("WORST THIS WEEK", ...textMovers(data.worst, options), "");
+  if (data.best.length > 0) lines.push("BEST THIS WEEK", ...textMovers(data.best), "");
+  if (data.worst.length > 0) lines.push("WORST THIS WEEK", ...textMovers(data.worst), "");
 
   const facts: string[] = [];
   if (data.facts.fiftyTwoWeek.length > 0) {

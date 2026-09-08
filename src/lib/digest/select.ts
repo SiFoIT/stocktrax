@@ -49,8 +49,8 @@ export function selectMovers(
   const toMover = (p: MergedPosition): DigestMover => ({
     symbol: p.symbol,
     name: p.name,
+    price: p.price,
     changePercent: p.changePercent,
-    changeAmount: p.change * p.shares * p.fx,
   });
 
   const gainers = positions
