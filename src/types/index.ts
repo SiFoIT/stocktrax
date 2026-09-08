@@ -138,8 +138,16 @@ export interface MarketData {
   symbol: string;
   name: string;
   price: number;
+  /** Daily change. Alerts and the glance tiles always read these two. */
   change: number;
   changePercent: number;
+  /**
+   * Change over the timeframe the Markets toolbar has selected, which is what
+   * the cards and rows print. Equal to the daily change on 1D.
+   */
+  rangeChange: number;
+  rangeChangePercent: number;
+  /** Covers the same window as `rangeChange`, and ends at `price`. */
   sparklineData: number[];
   extendedHours?: ExtendedHoursData;
   futures?: FuturesQuote;

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Category, CATEGORIES, CATEGORY_LABELS, HEADLINE_SYMBOLS } from "@/lib/markets/symbols";
+import { DEFAULT_MARKET_RANGE, isMarketRange, MarketRange } from "@/lib/markets/ranges";
 import {
   MarketData,
   AlertRuleDTO,
@@ -31,6 +32,17 @@ import {
 
 type MarketDataByCategory = Record<Category, MarketData[]>;
 
+const RANGE_STORAGE_KEY = "market_overview_range";
+
+function readStoredRange(): MarketRange {
+  try {
+    const stored = localStorage.getItem(RANGE_STORAGE_KEY);
+    return isMarketRange(stored) ? stored : DEFAULT_MARKET_RANGE;
+  } catch {
+    return DEFAULT_MARKET_RANGE;
+  }
+}
+
 /**
  * Demoted rows read left to right, top to bottom: Markets, Commodities,
  * Currency, Crypto. A plain two-column grid gives exactly that, and keeps each
@@ -54,6 +66,9 @@ export function MarketOverview({
   const [marketData, setMarketData] = useState<MarketDataByCategory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  // Null until mounted: the stored choice is read on the client only, so the
+  // server render and the first client render agree.
+  const [range, setRange] = useState<MarketRange | null>(null);
   const [chartIndex, setChartIndex] = useState<number | null>(null);
   const [detailsSymbol, setDetailsSymbol] = useState<string | null>(null);
 
@@ -74,11 +89,12 @@ export function MarketOverview({
     setMarketHistory(history);
   }, []);
 
-  const fetchMarketData = useCallback(async (refresh = false) => {
+  const fetchMarketData = useCallback(async (selected: MarketRange, refresh = false) => {
     setIsLoading(true);
     try {
-      const url = refresh ? `/api/markets?refresh=true` : `/api/markets`;
-      const response = await fetch(url);
+      const params = new URLSearchParams({ range: selected });
+      if (refresh) params.set("refresh", "true");
+      const response = await fetch(`/api/markets?${params}`);
       if (response.ok) {
         const data = await response.json();
         setMarketData(data);
@@ -91,9 +107,20 @@ export function MarketOverview({
   }, []);
 
   useEffect(() => {
-    fetchMarketData();
+    setRange(readStoredRange());
     loadAlertRules();
-  }, [fetchMarketData, loadAlertRules]);
+  }, [loadAlertRules]);
+
+  useEffect(() => {
+    if (range) fetchMarketData(range);
+  }, [range, fetchMarketData]);
+
+  const handleRangeChange = useCallback((next: MarketRange) => {
+    try {
+      localStorage.setItem(RANGE_STORAGE_KEY, next);
+    } catch {}
+    setRange(next);
+  }, []);
 
   // Trigger market alerts whenever market data changes
   useEffect(() => {
@@ -110,7 +137,7 @@ export function MarketOverview({
   }, [marketData, loadAlertRules, loadAlertHistory]);
 
   const handleRefresh = () => {
-    fetchMarketData(true);
+    fetchMarketData(range ?? DEFAULT_MARKET_RANGE, true);
   };
 
   const flatMarketData = useMemo(() => {
@@ -237,7 +264,15 @@ export function MarketOverview({
         <PanelHeader
           title="Markets"
           meta="Indices, commodities, currency & crypto"
-          right={<MarketStatus onRefresh={handleRefresh} isLoading={isLoading} updatedAt={updatedAt} />}
+          right={
+            <MarketStatus
+              range={range ?? DEFAULT_MARKET_RANGE}
+              onRangeChange={handleRangeChange}
+              onRefresh={handleRefresh}
+              isLoading={isLoading}
+              updatedAt={updatedAt}
+            />
+          }
         />
 
         {/* Market Data Sections */}
@@ -252,7 +287,7 @@ export function MarketOverview({
               <p className="text-muted-foreground">No market data available</p>
             </div>
           ) : (
-            <>
+            <div className={`space-y-7 transition-opacity ${isLoading ? "opacity-50" : ""}`}>
               {/* The headline four carry the large price and boxed sparkline. */}
               <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
                 {headlineCards.map((data) => (
@@ -274,6 +309,7 @@ export function MarketOverview({
                     key={category}
                     title={CATEGORY_LABELS[category]}
                     items={demotedByCategory[category]}
+                    range={range ?? DEFAULT_MARKET_RANGE}
                     onSelect={setDetailsSymbol}
                     onChartClick={(symbol) => setChartIndex(symbolIndexMap.get(symbol) ?? 0)}
                     alertStates={marketAlertStates}
@@ -281,7 +317,7 @@ export function MarketOverview({
                   />
                 ))}
               </div>
-            </>
+            </div>
           )}
         </PanelBody>
       </Panel>
@@ -300,9 +336,9 @@ export function MarketOverview({
         getTimeframeChanges={(symbol) => {
           const item = flatMarketData.find((d) => d.symbol === symbol);
           if (!item) return undefined;
-          return {
-            "1D": item.changePercent,
-          };
+          const changes: Record<string, number> = { "1D": item.changePercent };
+          if (range && range !== "1M") changes[range] = item.rangeChangePercent;
+          return changes;
         }}
         onClose={() => setChartIndex(null)}
       />

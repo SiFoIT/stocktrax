@@ -20,7 +20,7 @@ interface MarketCardProps {
 }
 
 export function MarketCard({ data, onClick, onChartClick, alertState, onAlertClick }: MarketCardProps) {
-  const isPositive = data.change >= 0;
+  const isPositive = data.rangeChange >= 0;
   const changeColor = isPositive ? "text-positive" : "text-negative";
 
   return (
@@ -72,10 +72,10 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
         </span>
         <div className="text-right">
           <span className={`text-sm font-medium ${changeColor}`}>
-            {formatMarketChange(data.change, data.symbol)}
+            {formatMarketChange(data.rangeChange, data.symbol)}
           </span>
           <span className={`block text-xs ${changeColor}`}>
-            {formatPercent(data.changePercent)}
+            {formatPercent(data.rangeChangePercent)}
           </span>
         </div>
       </div>

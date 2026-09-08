@@ -496,7 +496,7 @@ export async function getHistoricalPrice(symbol: string, targetDate: Date): Prom
   }
 }
 
-export type TimeSeriesInterval = "5m" | "15m" | "1h" | "1d" | "1wk";
+export type TimeSeriesInterval = "5m" | "15m" | "30m" | "1h" | "1d" | "1wk";
 
 export async function getTimeSeries(
   symbol: string,

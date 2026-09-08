@@ -2,6 +2,7 @@
 
 import { Bell } from "lucide-react";
 import { MarketData } from "@/types";
+import { MarketRange } from "@/lib/markets/ranges";
 import { formatPercent, getChangeColor } from "@/lib/utils";
 import { Sparkline } from "./sparkline";
 import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
@@ -10,6 +11,8 @@ import { alertBellClass, formatMarketChange, formatMarketPrice, type AlertState 
 interface MarketTableProps {
   title: string;
   items: MarketData[];
+  /** The timeframe the Chg and % columns are measured over. */
+  range: MarketRange;
   onSelect?: (symbol: string) => void;
   onChartClick?: (symbol: string) => void;
   alertStates?: Record<string, AlertState>;
@@ -26,6 +29,7 @@ const headerCell = "px-3 py-2 text-[11.5px] font-medium text-muted-foreground";
 export function MarketTable({
   title,
   items,
+  range,
   onSelect,
   onChartClick,
   alertStates,
@@ -42,8 +46,8 @@ export function MarketTable({
             <tr className="border-b border-border">
               <th className={`${headerCell} text-left`}>Name</th>
               <th className={`${headerCell} text-right`}>Price</th>
-              <th className={`${headerCell} text-right`}>Chg</th>
-              <th className={`${headerCell} text-right`}>%</th>
+              <th className={`${headerCell} text-right`}>{range} Chg</th>
+              <th className={`${headerCell} text-right`}>{range} %</th>
               <th className={`${headerCell} text-right`}>Trend</th>
               <th className={`${headerCell} w-10 text-right`}>
                 <span className="sr-only">Alerts</span>
@@ -52,8 +56,8 @@ export function MarketTable({
           </thead>
           <tbody>
             {items.map((data) => {
-              const positive = data.change >= 0;
-              const changeColor = getChangeColor(data.change);
+              const positive = data.rangeChange >= 0;
+              const changeColor = getChangeColor(data.rangeChange);
               return (
                 <tr
                   key={data.symbol}
@@ -78,12 +82,12 @@ export function MarketTable({
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <span className={`font-mono text-[12.5px] ${changeColor}`}>
-                      {formatMarketChange(data.change, data.symbol)}
+                      {formatMarketChange(data.rangeChange, data.symbol)}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <span className={`font-mono text-[12.5px] ${getChangeColor(data.changePercent)}`}>
-                      {formatPercent(data.changePercent)}
+                    <span className={`font-mono text-[12.5px] ${getChangeColor(data.rangeChangePercent)}`}>
+                      {formatPercent(data.rangeChangePercent)}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right">
