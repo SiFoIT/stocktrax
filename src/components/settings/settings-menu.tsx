@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Check, Database, Info, Monitor, Moon, Settings, Sliders, Sun } from "lucide-react";
-import { useTheme, type ThemePreference } from "@/contexts/theme-context";
+import { DEFAULT_THEME, useTheme, type ThemePreference } from "@/contexts/theme-context";
 import { GeneralSettingsModal } from "./general-settings-modal";
 import { DataSettingsModal } from "./data-settings-modal";
 
@@ -12,18 +12,26 @@ const THEME_OPTIONS = [
   { value: "system", label: "System", Icon: Monitor },
 ] as const satisfies readonly { value: ThemePreference; label: string; Icon: typeof Sun }[];
 
+/** What the server renders, since it cannot read the stored preference. */
+const DEFAULT_OPTION =
+  THEME_OPTIONS.find((o) => o.value === DEFAULT_THEME) ?? THEME_OPTIONS[1];
+
 export function SettingsMenu() {
   // The two menus are mutually exclusive, so one piece of state closes both.
   const [openMenu, setOpenMenu] = useState<"theme" | "settings" | null>(null);
   const [showGeneralSettings, setShowGeneralSettings] = useState(false);
   const [showDataSettings, setShowDataSettings] = useState(false);
-  const { theme, resolvedTheme, setTheme } = useTheme();
+  const { theme, hydrated, resolvedTheme, setTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isOpen = openMenu === "settings";
   const setIsOpen = (open: boolean) => setOpenMenu(open ? "settings" : null);
 
-  const activeOption = THEME_OPTIONS.find((o) => o.value === theme) ?? THEME_OPTIONS[1];
+  // Until hydration the stored preference is unknown to the server, so the
+  // button must render the default's icon and label or the markup will not match.
+  const activeOption = hydrated
+    ? THEME_OPTIONS.find((o) => o.value === theme) ?? DEFAULT_OPTION
+    : DEFAULT_OPTION;
   const ActiveThemeIcon = activeOption.Icon;
 
   useEffect(() => {

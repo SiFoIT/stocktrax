@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 /** What the user picked. "system" defers to the OS and can change while the app is open. */
 export type ThemePreference = "light" | "dark" | "system";
@@ -45,9 +52,18 @@ export const THEME_INIT_SCRIPT = `(function(){try{var p=localStorage.getItem(${J
   DARK_QUERY
 )}).matches);document.documentElement.classList.toggle("dark",d)}catch(e){}})()`;
 
+/** Never changes: this store only reports whether hydration has happened. */
+const subscribeNever = () => () => {};
+
 interface ThemeContextType {
   /** The stored preference, which may be "system". */
   theme: ThemePreference;
+  /**
+   * False on the server and through the hydrating render, true afterwards.
+   * `theme` comes from localStorage, which the server cannot see, so markup
+   * that depends on it must render the DEFAULT_THEME shape until this is true.
+   */
+  hydrated: boolean;
   /** The theme in effect right now, never "system". */
   resolvedTheme: ResolvedTheme;
   setTheme: (theme: ThemePreference) => void;
@@ -58,6 +74,11 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemePreference>(readStoredTheme);
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(readSystemTheme);
+  const hydrated = useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false
+  );
 
   const resolvedTheme: ResolvedTheme = theme === "system" ? systemTheme : theme;
 
@@ -85,7 +106,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, hydrated, resolvedTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
