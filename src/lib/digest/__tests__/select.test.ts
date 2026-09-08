@@ -43,7 +43,7 @@ describe("selectMovers", () => {
     expect(movers.map((m) => m.symbol)).toEqual(["REAL"]);
   });
 
-  it("keeps the top three each way, gainers first", () => {
+  it("reads as one descending run, biggest gain first and biggest loss last", () => {
     const movers = selectMovers([
       position("A", 5),
       position("B", 4),
@@ -55,7 +55,9 @@ describe("selectMovers", () => {
       position("Z", -2),
     ]);
 
-    expect(movers.map((m) => m.symbol)).toEqual(["A", "B", "C", "W", "X", "Y"]);
+    expect(movers.map((m) => m.symbol)).toEqual(["A", "B", "C", "Y", "X", "W"]);
+    // The three worst are still the ones chosen, just printed in reverse.
+    expect(movers.map((m) => m.changePercent)).toEqual([5, 4, 3, -3, -4, -5]);
   });
 
   it("converts the dollar impact through the exchange rate", () => {

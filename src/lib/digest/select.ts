@@ -36,6 +36,10 @@ export interface MergedPosition {
  * Top gainers then top losers, each capped at `limit` and each required to
  * have moved more than `minPct`. A day where nothing moved yields an empty
  * list and the section disappears.
+ *
+ * The two groups are selected by how far they moved but printed as one
+ * continuous descending run, so the biggest gain is at the top and the
+ * biggest loss at the bottom.
  */
 export function selectMovers(
   positions: MergedPosition[],
@@ -56,8 +60,10 @@ export function selectMovers(
 
   const losers = positions
     .filter((p) => p.changePercent < -minPct)
+    // Sorted worst-first to pick the right three, then flipped for display.
     .sort((a, b) => a.changePercent - b.changePercent)
-    .slice(0, limit);
+    .slice(0, limit)
+    .reverse();
 
   return [...gainers, ...losers].map(toMover);
 }
