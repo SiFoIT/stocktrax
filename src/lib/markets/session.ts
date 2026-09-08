@@ -12,12 +12,22 @@ const SPARKLINE_POINTS = 32;
 interface Point {
   t: number;
   close: number;
+  high: number;
+  low: number;
 }
 
 function toPoints(series: StockTimeSeries[]): Point[] {
   return series
-    .map((p) => ({ t: new Date(p.date).getTime(), close: p.close }))
-    .filter((p) => Number.isFinite(p.t) && typeof p.close === "number" && p.close > 0);
+    .filter((p) => typeof p.close === "number" && p.close > 0)
+    .map((p) => ({
+      t: new Date(p.date).getTime(),
+      close: p.close,
+      // Yahoo occasionally leaves a bar's extremes empty; the close is the
+      // honest fallback rather than a zero that would pin the range low.
+      high: p.high > 0 ? p.high : p.close,
+      low: p.low > 0 ? p.low : p.close,
+    }))
+    .filter((p) => Number.isFinite(p.t));
 }
 
 /**
@@ -28,26 +38,29 @@ function toPoints(series: StockTimeSeries[]): Point[] {
  * without knowing any exchange's hours or timezone. A series with no gaps at
  * all is a continuous market, and is cut into trailing 24-hour days instead.
  */
-export function splitSessions(series: StockTimeSeries[]): number[][] {
-  const points = toPoints(series);
+function splitPoints(points: Point[]): Point[][] {
   if (points.length === 0) return [];
 
-  const sessions: number[][] = [[points[0].close]];
+  const sessions: Point[][] = [[points[0]]];
   for (let i = 1; i < points.length; i++) {
     if (points[i].t - points[i - 1].t > SESSION_GAP_MS) sessions.push([]);
-    sessions[sessions.length - 1].push(points[i].close);
+    sessions[sessions.length - 1].push(points[i]);
   }
   if (sessions.length > 1) return sessions;
 
   const last = points[points.length - 1].t;
-  const days = new Map<number, number[]>();
+  const days = new Map<number, Point[]>();
   for (const p of points) {
     const day = Math.floor((last - p.t) / CONTINUOUS_SESSION_MS);
     const bucket = days.get(day) ?? [];
-    bucket.push(p.close);
+    bucket.push(p);
     days.set(day, bucket);
   }
   return [...days.keys()].sort((a, b) => b - a).map((day) => days.get(day)!);
+}
+
+export function splitSessions(series: StockTimeSeries[]): number[][] {
+  return splitPoints(toPoints(series)).map((session) => session.map((p) => p.close));
 }
 
 /** The closes of the most recent trading session. */
@@ -76,6 +89,20 @@ export function downsample(values: number[], max: number = SPARKLINE_POINTS): nu
 export interface SparklineWindow {
   anchor?: number;
   closes: number[];
+  /** Extremes of the bars in the window, from their highs and lows not their closes. */
+  low?: number;
+  high?: number;
+}
+
+function extremes(points: Point[]): Pick<SparklineWindow, "low" | "high"> {
+  if (points.length === 0) return {};
+  let low = Infinity;
+  let high = -Infinity;
+  for (const p of points) {
+    if (p.low < low) low = p.low;
+    if (p.high > high) high = p.high;
+  }
+  return { low, high };
 }
 
 /**
@@ -83,16 +110,18 @@ export interface SparklineWindow {
  * sessions in the series; without it, the whole fetch.
  */
 export function sparklineWindow(series: StockTimeSeries[], sessions?: number): SparklineWindow {
+  const points = toPoints(series);
   if (sessions === undefined) {
-    return { closes: downsample(toPoints(series).map((p) => p.close)) };
+    return { closes: downsample(points.map((p) => p.close)), ...extremes(points) };
   }
 
-  const all = splitSessions(series);
-  const shown = all.slice(-sessions);
+  const all = splitPoints(points);
+  const shown = all.slice(-sessions).flat();
   const before = all[all.length - sessions - 1];
   return {
-    anchor: before?.[before.length - 1],
-    closes: downsample(shown.flat()),
+    anchor: before?.[before.length - 1]?.close,
+    closes: downsample(shown.map((p) => p.close)),
+    ...extremes(shown),
   };
 }
 

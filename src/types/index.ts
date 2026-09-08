@@ -149,6 +149,9 @@ export interface MarketData {
   rangeChangePercent: number;
   /** Covers the same window as `rangeChange`, and ends at `price`. */
   sparklineData: number[];
+  /** Low and high of the same window, widened to include the live price. */
+  rangeLow?: number;
+  rangeHigh?: number;
   extendedHours?: ExtendedHoursData;
   futures?: FuturesQuote;
 }

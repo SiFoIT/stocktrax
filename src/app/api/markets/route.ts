@@ -111,7 +111,7 @@ async function fetchSeries(
   range: MarketRange,
   skipCache: boolean
 ): Promise<SeriesByCategory> {
-  const cacheKey = `markets_series_${category}_${range}`;
+  const cacheKey = `markets_series_v2_${category}_${range}`;
   const cached = await readCache<SeriesByCategory>(cacheKey, CACHE_TTL.marketSeries[range], skipCache);
   if (cached) return cached;
 
@@ -146,11 +146,19 @@ function joinQuote(quote: MarketQuote, window: SparklineWindow | undefined, rang
       ? (rangeChange / anchor) * 100
       : 0;
 
+  // The live price can sit outside a cached window's extremes for a while,
+  // so widen them: a price at a new high should read as 0.0% off the high.
+  const hasExtremes = window?.low !== undefined && window?.high !== undefined && quote.price > 0;
+  const rangeLow = hasExtremes ? Math.min(window.low!, quote.price) : undefined;
+  const rangeHigh = hasExtremes ? Math.max(window.high!, quote.price) : undefined;
+
   return {
     ...quote,
     rangeChange,
     rangeChangePercent,
     sparklineData: buildSparkline(closes, quote.price, anchor),
+    rangeLow,
+    rangeHigh,
   };
 }
 

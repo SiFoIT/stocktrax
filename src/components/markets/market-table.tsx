@@ -6,6 +6,7 @@ import { MarketRange } from "@/lib/markets/ranges";
 import { formatPercent, getChangeColor } from "@/lib/utils";
 import { Sparkline } from "./sparkline";
 import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
+import { PriceRangeBar } from "@/components/ui/price-range-bar";
 import { alertBellClass, formatMarketChange, formatMarketPrice, type AlertState } from "./market-format";
 
 interface MarketTableProps {
@@ -48,6 +49,7 @@ export function MarketTable({
               <th className={`${headerCell} text-right`}>Price</th>
               <th className={`${headerCell} text-right`}>{range} Chg</th>
               <th className={`${headerCell} text-right`}>{range} %</th>
+              <th className={`${headerCell} text-center`}>{range} Range</th>
               <th className={`${headerCell} text-right`}>Trend</th>
               <th className={`${headerCell} w-10 text-right`}>
                 <span className="sr-only">Alerts</span>
@@ -89,6 +91,19 @@ export function MarketTable({
                     <span className={`font-mono text-[12.5px] ${getChangeColor(data.rangeChangePercent)}`}>
                       {formatPercent(data.rangeChangePercent)}
                     </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    {data.rangeLow !== undefined && data.rangeHigh !== undefined && (
+                      <div className="mx-auto w-20">
+                        <PriceRangeBar
+                          low={data.rangeLow}
+                          high={data.rangeHigh}
+                          current={data.price}
+                          mini
+                          format={(value) => formatMarketPrice(value, data.symbol)}
+                        />
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex justify-end">

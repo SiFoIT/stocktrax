@@ -2,6 +2,7 @@ import { Bell } from "lucide-react";
 import { MarketData } from "@/types";
 import { formatPercent, getChangeColor } from "@/lib/utils";
 import { Sparkline } from "./sparkline";
+import { PriceRangeBar } from "@/components/ui/price-range-bar";
 import {
   alertBellClass,
   formatMarketChange,
@@ -79,6 +80,18 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
           </span>
         </div>
       </div>
+      {/* Where the price sits inside the selected range's low and high. */}
+      {data.rangeLow !== undefined && data.rangeHigh !== undefined && (
+        <div className="mt-2.5">
+          <PriceRangeBar
+            low={data.rangeLow}
+            high={data.rangeHigh}
+            current={data.price}
+            mini
+            format={(value) => formatMarketPrice(value, data.symbol)}
+          />
+        </div>
+      )}
       {/*
         Always occupies a line so the card does not resize at 9:30 when the
         futures quote drops away.
