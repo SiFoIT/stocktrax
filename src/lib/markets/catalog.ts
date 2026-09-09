@@ -45,6 +45,9 @@ export const CURRENCY_NAMES: Record<string, { one: string; many: string }> = {
   NZD: { one: "New Zealand dollar", many: "New Zealand dollars" },
   MXN: { one: "Mexican peso", many: "Mexican pesos" },
   CNY: { one: "Chinese yuan", many: "Chinese yuan" },
+  KRW: { one: "South Korean won", many: "South Korean won" },
+  INR: { one: "Indian rupee", many: "Indian rupees" },
+  NOK: { one: "Norwegian krone", many: "Norwegian kroner" },
 };
 
 export function pairSymbol(base: string, quote: string): string {
@@ -176,13 +179,28 @@ const CRYPTO: CatalogEntry[] = [
   { symbol: "BTC-CAD", name: "Bitcoin (CAD)", short: "in Canadian dollars", description: "Bitcoin priced in Canadian dollars", group: "Canadian" },
 ];
 
-/** Listed once, in a canonical direction. The user picks the orientation. */
+/**
+ * Listed once, in a canonical direction. The user picks the orientation, so a
+ * pair only belongs here when Yahoo quotes it BOTH ways — the Brazilian real,
+ * Singapore dollar and Polish zloty have no X/CAD contract and would leave a
+ * dead row behind the first flip.
+ *
+ * The Canadian group is deliberately the long one: it is the reason most of
+ * these are here.
+ */
 const CURRENCY_PAIRS: CurrencyPair[] = [
   { base: "USD", quote: "CAD", group: "Canadian dollar" },
   { base: "EUR", quote: "CAD", group: "Canadian dollar" },
   { base: "GBP", quote: "CAD", group: "Canadian dollar" },
   { base: "AUD", quote: "CAD", group: "Canadian dollar" },
   { base: "JPY", quote: "CAD", group: "Canadian dollar" },
+  { base: "CHF", quote: "CAD", group: "Canadian dollar" },
+  { base: "NZD", quote: "CAD", group: "Canadian dollar" },
+  { base: "CNY", quote: "CAD", group: "Canadian dollar" },
+  { base: "MXN", quote: "CAD", group: "Canadian dollar" },
+  { base: "KRW", quote: "CAD", group: "Canadian dollar" },
+  { base: "INR", quote: "CAD", group: "Canadian dollar" },
+  { base: "NOK", quote: "CAD", group: "Canadian dollar" },
   { base: "EUR", quote: "USD", group: "Majors" },
   { base: "GBP", quote: "USD", group: "Majors" },
   { base: "USD", quote: "JPY", group: "Majors" },

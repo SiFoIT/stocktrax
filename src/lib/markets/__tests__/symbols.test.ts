@@ -190,6 +190,22 @@ describe("catalog", () => {
     }
   });
 
+  it("keeps the Canadian dollar the best-served group", () => {
+    const canadian = CATALOG.currency.filter((p) => p.group === "Canadian dollar");
+    expect(canadian.length).toBeGreaterThanOrEqual(12);
+    // Every one of them is a CAD pair, whichever way it is written.
+    for (const pair of canadian) {
+      expect([pair.base, pair.quote], `${pair.base}/${pair.quote}`).toContain("CAD");
+    }
+  });
+
+  it("names every currency in both directions, including irregular plurals", () => {
+    expect(pairEntry("NOK", "CAD").description).toBe("Canadian dollars per Norwegian krone");
+    expect(pairEntry("CAD", "NOK").description).toBe("Norwegian kroner per Canadian dollar");
+    expect(pairEntry("CAD", "KRW").description).toBe("South Korean won per Canadian dollar");
+    expect(pairEntry("CAD", "INR").description).toBe("Indian rupees per Canadian dollar");
+  });
+
   it("lists no pair twice, in either direction", () => {
     const keys = CATALOG.currency.map((p) => [p.base, p.quote].sort().join(""));
     expect(new Set(keys).size).toBe(keys.length);

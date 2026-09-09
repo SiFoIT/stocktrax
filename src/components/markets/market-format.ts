@@ -27,7 +27,13 @@ function priceDecimals(value: number, symbol: string): number {
   const currency = isCurrencySymbol(symbol);
   // A failed quote reads 0; it should print as a price, not as 0.000000.
   if (abs === 0) return currency ? 3 : 2;
-  if (currency) return abs >= 0.1 ? 3 : 5;
+  if (currency) {
+    if (abs >= 0.1) return 3;
+    // Below that, hold four significant figures rather than a fixed width: the
+    // won quotes near 0.001 and the yen near 0.0065, and one width cannot show
+    // both without either dropping a digit or padding zeros onto the other.
+    return Math.min(8, 3 - Math.floor(Math.log10(abs)));
+  }
   if (abs >= 10000) return 0;
   if (abs >= 1) return 2;
   return abs >= 0.01 ? 4 : 6;
