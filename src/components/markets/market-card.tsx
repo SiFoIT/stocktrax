@@ -5,7 +5,6 @@ import { Sparkline } from "./sparkline";
 import { PriceRangeBar } from "@/components/ui/price-range-bar";
 import {
   alertBellClass,
-  formatMarketChange,
   formatMarketPrice,
   futuresTooltip,
   showFutures,
@@ -67,18 +66,19 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
           )}
         </div>
       </div>
-      <div className="flex items-end justify-between">
+      {/*
+        Value left, percent right, both at the same weight — the same line the
+        mover tiles run at the top of the page. The absolute change is left to
+        the details modal; the percent is what compares across four indices
+        priced on completely different scales.
+      */}
+      <div className="flex items-baseline justify-between gap-2">
         <span className="text-lg font-semibold tracking-tight text-foreground">
           {formatMarketPrice(data.price, data.symbol)}
         </span>
-        <div className="text-right">
-          <span className={`text-sm font-medium ${changeColor}`}>
-            {formatMarketChange(data.rangeChange, data.symbol)}
-          </span>
-          <span className={`block text-xs ${changeColor}`}>
-            {formatPercent(data.rangeChangePercent)}
-          </span>
-        </div>
+        <span className={`text-lg font-semibold tracking-tight ${changeColor}`}>
+          {formatPercent(data.rangeChangePercent)}
+        </span>
       </div>
       {/* Where the price sits inside the selected range's low and high. */}
       {data.rangeLow !== undefined && data.rangeHigh !== undefined && (
@@ -87,7 +87,7 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
             low={data.rangeLow}
             high={data.rangeHigh}
             current={data.price}
-            mini
+            size="xs"
             format={(value) => formatMarketPrice(value, data.symbol)}
           />
         </div>

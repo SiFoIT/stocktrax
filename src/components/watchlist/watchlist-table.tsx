@@ -250,14 +250,14 @@ export function WatchlistTable({
                 </td>
                 <td className="px-2 py-4 text-center">
                   {item.dayLow && item.dayHigh && item.price ? (
-                    <PriceRangeBar low={item.dayLow} current={item.price} high={item.dayHigh} compact />
+                    <PriceRangeBar low={item.dayLow} current={item.price} high={item.dayHigh} size="sm" />
                   ) : (
                     <span className="text-subtle-foreground">-</span>
                   )}
                 </td>
                 <td className="px-2 py-4 text-center">
                   {item.fiftyTwoWeekLow && item.fiftyTwoWeekHigh && item.price ? (
-                    <PriceRangeBar low={item.fiftyTwoWeekLow} current={item.price} high={item.fiftyTwoWeekHigh} compact showDistance />
+                    <PriceRangeBar low={item.fiftyTwoWeekLow} current={item.price} high={item.fiftyTwoWeekHigh} size="sm" />
                   ) : (
                     <span className="text-subtle-foreground">-</span>
                   )}

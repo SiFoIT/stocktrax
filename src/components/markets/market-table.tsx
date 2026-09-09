@@ -94,12 +94,12 @@ export function MarketTable({
                   </td>
                   <td className="px-3 py-2">
                     {data.rangeLow !== undefined && data.rangeHigh !== undefined && (
-                      <div className="mx-auto w-20">
+                      <div className="mx-auto w-28">
                         <PriceRangeBar
                           low={data.rangeLow}
                           high={data.rangeHigh}
                           current={data.price}
-                          mini
+                          size="xs"
                           format={(value) => formatMarketPrice(value, data.symbol)}
                         />
                       </div>

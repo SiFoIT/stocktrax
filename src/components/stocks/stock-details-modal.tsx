@@ -7,6 +7,7 @@ import { NewsArticle, ExtendedHoursData, InsiderDetails, InstitutionalOwnership 
 import { formatVolume, formatPercentRatio, formatRelativeTime } from "@/lib/utils";
 import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
 import { InfoTip } from "@/components/ui/info-tip";
+import { PriceRangeBar } from "@/components/ui/price-range-bar";
 
 interface StockDetails {
   symbol: string;
@@ -76,9 +77,24 @@ interface StockDetails {
   extendedHours?: ExtendedHoursData;
 }
 
+/**
+ * The window a caller has already selected elsewhere, passed in rather than
+ * refetched so the modal shows exactly the figures the row or card showed.
+ * Callers without a range selector omit it and the modal reports the day.
+ */
+interface DetailsRange {
+  /** Short window name as the user picked it, e.g. "5D". */
+  label: string;
+  change?: number;
+  changePercent?: number;
+  low?: number;
+  high?: number;
+}
+
 interface StockDetailsModalProps {
   symbol: string;
   onClose: () => void;
+  range?: DetailsRange;
 }
 
 function formatNumber(value: number | undefined, decimals = 2): string {
@@ -186,29 +202,6 @@ function Row({ label, value, className, suffix, tooltip }: { label: string; valu
   );
 }
 
-function PriceRangeBar({ low, current, high, label }: { low: number; current: number; high: number; label: string }) {
-  const range = high - low;
-  const position = range > 0 ? ((current - low) / range) * 100 : 50;
-
-  return (
-    <div className="py-2">
-      <div className="flex justify-between text-xs text-muted-foreground mb-1">
-        <span>{label}</span>
-      </div>
-      <div className="relative h-1.5 rounded-full bg-foreground/15">
-        <div
-          className="absolute top-1/2 size-2.5 -translate-y-1/2 rounded-full bg-primary"
-          style={{ left: `calc(${Math.min(Math.max(position, 0), 100)}% - 6px)` }}
-        />
-      </div>
-      <div className="flex justify-between text-xs mt-1">
-        <span className="text-negative">${low.toFixed(2)}</span>
-        <span className="text-positive">${high.toFixed(2)}</span>
-      </div>
-    </div>
-  );
-}
-
 function StatCard({ label, value, change }: { label: string; value: string; change?: number }) {
   return (
     <div className="rounded-lg border border-border bg-card px-3.5 py-3">
@@ -228,7 +221,7 @@ function hasAnyValue(...values: (number | string | undefined | null)[]): boolean
   return values.some((v) => v !== undefined && v !== null);
 }
 
-export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
+export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalProps) {
   const [details, setDetails] = useState<StockDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -319,7 +312,26 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [onClose]);
 
-  const isPositive = (details?.change ?? 0) >= 0;
+  /*
+    The headline change follows the window the caller had selected, so opening
+    a card does not silently switch the reader to a different period. Without a
+    caller range it stays on the day, which is what every other quote surface
+    shows. Both are labelled either way: the Trading section below is always
+    today, and an unlabelled header is what made the two look contradictory.
+  */
+  const headline =
+    range?.changePercent !== undefined
+      ? { label: range.label, change: range.change, changePercent: range.changePercent }
+      : { label: "Today", change: details?.change, changePercent: details?.changePercent };
+  const isPositive = (headline.changePercent ?? 0) >= 0;
+
+  /* Low and high for that same window, falling back to the day's own range. */
+  const secondBar =
+    range?.low !== undefined && range.high !== undefined
+      ? { label: `${range.label} Range`, low: range.low, high: range.high }
+      : details?.dayLow !== undefined && details.dayHigh !== undefined
+        ? { label: "Day Range", low: details.dayLow, high: details.dayHigh }
+        : null;
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 py-6 px-4 overflow-y-auto" onClick={onClose}>
@@ -384,14 +396,15 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                     {formatCurrency(details.price, details.currency)}
                   </span>
                 </div>
-                <div className={`flex items-baseline gap-2 pb-1.5 ${isPositive ? "text-positive" : "text-negative"}`}>
-                  <span className="text-lg font-semibold">
-                    {details.change !== undefined && details.change >= 0 ? "+" : ""}
-                    {formatNumber(details.change)}
+                <div className="flex items-baseline gap-2 pb-1.5">
+                  <span className={`text-lg font-semibold ${isPositive ? "text-positive" : "text-negative"}`}>
+                    {headline.change !== undefined && headline.change >= 0 ? "+" : ""}
+                    {formatNumber(headline.change)}
                   </span>
-                  <span className="text-lg font-semibold">
-                    {formatPercentRaw(details.changePercent)}
+                  <span className={`text-lg font-semibold ${isPositive ? "text-positive" : "text-negative"}`}>
+                    {formatPercentRaw(headline.changePercent)}
                   </span>
+                  <span className="ml-1 text-sm text-muted-foreground">{headline.label}</span>
                   {details.lastTradeTime && (
                     <span className="text-sm text-muted-foreground ml-2">
                       {formatTradeTime(details.lastTradeTime)}
@@ -458,13 +471,21 @@ export function StockDetailsModal({ symbol, onClose }: StockDetailsModalProps) {
                     current={details.price}
                     high={details.fiftyTwoWeekHigh}
                     label="52-Week Range"
+                    format={(value) => formatCurrency(value, details.currency)}
                   />
-                  {details.dayLow && details.dayHigh && (
+                  {/*
+                    The second bar follows the caller's window too, so it reads
+                    "5D Range" against the same low and high the card drew. The
+                    52-week bar above never moves: it is the fixed anchor for
+                    where the price sits in its own history.
+                  */}
+                  {secondBar && (
                     <PriceRangeBar
-                      low={details.dayLow}
+                      low={secondBar.low}
                       current={details.price}
-                      high={details.dayHigh}
-                      label="Day Range"
+                      high={secondBar.high}
+                      label={secondBar.label}
+                      format={(value) => formatCurrency(value, details.currency)}
                     />
                   )}
                 </div>

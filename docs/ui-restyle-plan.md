@@ -63,8 +63,8 @@ few semantic ones. Values below are what the mockup uses.
 | `--border` | `rgba(255,255,255,.08)` | `rgba(0,0,0,.09)` | all dividers |
 | `--border-strong` *(new)* | `rgba(255,255,255,.14)` | `rgba(0,0,0,.16)` | outline buttons, focused controls |
 | `--foreground` | `#e6e8eb` | `#15181d` | primary text |
-| `--muted-foreground` | `#8b919a` | `#616872` | labels, secondary text |
-| `--subtle-foreground` *(new)* | `#5c626b` | `#8a9099` | tertiary text, disabled icons |
+| `--muted-foreground` | `#a8afb9` | `#474d55` | labels, secondary text |
+| `--subtle-foreground` *(new)* | `#a1a8b2` | `#4c525b` | tertiary text, disabled icons |
 | `--primary` | `#4f8ff7` | `#2f6fe0` | the one accent: active tab underline, primary button, links |
 | `--primary-foreground` | `#ffffff` | `#ffffff` | |
 | `--ring` | `#4f8ff7` | `#2f6fe0` | focus |

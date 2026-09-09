@@ -326,6 +326,23 @@ export function MarketOverview({
       <StockDetailsModal
         symbol={detailsSymbol}
         onClose={() => setDetailsSymbol(null)}
+        /*
+          Hand the modal the window the user already picked, plus the figures
+          this page computed for it, so the modal repeats the card rather than
+          quietly showing a different period.
+        */
+        range={(() => {
+          if (!range) return undefined;
+          const item = flatMarketData.find((d) => d.symbol === detailsSymbol);
+          if (!item) return undefined;
+          return {
+            label: range,
+            change: item.rangeChange,
+            changePercent: item.rangeChangePercent,
+            low: item.rangeLow,
+            high: item.rangeHigh,
+          };
+        })()}
       />
     )}
     {chartIndex !== null && flatSymbols.length > 0 && (

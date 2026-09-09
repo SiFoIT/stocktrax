@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FuturesQuote, WatchlistItemWithQuote } from "@/types";
-import { formatPercent, getChangeColor } from "@/lib/utils";
+import { formatCurrency, formatPercent, getChangeColor } from "@/lib/utils";
 import { getNextMarketTransition } from "@/lib/markets/calendar";
 import { StatCard } from "@/components/ui/stat-card";
 import { StockIcon } from "@/components/ui/stock-icon";
@@ -118,15 +118,20 @@ export function MarketGlance({
         item ? (
           // The 24px icon sits inside the value line's 28px leading, so adding it
           // does not change the tile's height.
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 whitespace-nowrap">
             <StockIcon symbol={item.symbol} size="sm" />
-            <span>{formatPercent(item.changePercent)}</span>
+            {item.price !== undefined && (
+              <span className="text-foreground">{formatCurrency(item.price, item.currency)}</span>
+            )}
+            <span className={getChangeColor(item.changePercent)}>
+              {formatPercent(item.changePercent)}
+            </span>
           </span>
         ) : (
           NO_VALUE
         )
       }
-      valueClass={item ? getChangeColor(item.changePercent) : "text-muted-foreground"}
+      valueClass={item ? undefined : "text-muted-foreground"}
       sub={
         item ? (
           <span className="block truncate">

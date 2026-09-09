@@ -228,14 +228,14 @@ export function PortfolioPerformanceTable({
                 </td>
                 <td className="px-3.5 py-2.5 text-center">
                   {holding.dayLow && holding.dayHigh && holding.currentPrice ? (
-                    <PriceRangeBar low={holding.dayLow} current={holding.currentPrice} high={holding.dayHigh} compact />
+                    <PriceRangeBar low={holding.dayLow} current={holding.currentPrice} high={holding.dayHigh} size="sm" />
                   ) : (
                     <span className="text-subtle-foreground">-</span>
                   )}
                 </td>
                 <td className="px-3.5 py-2.5 text-center">
                   {holding.fiftyTwoWeekLow && holding.fiftyTwoWeekHigh && holding.currentPrice ? (
-                    <PriceRangeBar low={holding.fiftyTwoWeekLow} current={holding.currentPrice} high={holding.fiftyTwoWeekHigh} compact showDistance />
+                    <PriceRangeBar low={holding.fiftyTwoWeekLow} current={holding.currentPrice} high={holding.fiftyTwoWeekHigh} size="sm" />
                   ) : (
                     <span className="text-subtle-foreground">-</span>
                   )}
