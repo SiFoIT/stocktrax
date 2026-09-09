@@ -17,38 +17,45 @@ A stock portfolio and watchlist tracking application built with Next.js.
 ```
 src/
 ├── app/
-│   ├── api/
-│   │   ├── holdings/route.ts      # Portfolio holdings CRUD
-│   │   ├── portfolios/route.ts    # Portfolios CRUD
-│   │   ├── search/route.ts        # Symbol autocomplete
-│   │   ├── stocks/[symbol]/route.ts # Quote + time series data
-│   │   ├── watchlist/route.ts     # Watchlist items CRUD
-│   │   └── watchlists/route.ts    # Watchlists CRUD
+│   ├── api/                       # Route handlers (Zod-validated, NextResponse.json)
+│   │   ├── alerts/                # Alert rules, history, and the evaluator run
+│   │   ├── cash-transactions/     # Cash ledger + balance
+│   │   ├── digest/                # Trigger a send; preview the rendered email
+│   │   ├── export/, import/       # Full JSON backup and restore
+│   │   ├── import-csv/            # Wealthsimple CSV import with dedup
+│   │   ├── markets/               # Market overview quotes + sparkline series
+│   │   ├── screens/, screen-presets/  # Screener definitions and runs
+│   │   ├── settings/              # digest/ and markets/ server-side settings
+│   │   ├── stocks/[symbol]/       # Quote + time series
+│   │   └── portfolios/, holdings/, transactions/, watchlists/, watchlist/,
+│   │       search/, news/, exchange-rate/
 │   ├── portfolio/[id]/page.tsx    # Portfolio detail page
-│   ├── layout.tsx
-│   └── page.tsx                   # Main dashboard (watchlists + portfolios tabs)
+│   ├── layout.tsx, manifest.ts, icon.svg, favicon.ico, apple-icon.png
+│   └── page.tsx                   # Dashboard (Markets, Watchlists, Portfolios, Screener)
 ├── components/
+│   ├── alerts/                    # Alert rules panel + history
+│   ├── charts/                    # price-chart.tsx + the modal that hosts it
 │   ├── layout/
 │   │   ├── app-header.tsx         # Wordmark + tabs + actions in one 52px row
-│   │   └── nav-dropdown.tsx       # Shared list dropdown for the three nav tabs
-│   ├── charts/
-│   │   ├── allocation-chart.tsx   # Pie chart for portfolio allocation
-│   │   └── price-chart.tsx        # Line/candlestick price chart
-│   ├── portfolio/
-│   │   ├── add-holding-form.tsx
-│   │   └── holdings-table.tsx
+│   │   └── nav-dropdown.tsx       # Shared list dropdown for the nav tabs
+│   ├── markets/                   # Overview, glance row, section tables, sparkline
+│   ├── portfolio/                 # Holdings, performance, dividend, insider, transactions, CSV import
+│   ├── screener/                  # Rule editor + results
+│   ├── settings/                  # Settings menu and the general / data / digest modals
+│   ├── stocks/                    # Stock details modal
 │   ├── ui/                        # shadcn/ui components + restyle primitives
 │   │   ├── panel.tsx              # Panel / PanelHeader / PanelTabs / PanelBody
 │   │   ├── stat-card.tsx          # The one stat tile (dashboard + portfolio page)
 │   │   └── modal.tsx              # Overlay + surface + Escape/scroll-lock
-│   └── watchlist/
-│       ├── add-symbol-form.tsx    # Symbol input with autocomplete
-│       └── watchlist-table.tsx
+│   └── watchlist/                 # Watchlist, dividend, insider, news tables + symbol form
+├── contexts/theme-context.tsx     # Theme provider + pre-paint init script
+├── instrumentation.ts             # Starts the digest scheduler (server runtime only)
 ├── lib/
+│   ├── alerts/                    # Rule config, evaluator, client API
 │   ├── api/yahoo-finance.ts       # Yahoo Finance API wrapper
-│   ├── db/
-│   │   ├── index.ts               # Drizzle client
-│   │   └── schema.ts              # Database schema
+│   ├── backup/settings-registry.ts # Which settings keys round-trip through export/import
+│   ├── config.ts                  # Cache TTLs
+│   ├── db/                        # Drizzle client (index.ts) and schema (schema.ts)
 │   ├── digest/                    # Daily/weekly email digest
 │   │   ├── build.ts               # Fetches data, assembles DigestData
 │   │   ├── select.ts              # Pure selection rules (movers, thresholds)
@@ -58,11 +65,19 @@ src/
 │   │   ├── due.ts                 # Pure "is a send due" timing rules
 │   │   ├── snapshots.ts           # Daily portfolio value snapshots
 │   │   └── time.ts                # Timezone-aware date-string helpers
+│   ├── holdings.ts                # Recompute a holding from its transactions
+│   ├── hooks/                     # Client hooks (use-relative-time)
+│   ├── import/wealthsimple-parser.ts
+│   ├── markets/                   # Catalog, calendar, session, ranges, symbol helpers
 │   ├── portfolio-summary.ts       # Dashboard calculation (route + digest)
+│   ├── screener/                  # Metrics, presets, client API
 │   ├── settings.ts                # Server-side settings with env fallback
-│   └── utils.ts                   # cn() utility
+│   ├── timezones.ts, dividend-helpers.ts
+│   └── utils.ts                   # cn() and formatting helpers
 └── types/index.ts                 # Shared TypeScript types
 ```
+
+Unit tests live in `__tests__/` folders beside the code they cover and run with Vitest.
 
 ## Database Schema
 

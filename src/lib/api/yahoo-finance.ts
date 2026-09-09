@@ -697,23 +697,34 @@ export async function getInstitutionalOwnership(symbol: string): Promise<Institu
   }
 }
 
+/** The subset of a Yahoo search news hit that getNews reads. */
+interface SearchNewsItem {
+  uuid: string;
+  title: string;
+  publisher?: string;
+  link: string;
+  providerPublishTime?: string | number | Date;
+  type?: string;
+  thumbnail?: { resolutions?: { url: string }[] };
+  relatedTickers?: string[];
+}
+
 export async function getNews(symbol: string, limit = 5): Promise<NewsArticle[]> {
   try {
     const upperSymbol = symbol.toUpperCase();
 
     // Use search API which provides news with thumbnails
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result: any = await yahooFinance.search(symbol, {
+    const result = (await yahooFinance.search(symbol, {
       newsCount: limit * 3,
       quotesCount: 0,
-    }, { validateResult: false });
+    }, { validateResult: false })) as unknown as { news?: SearchNewsItem[] };
 
     if (!result || !result.news || result.news.length === 0) {
       return [];
     }
 
     // Filter to only include articles that actually have this symbol in relatedTickers
-    const relevantNews = result.news.filter((item: any) => {
+    const relevantNews = result.news.filter((item) => {
       if (!item.relatedTickers || item.relatedTickers.length === 0) {
         return false;
       }
@@ -722,7 +733,7 @@ export async function getNews(symbol: string, limit = 5): Promise<NewsArticle[]>
       );
     });
 
-    return relevantNews.slice(0, limit).map((item: any) => ({
+    return relevantNews.slice(0, limit).map((item) => ({
       uuid: item.uuid,
       title: item.title,
       publisher: item.publisher || "Unknown",

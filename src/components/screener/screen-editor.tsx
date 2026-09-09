@@ -70,7 +70,11 @@ export function ScreenEditor({
       }
     };
     fetchData();
-    loadPresets();
+    fetchPresets()
+      .then(setCustomPresets)
+      .catch(() => {
+        // silent
+      });
   }, []);
 
   const addRule = () => {

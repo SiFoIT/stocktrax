@@ -1,7 +1,7 @@
 # StockTrax UI restyle — implementation plan
 
-Status: **approved in principle, not started.** Execute phase by phase on a branch
-(`ui/restyle`). Do **not** commit or push unless the user explicitly asks (CLAUDE.md rule).
+Status: **shipped.** Kept as the design contract behind the tokens section of CLAUDE.md;
+the phase list below is history, not a to-do.
 
 ## 0. Why, and what "done" looks like
 
@@ -14,9 +14,8 @@ classes that break light mode.
 
 Target look (reference, same data as the live page):
 
-- `docs/mockups/portfolio-restyle.html` — static mockup of `/portfolio/[id]`
-- `docs/mockups/portfolio-restyle.png` — render of the above at 1280×1000
-- `docs/mockups/portfolio-before.png` — the live page today, same viewport
+- The static mockup and before/after renders were removed once the restyle landed;
+  the live `/portfolio/[id]` page is now the reference.
 
 In one sentence: **flat surfaces, one accent colour, colour reserved for data, numbers as
 tabular text, one 52px header row, no decorative icons.** In the same 1280×1000 viewport
@@ -34,9 +33,6 @@ changes. Every feature that exists today must still exist and behave identically
 ### How to verify as you go
 - Dev server: `npm run dev` (a `.claude/launch.json` entry `stocktrax-dev` exists for the
   browser pane).
-- Screenshot to a file (headless WKWebView, no Chrome needed):
-  `xcrun swift docs/mockups/snap.swift http://localhost:3000/portfolio/2 out.png 1280 1000 12`
-  (last arg = seconds to wait for client-side fetches; use `1.5` for static pages).
 - Light mode: the app stores `theme` in `localStorage`; toggle via the sun/moon button
   (`aria-label="Switch to light mode"`). Screenshot both themes at the end of every phase
   that touches a screen.

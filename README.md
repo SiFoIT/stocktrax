@@ -1,212 +1,200 @@
-# StockTrax
+<p align="center">
+  <img src="public/icon-192.png" width="72" alt="StockTrax icon">
+</p>
 
-A self-hosted stock portfolio and watchlist tracker with real-time market data, interactive charts, and transaction management. Built with Next.js and SQLite — no external database required.
+<h1 align="center">StockTrax</h1>
+
+<p align="center">
+  A self-hosted portfolio and watchlist tracker. One container, one SQLite file, no accounts, no API keys.
+</p>
+
+<p align="center">
+  <a href="https://github.com/SiFoIT/stocktrax/releases"><img alt="Release" src="https://img.shields.io/github/v/tag/SiFoIT/stocktrax?label=version&color=2f6fed"></a>
+  <a href="https://github.com/SiFoIT/stocktrax/pkgs/container/stocktrax"><img alt="Docker" src="https://img.shields.io/badge/ghcr.io-sifoit%2Fstocktrax-2f6fed?logo=docker&logoColor=white"></a>
+  <a href="https://github.com/SiFoIT/stocktrax/actions/workflows/docker.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/SiFoIT/stocktrax/docker.yml?label=image"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-green"></a>
+  <img alt="Node" src="https://img.shields.io/badge/node-22%2B-339933?logo=node.js&logoColor=white">
+</p>
+
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="StockTrax dashboard: market status, watchlist movers, index tiles with sparklines, and the Markets and Commodities tables" width="900">
+</p>
+
+StockTrax is for people who hold stocks and ETFs at one or more brokers and want a
+single quiet page that answers "how are things today?". It tracks portfolios from
+their transactions, watches the symbols you care about, screens for new ones, alerts
+you on moves, and emails you a digest after the close. Prices come from Yahoo Finance,
+delayed 15 to 20 minutes, which is plenty for a long-term investor.
+
+It was built by a Canadian investor, so CAD and USD are first-class: portfolios carry
+a base currency, cash is tracked in both, and the Markets page leans Canadian by default.
+
+## Quick start
+
+```bash
+docker run -d --name stocktrax -p 3000:3000 -v stocktrax-data:/app/data ghcr.io/sifoit/stocktrax:latest
+```
+
+Open <http://localhost:3000>. The container creates the database on first start and
+migrates it on every restart, so upgrading is `docker pull` and re-create.
+
+Or with Compose, using the [docker-compose.yml](docker-compose.yml) in this repo:
+
+```bash
+docker compose up -d
+```
+
+> **There is no login.** Anyone who can reach port 3000 can see your holdings, change
+> settings, and trigger emails. Keep it on a LAN, a VPN, or behind an authenticating
+> reverse proxy.
 
 ## Features
 
-### Market Overview
-- Global indices, commodities, currencies, and crypto at a glance
-- Sparkline charts and market status indicators (open / pre-market / closed)
+**Markets** &nbsp;·&nbsp; A glance row (market status, best and worst watchlist mover,
+alerts) above index tiles with sparklines, day ranges and futures. Below that, tables
+for indices, commodities, currencies and crypto. Every section is customisable: pick
+which symbols appear, or add your own.
 
-### Watchlists
-- Multiple named watchlists with symbol autocomplete search
-- Sub-views: **Performance**, **Dividend**, and **News**
-- Real-time quotes with pre/post-market price data
-- 52-week and daily high/low range bars with distance percentages
-- Sortable columns across all views
+**Watchlists** &nbsp;·&nbsp; As many named lists as you like, with symbol autocomplete.
+Views for performance, dividends, insider activity and news. Pre- and post-market
+prices, 52-week and day range bars, sortable columns.
 
-### Portfolios
-- Multiple portfolios with full transaction history (buy / sell / dividend)
-- Holdings computed automatically from transactions
-- Cash balance tracking in CAD and USD with exchange rate conversion
-- Sub-views: **Holdings**, **Performance**, **Dividend**, **Dividend Returns**, **News**, **Transactions**
-- Portfolio analytics: CAGR, sector allocation, asset type breakdown, currency distribution
-- CSV import for bulk transaction entry with duplicate detection
+**Portfolios** &nbsp;·&nbsp; Holdings are computed from buy, sell and dividend
+transactions, never typed in by hand. Cash balances in CAD and USD with live FX.
+Views for holdings, performance, dividends, dividend returns, insider activity, news
+and the full transaction ledger. Analytics for CAGR, sector, asset type and currency
+allocation. Import a Wealthsimple CSV and duplicates are skipped.
 
-### Interactive Charts
-- Line and candlestick charts powered by TradingView lightweight-charts
-- Time ranges: 1D, 5D, 3M, 1Y, 5Y
-- Technical indicators: 50/200 SMA, 12/26 EMA, Bollinger Bands, volume
-- Per-list chart preferences persisted in localStorage
+**Charts** &nbsp;·&nbsp; Line and candlestick from TradingView lightweight-charts, 1D to
+5Y, with 50/200 SMA, 12/26 EMA, Bollinger Bands and volume. Chart preferences are
+remembered per list.
 
-### Stock Screener
-- Screen across all stocks, a watchlist, or portfolio holdings
-- Filter by price, moving averages, performance, valuation, dividends, profitability, risk, and analyst metrics
-- Combine rules with match-all or match-any logic
+**Screener** &nbsp;·&nbsp; Build rules that read as sentences ("P/E is below 15",
+"dividend yield is at least 3%") across price, moving averages, performance,
+valuation, dividends, profitability, risk and analyst metrics. Run them against every
+known stock, a watchlist, or a portfolio. Screens autosave.
 
-### Alerts
-- Set price and performance alert rules on watchlist items or holdings
-- Reset strategies: manual, recovery, cooldown, baseline, end of day
-- Alert history tracking and triggered alert badges
+**Alerts** &nbsp;·&nbsp; Price and performance rules on any watchlist item, holding or
+market symbol. Reset strategies (manual, recovery, cooldown, baseline, end of day)
+keep a rule from firing all day. History is kept.
 
-### Email Digest
-- **Daily** summary after the close on trading days: markets, portfolio move, movers, watchlist moves, alerts fired, dividends received
-- **Weekly** summary on Saturday morning: the week against the indices, best and worst, dividends, upcoming ex-dividend dates, and every holding and watchlist symbol with its weekly change
-- Sends over plain SMTP, so Gmail, SendGrid, Mailgun, Resend or a self-hosted relay all work
-- Optional privacy switch keeps the percentages and drops every dollar figure
+**Email digest** &nbsp;·&nbsp; A daily summary after the close and a weekly one on
+Saturday morning: markets, your portfolio move, best and worst, watchlist moves,
+alerts fired, dividends received, upcoming ex-dividend dates. Plain SMTP, so Gmail,
+SendGrid, Mailgun, Resend or a relay of your own all work. A privacy switch drops
+every dollar figure and keeps the percentages.
 
-## Tech Stack
+**Backup** &nbsp;·&nbsp; Export everything to one JSON file from Settings and import it
+on a fresh install.
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Next.js 16, React 19, App Router |
-| Database | SQLite via better-sqlite3 + Drizzle ORM |
-| Styling | Tailwind CSS 4 |
-| UI | Radix UI + shadcn/ui patterns |
-| Charts | TradingView lightweight-charts, Recharts |
-| Market Data | yahoo-finance2 (15–20 min delayed, cached) |
-| Validation | Zod |
+## Email digest setup
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js 22+
-- npm
-
-### Development
-
-```bash
-# Install dependencies
-npm install
-
-# Initialize the database
-npx drizzle-kit push
-
-# Start the dev server
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### Production Build
-
-```bash
-npm run build
-npm start
-```
-
-## Email Digest
-
-Configure it in **Settings → Email digest**. Both digests are on by default,
-but nothing is sent until you fill in the SMTP details below.
-
-### Gmail
-
-Gmail needs an App Password; your account password will not work.
-
-1. Turn on 2-Step Verification in your Google account.
-2. Create an App Password under **Security → App passwords**.
-3. In StockTrax, enter:
+Open **Settings → Email digest**. Both digests are on by default but nothing sends until
+SMTP is configured. For Gmail, create an App Password (2-Step Verification must be on)
+and enter:
 
 | Field | Value |
 |---|---|
 | SMTP host | `smtp.gmail.com` |
-| Port | `587` (leave Implicit TLS off) |
+| Port | `587`, Implicit TLS off |
 | Username | your full Gmail address |
-| App password | the 16-character password |
+| Password | the 16-character App Password |
 | From | `StockTrax <you@gmail.com>` |
 | To | one or more addresses, comma-separated |
 
-Then press **Send test email**. Any other SMTP relay works the same way with
-its own host, port and credentials.
+Press **Send test email**. Any other relay works the same way with its own host, port
+and credentials.
 
-### Configuring without the UI
-
-For a headless deployment, these environment variables act as a fallback for
-any field left empty in the UI:
+**Headless configuration.** These environment variables fill in any field left empty
+in the UI:
 
 ```
 SMTP_HOST  SMTP_PORT  SMTP_SECURE  SMTP_USER  SMTP_PASS
 DIGEST_FROM  DIGEST_TO  DIGEST_APP_URL
 ```
 
-`DIGEST_APP_URL` is optional and only adds an "Open StockTrax" link to the
-email footer.
+`DIGEST_APP_URL` only adds an "Open StockTrax" link to the footer.
 
-### Scheduling
-
-The app schedules the sends itself while it is running: no cron, no sidecar.
-A send missed because the container was down goes out on the next check that
-same day, and is skipped after midnight rather than arriving late.
-
-To drive it from an external scheduler instead, leave both toggles off and
-POST to the endpoint:
+**Scheduling.** The app schedules its own sends while running. A send missed because
+the container was down goes out on the next check that same day, and is skipped after
+midnight rather than arriving late. To use an external scheduler instead, turn both
+toggles off and call the endpoint:
 
 ```bash
 curl -X POST http://localhost:3000/api/digest -H 'Content-Type: application/json' -d '{"kind":"daily"}'
 ```
 
-### A note on access
+The SMTP password is never returned by the API and is left out of backup exports.
 
-StockTrax has no login. Anyone who can reach the app can open these settings
-and trigger a send to the configured address. The SMTP password is never
-returned by the API and is excluded from backup exports, but treat network
-access to the app as equivalent to access to the mailbox it sends from.
+## Running from source
 
-## Docker
-
-### Quick Start with Docker Compose
-
-```yaml
-services:
-  stocktrax:
-    image: ghcr.io/sifoIt/stocktrax:latest
-    ports:
-      - "3000:3000"
-    volumes:
-      - stocktrax-data:/app/data
-    restart: unless-stopped
-
-volumes:
-  stocktrax-data:
-```
+Requires Node.js 22 or newer.
 
 ```bash
-docker compose up -d
+npm install
+npx drizzle-kit push      # create data/stocktrax.db
+npm run dev               # http://localhost:3000
 ```
 
-### Build Locally
+Other scripts:
+
+| Command | What it does |
+|---|---|
+| `npm run build` then `npm start` | Production build and serve |
+| `npm test` | Vitest unit tests (digest timing, selection, rendering, market symbols) |
+| `npm run lint` | ESLint |
+| `npx drizzle-kit push` | Apply schema changes after editing `src/lib/db/schema.ts` |
+
+To build the image locally:
 
 ```bash
 docker build -t stocktrax .
 docker run -p 3000:3000 -v stocktrax-data:/app/data stocktrax
 ```
 
-The container runs database migrations automatically on startup. Mount `/app/data` to persist the SQLite database across restarts.
+## How it's built
 
-## CI/CD
+| | |
+|---|---|
+| Framework | Next.js 16 App Router, React 19, TypeScript |
+| Storage | SQLite via better-sqlite3 and Drizzle ORM, one file under `data/` |
+| UI | Tailwind CSS 4, Radix UI primitives, lucide icons |
+| Charts | TradingView lightweight-charts for prices, Recharts for allocation |
+| Market data | yahoo-finance2, cached in SQLite (1 h daily, 5 min intraday) |
+| Email | nodemailer over SMTP, scheduled in-process from `instrumentation.ts` |
 
-Pushing a version tag (`v*`) triggers a GitHub Actions workflow that builds and publishes the Docker image to GitHub Container Registry (GHCR).
+The code is laid out by feature under `src/` and described in [CLAUDE.md](CLAUDE.md),
+which also holds the design tokens and conventions. Longer design notes live in
+[docs/](docs/).
+
+## Releasing
+
+Pushing a `v*` tag builds the image and publishes it to GitHub Container Registry as
+`ghcr.io/sifoit/stocktrax:<version>` and `:latest`.
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v0.5.0 && git push origin v0.5.0
 ```
 
-## Project Structure
+## Roadmap
 
-```
-src/
-├── app/
-│   ├── api/           # Route handlers (portfolios, holdings, transactions, etc.)
-│   ├── portfolio/     # Portfolio detail page
-│   ├── layout.tsx
-│   └── page.tsx       # Dashboard (general, watchlists, portfolios, screener)
-├── components/
-│   ├── charts/        # Price charts, allocation charts, sparklines
-│   ├── portfolio/     # Holdings, transactions, performance, cash
-│   ├── ui/            # shadcn/ui primitives
-│   ├── watchlist/     # Watchlist tables and forms
-│   ├── alerts/        # Alert rules and history
-│   └── screens/       # Stock screener
-├── lib/
-│   ├── api/           # Yahoo Finance wrapper
-│   ├── db/            # Drizzle client and schema
-│   └── utils.ts       # Shared utilities
-└── types/             # TypeScript type definitions
-```
+Rough order of intent, none scheduled:
 
-## Data Sources
+- Time-weighted and money-weighted returns over the portfolio value history, with a
+  benchmark line.
+- Realized gains and adjusted cost base per tax year, in CAD at trade-date rates.
+- Background alert evaluation with Web Push, so alerts fire without a tab open.
+- A second quote provider behind the Yahoo wrapper, and "data as of" badges when
+  the upstream is down.
+- Target allocations with drift and rebalancing suggestions.
+- Optional authentication for deployments that leave the LAN.
 
-Stock quotes and market data are provided by [Yahoo Finance](https://finance.yahoo.com/) via the yahoo-finance2 library. Data is delayed 15–20 minutes and cached locally (1 hour for daily data, 5 minutes for intraday).
+## Data source and disclaimer
+
+Quotes, fundamentals, news and insider data come from Yahoo Finance through the
+unofficial [yahoo-finance2](https://github.com/gadicc/node-yahoo-finance2) library,
+delayed 15 to 20 minutes. StockTrax is a personal tracking tool, not investment advice.
+
+## License
+
+[MIT](LICENSE)

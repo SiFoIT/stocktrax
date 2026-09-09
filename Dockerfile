@@ -15,7 +15,7 @@ RUN npm run build
 # Stage 2: Production
 FROM node:22-alpine AS runner
 
-LABEL org.opencontainers.image.icon="https://raw.githubusercontent.com/sifoIt/stocktrax/main/public/icon-512.png"
+LABEL org.opencontainers.image.icon="https://raw.githubusercontent.com/SiFoIT/stocktrax/main/public/icon-512.png"
 
 WORKDIR /app
 

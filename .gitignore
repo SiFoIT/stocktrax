@@ -44,3 +44,7 @@ next-env.d.ts
 /data/*.db
 /data/*.db-wal
 /data/*.db-shm
+
+# claude code
+.claude/*
+!.claude/launch.json

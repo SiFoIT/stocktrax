@@ -255,7 +255,7 @@ export default function Dashboard() {
       };
       loadScreens();
     }
-  }, [activeTab, selectedScreenId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedScreenId]);
 
   // Screens: update currentScreen when selection changes
   useEffect(() => {

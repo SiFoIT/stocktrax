@@ -1,6 +1,6 @@
 services:
   stocktrax:
-    image: ghcr.io/sifoIt/stocktrax:latest
+    image: ghcr.io/sifoit/stocktrax:latest
     ports:
       - "3000:3000"
     volumes:

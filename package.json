@@ -2,6 +2,7 @@
   "name": "stocktrax",
   "version": "0.5.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,7 +15,6 @@
     "better-sqlite3": "^12.11.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "date-fns": "^4.1.0",
     "drizzle-orm": "^0.45.1",
     "lightweight-charts": "^5.1.0",
     "lucide-react": "^0.563.0",
