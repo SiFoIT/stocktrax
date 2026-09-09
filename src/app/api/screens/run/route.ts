@@ -76,6 +76,33 @@ async function fetchBatch<T>(
   return results;
 }
 
+/**
+ * Record what a saved screen's run found, so the screens index can show it
+ * without re-running. `updatedAt` is deliberately untouched: it means "the
+ * rules changed", which a run does not do. Returns the stored timestamp, or
+ * null for an inline run of unsaved rules.
+ */
+async function recordRun(
+  screenId: number | null,
+  totalScanned: number,
+  matchCount: number
+): Promise<string | null> {
+  if (screenId == null) return null;
+  const ranAt = new Date();
+  try {
+    await db
+      .update(schema.screens)
+      .set({ lastRunAt: ranAt, lastMatchCount: matchCount, lastTotalScanned: totalScanned })
+      .where(eq(schema.screens.id, screenId));
+  } catch (error) {
+    // A run that produced results is still a good response; only the
+    // bookkeeping failed.
+    console.error("Failed to record screen run:", error);
+    return null;
+  }
+  return ranAt.toISOString();
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -84,6 +111,8 @@ export async function POST(request: NextRequest) {
     let source: string;
     let rules: ScreenRule[];
     let match: "all" | "any";
+    // Non-null only for a saved screen; an inline run has nothing to record.
+    let screenId: number | null = null;
 
     if ("screenId" in parsed) {
       const screen = await db.query.screens.findFirst({
@@ -92,6 +121,7 @@ export async function POST(request: NextRequest) {
       if (!screen) {
         return NextResponse.json({ error: "Screen not found" }, { status: 404 });
       }
+      screenId = screen.id;
       source = screen.source;
       rules = normalizeRules(JSON.parse(screen.rules));
       match = screen.match;
@@ -102,12 +132,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (rules.length === 0) {
-      return NextResponse.json({ results: [], totalScanned: 0, matchCount: 0 });
+      const lastRunAt = await recordRun(screenId, 0, 0);
+      return NextResponse.json({ results: [], totalScanned: 0, matchCount: 0, lastRunAt });
     }
 
     const symbols = await resolveSymbols(source);
     if (symbols.length === 0) {
-      return NextResponse.json({ results: [], totalScanned: 0, matchCount: 0 });
+      const lastRunAt = await recordRun(screenId, 0, 0);
+      return NextResponse.json({ results: [], totalScanned: 0, matchCount: 0, lastRunAt });
     }
 
     // Determine if we need historical changes
@@ -170,10 +202,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const lastRunAt = await recordRun(screenId, symbols.length, results.length);
+
     return NextResponse.json({
       results,
       totalScanned: symbols.length,
       matchCount: results.length,
+      lastRunAt,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

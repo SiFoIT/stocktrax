@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Filter, SearchX } from "lucide-react";
 import { METRICS, formatMetricValue, metricHeading, type ScreenRule } from "@/lib/screener/metrics";
 import type { ScreenResult } from "@/lib/screener/api";
 import { cn, getChangeColor } from "@/lib/utils";
@@ -23,9 +23,7 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
     return (
       <div className="flex items-center justify-center py-16 text-subtle-foreground">
         <div className="text-center">
-          <svg className="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-          </svg>
+          <Filter className="mx-auto mb-3 size-10" />
           <p className="text-sm">Configure rules and run a screen to see results</p>
         </div>
       </div>
@@ -88,9 +86,7 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
       {results.length === 0 ? (
         <div className="flex items-center justify-center py-12 text-subtle-foreground">
           <div className="text-center">
-            <svg className="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
-            </svg>
+            <SearchX className="mx-auto mb-2 size-10" />
             <p className="text-sm">No stocks matched your criteria</p>
           </div>
         </div>

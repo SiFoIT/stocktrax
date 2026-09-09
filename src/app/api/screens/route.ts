@@ -34,6 +34,10 @@ function formatScreen(row: typeof schema.screens.$inferSelect) {
     rules: normalizeRules(JSON.parse(row.rules)),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    // Run stats are written by /api/screens/run, never by this route.
+    lastRunAt: row.lastRunAt ? row.lastRunAt.toISOString() : null,
+    lastMatchCount: row.lastMatchCount ?? null,
+    lastTotalScanned: row.lastTotalScanned ?? null,
   };
 }
 

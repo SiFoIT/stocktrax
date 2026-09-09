@@ -23,6 +23,7 @@ import { PortfolioSummaryList } from "@/components/portfolio/portfolio-summary-l
 import { PortfolioStats } from "@/components/portfolio/portfolio-stats";
 import { AppHeader, getInitialTab, getInitialWatchlistId, getInitialScreenId, type Tab } from "@/components/layout/app-header";
 import { ScreenContent } from "@/components/screener/screen-content";
+import { ScreenIndex } from "@/components/screener/screen-index";
 import { fetchScreens, type ScreenDTO } from "@/lib/screener/api";
 import { useRelativeTime } from "@/lib/hooks/use-relative-time";
 import { AlertsPanel } from "@/components/alerts/alerts-panel";
@@ -48,6 +49,14 @@ function getTabFromUrl(): Tab {
   return getInitialTab();
 }
 
+/** `?screen=<id>` opens that screen directly; anything else means the index. */
+function readScreenId(params: URLSearchParams): number | null {
+  const raw = params.get("screen");
+  if (!raw) return null;
+  const id = parseInt(raw, 10);
+  return Number.isNaN(id) ? null : id;
+}
+
 type WatchlistView = "performance" | "dividend" | "insider" | "news";
 
 const WATCHLIST_VIEWS: readonly PanelTab<WatchlistView>[] = [
@@ -62,15 +71,22 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<Tab>(getTabFromUrl);
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
+  // null means the screens index; an id means that screen is open.
   const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null);
   const [screens, setScreens] = useState<ScreenDTO[]>([]);
+  const [screensLoaded, setScreensLoaded] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<ScreenDTO | null>(null);
+  // Set when a screen is opened from the index's Run button, so the detail
+  // starts its run without a second click.
+  const [runOnOpenId, setRunOnOpenId] = useState<number | null>(null);
 
   // Clean up URL and get watchlist ID after mount
   useEffect(() => {
     // Clean up URL params after reading
     const params = new URLSearchParams(window.location.search);
-    if (params.has("tab")) {
+    // Read every param before the URL is cleaned, or they are gone.
+    const screenFromUrl = readScreenId(params);
+    if (params.has("tab") || params.has("screen")) {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
@@ -79,7 +95,8 @@ export default function Dashboard() {
       setSelectedWatchlistId(initialWatchlistId);
     }
 
-    const initialScreenId = getInitialScreenId();
+    // A URL deep link wins over the sessionStorage hand-off from a sub-page.
+    const initialScreenId = screenFromUrl ?? getInitialScreenId();
     if (initialScreenId) {
       setSelectedScreenId(initialScreenId);
     }
@@ -243,19 +260,25 @@ export default function Dashboard() {
     }
   }, [alertsPanelOpen, refreshAlertRules, refreshAlertHistory]);
 
-  // Screens: fetch list and initialize selection
+  // Screens: load on mount so the header dropdown is populated, and again on
+  // entering the tab so the index shows fresh run counts. No auto-selection:
+  // the tab lands on the index.
+  const onScreensTab = activeTab === "screens";
   useEffect(() => {
-    if (activeTab === "screens") {
-      const loadScreens = async () => {
-        const data = await fetchScreens();
+    let cancelled = false;
+    fetchScreens()
+      .then((data) => {
+        if (cancelled) return;
         setScreens(data);
-        if (!selectedScreenId && data.length > 0) {
-          setSelectedScreenId(data[0].id);
-        }
-      };
-      loadScreens();
-    }
-  }, [activeTab, selectedScreenId]);
+        setScreensLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) setScreensLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [onScreensTab]);
 
   // Screens: update currentScreen when selection changes
   useEffect(() => {
@@ -377,6 +400,8 @@ export default function Dashboard() {
         onSelectPortfolio={setSelectedPortfolioId}
         selectedScreenId={selectedScreenId}
         onSelectScreen={setSelectedScreenId}
+        screens={screens}
+        onScreensChange={setScreens}
         onOpenAlerts={() => openAlertsPanel()}
         alertCount={watchlistAlerts.length}
         hasTriggeredAlerts={watchlistAlerts.length > 0}
@@ -506,21 +531,35 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Screens Content */}
-        {activeTab === "screens" && (
-          <ScreenContent
-            screen={currentScreen}
-            onScreenCreated={(created) => {
-              setScreens((prev) => [...prev, created]);
-              setSelectedScreenId(created.id);
-            }}
-            onScreenUpdated={(updated) => {
-              // currentScreen is derived from screens + selectedScreenId, so a
-              // late save for a screen that is no longer selected stays put
-              setScreens((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-            }}
-          />
-        )}
+        {/* Screens Content: the index, or one open screen */}
+        {activeTab === "screens" &&
+          (currentScreen ? (
+            <ScreenContent
+              screen={currentScreen}
+              runOnOpen={runOnOpenId === currentScreen.id}
+              onRunConsumed={() => setRunOnOpenId(null)}
+              onBack={() => setSelectedScreenId(null)}
+              onScreenUpdated={(updated) => {
+                // currentScreen is derived from screens + selectedScreenId, so a
+                // late save for a screen that is no longer selected stays put
+                setScreens((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+              }}
+              onScreenRan={(id, run) => {
+                setScreens((prev) => prev.map((s) => (s.id === id ? { ...s, ...run } : s)));
+              }}
+            />
+          ) : (
+            <ScreenIndex
+              screens={screens}
+              loading={!screensLoaded}
+              onOpen={(id) => setSelectedScreenId(id)}
+              onRun={(id) => {
+                setRunOnOpenId(id);
+                setSelectedScreenId(id);
+              }}
+              onScreensChange={setScreens}
+            />
+          ))}
       </div>
 
       <AlertsPanel

@@ -1,4 +1,5 @@
 import { ScreenRule } from "./metrics";
+import { nextCopyName } from "./describe";
 
 export interface CustomPresetDTO {
   id: number;
@@ -40,7 +41,17 @@ export interface ScreenDTO {
   match: "all" | "any";
   createdAt: string;
   updatedAt: string;
+  /** Written by the run endpoint only. Null until the screen has been run. */
+  lastRunAt: string | null;
+  lastMatchCount: number | null;
+  lastTotalScanned: number | null;
 }
+
+/** The three run fields, as returned by a run and merged into a ScreenDTO. */
+export type ScreenRunStats = Pick<
+  ScreenDTO,
+  "lastRunAt" | "lastMatchCount" | "lastTotalScanned"
+>;
 
 export interface ScreenResult {
   symbol: string;
@@ -54,6 +65,8 @@ export interface RunScreenResponse {
   results: ScreenResult[];
   totalScanned: number;
   matchCount: number;
+  /** The timestamp just stored, or null for an inline (unsaved) run. */
+  lastRunAt: string | null;
 }
 
 export async function fetchScreens(): Promise<ScreenDTO[]> {
@@ -92,6 +105,22 @@ export async function updateScreen(
 
 export async function deleteScreen(id: number): Promise<void> {
   await fetch(`/api/screens?id=${id}`, { method: "DELETE" });
+}
+
+/**
+ * Copy a screen's rules under a free name. The copy starts unrun: the run
+ * fields belong to the run, not to the rules.
+ */
+export async function duplicateScreen(
+  screen: ScreenDTO,
+  existingNames: string[]
+): Promise<ScreenDTO> {
+  return createScreen({
+    name: nextCopyName(screen.name, existingNames),
+    source: screen.source,
+    rules: screen.rules,
+    match: screen.match,
+  });
 }
 
 export async function runScreen(screenId: number): Promise<RunScreenResponse> {

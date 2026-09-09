@@ -1,19 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { AlertTriangle, Check, Loader2, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { AlertTriangle, Check, ChevronLeft, Loader2 } from "lucide-react";
+import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { ScreenEditor } from "./screen-editor";
 import { ScreenResults } from "./screen-results";
 import { type ScreenRule } from "@/lib/screener/metrics";
+import { formatLastRun } from "@/lib/screener/describe";
 import {
-  createScreen,
   updateScreen,
   runScreen,
-  runScreenInline,
   type ScreenDTO,
   type ScreenResult,
+  type ScreenRunStats,
 } from "@/lib/screener/api";
 
 type ScreenUpdates = Partial<{ source: string; rules: ScreenRule[]; match: "all" | "any" }>;
@@ -22,12 +21,25 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
 const SAVE_DELAY_MS = 600;
 
 interface ScreenContentProps {
-  screen: ScreenDTO | null;
+  screen: ScreenDTO;
   onScreenUpdated: (screen: ScreenDTO) => void;
-  onScreenCreated: (screen: ScreenDTO) => void;
+  /** Back to the screens index. */
+  onBack: () => void;
+  /** Start a run as soon as this screen mounts (opened via the index's Run). */
+  runOnOpen?: boolean;
+  onRunConsumed?: () => void;
+  /** Hand the just-stored run stats back so the index row stays current. */
+  onScreenRan?: (id: number, run: ScreenRunStats) => void;
 }
 
-export function ScreenContent({ screen, onScreenUpdated, onScreenCreated }: ScreenContentProps) {
+export function ScreenContent({
+  screen,
+  onScreenUpdated,
+  onBack,
+  runOnOpen = false,
+  onRunConsumed,
+  onScreenRan,
+}: ScreenContentProps) {
   const [source, setSource] = useState("all");
   const [rules, setRules] = useState<ScreenRule[]>([]);
   const [match, setMatch] = useState<"all" | "any">("all");
@@ -49,8 +61,10 @@ export function ScreenContent({ screen, onScreenUpdated, onScreenCreated }: Scre
   // render, and the status should only reflect the screen being viewed.
   const onScreenUpdatedRef = useRef(onScreenUpdated);
   onScreenUpdatedRef.current = onScreenUpdated;
-  const viewedScreenIdRef = useRef<number | null>(screen?.id ?? null);
-  viewedScreenIdRef.current = screen?.id ?? null;
+  const viewedScreenIdRef = useRef<number | null>(screen.id);
+  viewedScreenIdRef.current = screen.id;
+  // The screen id whose open-and-run has already been honoured.
+  const autoRanScreenIdRef = useRef<number | null>(null);
 
   const flushSave = useCallback(async () => {
     if (saveTimerRef.current) {
@@ -79,7 +93,6 @@ export function ScreenContent({ screen, onScreenUpdated, onScreenCreated }: Scre
   }, []);
 
   const queueSave = (updates: ScreenUpdates) => {
-    if (!screen) return;
     const previous =
       pendingRef.current?.screenId === screen.id ? pendingRef.current.updates : {};
     pendingRef.current = { screenId: screen.id, updates: { ...previous, ...updates } };
@@ -98,17 +111,23 @@ export function ScreenContent({ screen, onScreenUpdated, onScreenCreated }: Scre
   // Sync from screen prop, sending any edits to the previous screen first
   useEffect(() => {
     flushSave();
-    if (screen) {
-      setSource(screen.source);
-      setRules(screen.rules);
-      setMatch(screen.match);
-      setSaveStatus("idle");
-      // Reset results when switching screens
-      setResults(null);
-      setTotalScanned(0);
-      setMatchCount(0);
+    setSource(screen.source);
+    setRules(screen.rules);
+    setMatch(screen.match);
+    setSaveStatus("idle");
+    // Reset results when switching screens
+    setResults(null);
+    setTotalScanned(0);
+    setMatchCount(0);
+
+    // Opened from the index's Run button: run straight away. The ref keeps
+    // StrictMode's double effect from running the screen twice.
+    if (runOnOpen && autoRanScreenIdRef.current !== screen.id) {
+      autoRanScreenIdRef.current = screen.id;
+      onRunConsumed?.();
+      void handleRun();
     }
-  }, [screen?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [screen.id, runOnOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Send whatever is still pending when the tab or page goes away
   useEffect(() => {
@@ -143,12 +162,15 @@ export function ScreenContent({ screen, onScreenUpdated, onScreenCreated }: Scre
     try {
       // Run what is on screen, not what the server last saved
       await flushSave();
-      const response = screen
-        ? await runScreen(screen.id)
-        : await runScreenInline({ source, rules, match });
+      const response = await runScreen(screen.id);
       setResults(response.results);
       setTotalScanned(response.totalScanned);
       setMatchCount(response.matchCount);
+      onScreenRan?.(screen.id, {
+        lastRunAt: response.lastRunAt,
+        lastMatchCount: response.matchCount,
+        lastTotalScanned: response.totalScanned,
+      });
     } catch {
       // silent
     } finally {
@@ -156,32 +178,37 @@ export function ScreenContent({ screen, onScreenUpdated, onScreenCreated }: Scre
     }
   };
 
-  if (!screen) {
-    return <CreateScreenPrompt onCreated={onScreenCreated} />;
-  }
+  const lastRun = formatLastRun(screen.lastRunAt);
+  const lastRunLabel =
+    screen.lastRunAt && screen.lastMatchCount != null
+      ? `${lastRun} · ${screen.lastMatchCount} of ${screen.lastTotalScanned ?? 0} matched`
+      : lastRun;
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg bg-card border border-border overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-              <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="font-semibold text-foreground">{screen.name}</h2>
-              <p className="text-xs text-muted-foreground">
-                {rules.length} rule{rules.length !== 1 ? "s" : ""} configured
-              </p>
-            </div>
-          </div>
-        </div>
+      <Panel>
+        <PanelHeader
+          title={
+            <span className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onBack}
+                aria-label="Back to screens"
+                className="flex items-center gap-1 font-normal text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ChevronLeft className="size-4" />
+                Screens
+              </button>
+              <span className="text-subtle-foreground">/</span>
+              {screen.name}
+            </span>
+          }
+          meta={`${rules.length} rule${rules.length === 1 ? "" : "s"}`}
+          right={lastRunLabel}
+        />
 
         {/* Editor */}
-        <div className="p-4">
+        <PanelBody className="p-4">
           <ScreenEditor
             source={source}
             rules={rules}
@@ -193,69 +220,21 @@ export function ScreenContent({ screen, onScreenUpdated, onScreenCreated }: Scre
             saveIndicator={<SaveIndicator status={saveStatus} onRetry={retrySave} />}
             running={running}
           />
-        </div>
-      </div>
+        </PanelBody>
+      </Panel>
 
       {/* Results */}
-      <div className="rounded-lg bg-card border border-border overflow-hidden">
-        <div className="px-6 py-4 border-b border-border bg-accent">
-          <h3 className="text-sm font-semibold text-foreground">Results</h3>
-        </div>
-        <div className="p-4">
+      <Panel>
+        <PanelHeader title="Results" />
+        <PanelBody className="p-4">
           <ScreenResults
             results={results}
             rules={rules}
             totalScanned={totalScanned}
             matchCount={matchCount}
           />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Empty state: name a screen and create it right here. */
-function CreateScreenPrompt({ onCreated }: { onCreated: (screen: ScreenDTO) => void }) {
-  const [name, setName] = useState("");
-  const [creating, setCreating] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed || creating) return;
-    setCreating(true);
-    try {
-      onCreated(await createScreen({ name: trimmed }));
-      setName("");
-    } catch {
-      // silent
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  return (
-    <div className="rounded-lg bg-card border border-border p-12">
-      <div className="mx-auto max-w-sm text-center">
-        <h3 className="text-lg font-semibold text-foreground mb-1">No screen yet</h3>
-        <p className="text-muted-foreground mb-5">
-          A screen is a set of rules run against your symbols. Name one to get started.
-        </p>
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="New screen name"
-            aria-label="New screen name"
-            autoFocus
-            className="h-9 flex-1"
-          />
-          <Button type="submit" size="sm" disabled={!name.trim() || creating}>
-            <Plus className="size-4" />
-            Create Screen
-          </Button>
-        </form>
-      </div>
+        </PanelBody>
+      </Panel>
     </div>
   );
 }

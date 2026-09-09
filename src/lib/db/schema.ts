@@ -175,6 +175,11 @@ export const screens = sqliteTable("screens", {
   updatedAt: integer("updated_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
+  // Written only by the run endpoint, so `updatedAt` keeps meaning "rules
+  // changed". Null on every screen that has never been run.
+  lastRunAt: integer("last_run_at", { mode: "timestamp" }),
+  lastMatchCount: integer("last_match_count"),
+  lastTotalScanned: integer("last_total_scanned"),
 });
 
 export type Screen = typeof screens.$inferSelect;

@@ -5,7 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, ChevronDown } from "lucide-react";
 import { SettingsMenu } from "@/components/settings/settings-menu";
 import { NavDropdown } from "@/components/layout/nav-dropdown";
-import { Portfolio, Watchlist, Screen } from "@/lib/db/schema";
+import { Portfolio, Watchlist } from "@/lib/db/schema";
+import { createScreen, deleteScreen, updateScreen, type ScreenDTO } from "@/lib/screener/api";
 import { getDefaultTab, type DefaultTab } from "@/components/settings/general-settings-modal";
 
 export type Tab = "general" | "watchlist" | "portfolios" | "screens";
@@ -18,7 +19,14 @@ interface AppHeaderProps {
   selectedPortfolioId: number | null;
   onSelectPortfolio: (id: number) => void;
   selectedScreenId: number | null;
-  onSelectScreen: (id: number) => void;
+  /** null selects the screens index rather than a screen. */
+  onSelectScreen: (id: number | null) => void;
+  /**
+   * The dashboard owns the screens list so the index and this dropdown stay
+   * in step. Omitted on sub-pages, where the header fetches its own copy.
+   */
+  screens?: ScreenDTO[];
+  onScreensChange?: (next: ScreenDTO[]) => void;
   onOpenAlerts?: () => void;
   alertCount?: number;
   hasTriggeredAlerts?: boolean;
@@ -38,6 +46,8 @@ export function AppHeader({
   onSelectPortfolio,
   selectedScreenId,
   onSelectScreen,
+  screens: screensProp,
+  onScreensChange,
   onOpenAlerts,
   alertCount = 0,
   hasTriggeredAlerts = false,
@@ -48,7 +58,15 @@ export function AppHeader({
 
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
-  const [screens, setScreens] = useState<Screen[]>([]);
+  const [ownScreens, setOwnScreens] = useState<ScreenDTO[]>([]);
+  // The prop is the source of truth when the page supplies one; otherwise
+  // this header keeps its own copy.
+  const screensLifted = screensProp !== undefined;
+  const screens = screensProp ?? ownScreens;
+  const setScreens = (next: ScreenDTO[]) => {
+    if (onScreensChange) onScreensChange(next);
+    else setOwnScreens(next);
+  };
 
   const [openDropdown, setOpenDropdown] = useState<Tab | null>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -63,14 +81,12 @@ export function AppHeader({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [watchlistsRes, portfoliosRes, screensRes] = await Promise.all([
+        const [watchlistsRes, portfoliosRes] = await Promise.all([
           fetch("/api/watchlists"),
           fetch("/api/portfolios"),
-          fetch("/api/screens"),
         ]);
         setWatchlists(await watchlistsRes.json());
         setPortfolios(await portfoliosRes.json());
-        setScreens(await screensRes.json());
       } catch {
         // silently handle fetch error
       }
@@ -78,21 +94,33 @@ export function AppHeader({
     fetchData();
   }, []);
 
+  // Only fetch screens when the page has not lifted the list.
+  useEffect(() => {
+    if (screensLifted) return;
+    fetch("/api/screens")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setOwnScreens(data);
+      })
+      .catch(() => {});
+  }, [screensLifted]);
+
   // A screen can be created from the page body (the empty state), so refetch
   // the list when the selection points at an id this header has not seen.
   // Refetch at most once per id, or a deleted id would loop forever.
   const refetchedScreenId = useRef<number | null>(null);
   useEffect(() => {
+    if (screensLifted) return;
     if (selectedScreenId == null || refetchedScreenId.current === selectedScreenId) return;
     if (screens.some((s) => s.id === selectedScreenId)) return;
     refetchedScreenId.current = selectedScreenId;
     fetch("/api/screens")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data) setScreens(data);
+        if (data) setOwnScreens(data);
       })
       .catch(() => {});
-  }, [selectedScreenId, screens]);
+  }, [selectedScreenId, screens, screensLifted]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -244,25 +272,17 @@ export function AppHeader({
 
     setCreatingScreen(true);
     try {
-      const response = await fetch("/api/screens", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newScreenName }),
-      });
-
-      if (response.ok) {
-        const newScreen = await response.json();
-        setNewScreenName("");
-        setScreens((prev) => [...prev, newScreen]);
-        if (isSubPage) {
-          sessionStorage.setItem("selectedScreenId", newScreen.id.toString());
-          window.location.href = "/?tab=screens";
-        } else {
-          onSelectScreen(newScreen.id);
-          onTabChange("screens");
-        }
-        setOpenDropdown(null);
+      const newScreen = await createScreen({ name: newScreenName.trim() });
+      setNewScreenName("");
+      setScreens([...screens, newScreen]);
+      if (isSubPage) {
+        sessionStorage.setItem("selectedScreenId", newScreen.id.toString());
+        window.location.href = "/?tab=screens";
+      } else {
+        onSelectScreen(newScreen.id);
+        onTabChange("screens");
       }
+      setOpenDropdown(null);
     } catch {
       // silently handle fetch error
     } finally {
@@ -274,29 +294,23 @@ export function AppHeader({
     if (!confirm("Are you sure you want to delete this screen?")) return;
 
     try {
-      await fetch(`/api/screens?id=${id}`, { method: "DELETE" });
-      setScreens((prev) => prev.filter((s) => s.id !== id));
-      if (selectedScreenId === id) {
-        const remaining = screens.filter((s) => s.id !== id);
-        if (remaining.length > 0) {
-          onSelectScreen(remaining[0].id);
-        }
-      }
+      await deleteScreen(id);
+      setScreens(screens.filter((s) => s.id !== id));
+      // Deleting the open screen returns to the index rather than jumping
+      // into an unrelated screen.
+      if (selectedScreenId === id) onSelectScreen(null);
     } catch {
       // silently handle fetch error
     }
   };
 
   const handleRenameScreen = async (id: number, name: string) => {
-    if (!name.trim()) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
 
     try {
-      await fetch(`/api/screens?id=${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      setScreens((prev) => prev.map((s) => (s.id === id ? { ...s, name } : s)));
+      await updateScreen(id, { name: trimmed });
+      setScreens(screens.map((s) => (s.id === id ? { ...s, name: trimmed } : s)));
     } catch {
       // silently handle fetch error
     }
@@ -335,6 +349,9 @@ export function AppHeader({
       // Use URL params for reliable navigation
       window.location.href = `/?tab=${tab}`;
     } else {
+      // The Screens tab is the index of saved screens, so clicking it always
+      // leaves whichever screen is open.
+      if (tab === "screens") onSelectScreen(null);
       onTabChange(tab);
     }
     setOpenDropdown(null);
