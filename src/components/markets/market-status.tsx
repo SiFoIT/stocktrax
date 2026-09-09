@@ -21,7 +21,11 @@ interface MarketStatusProps {
 export function MarketStatus({ range, onRangeChange, onRefresh, isLoading, updatedAt }: MarketStatusProps) {
   return (
     <div className="flex items-center gap-3 sm:gap-4">
-      {/* A view toggle, not a status, so it stays neutral like the chart's own range pills. */}
+      {/*
+        A view toggle, not a status, so the selection is a solid neutral fill
+        rather than the accent: unmistakable without spending the one colour
+        that means direction everywhere else on this page.
+      */}
       <div
         role="radiogroup"
         aria-label="Timeframe"
@@ -36,10 +40,15 @@ export function MarketStatus({ range, onRangeChange, onRefresh, isLoading, updat
               role="radio"
               aria-checked={active}
               onClick={() => onRangeChange(option)}
-              className={`rounded px-2 py-0.5 font-mono text-xs font-medium transition-colors ${
+              /*
+                The selected window is bold as well as raised. Geist Mono keeps
+                one advance width across weights, so the pills do not resize as
+                the selection moves.
+              */
+              className={`rounded px-2 py-0.5 font-mono text-xs transition-colors ${
                 active
-                  ? "bg-card text-foreground shadow-[inset_0_0_0_1px_var(--border-strong)]"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  ? "bg-foreground font-semibold text-background"
+                  : "font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
               }`}
             >
               {option}

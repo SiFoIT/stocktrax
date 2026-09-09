@@ -64,7 +64,7 @@ export function PriceRangeBar({
 
   return (
     <div className={size === "md" ? "py-2" : size === "sm" ? "mx-auto w-32" : undefined}>
-      {label && <div className="mb-1 text-xs text-muted-foreground">{label}</div>}
+      {label && <div className="mb-1.5 text-sm font-semibold text-foreground">{label}</div>}
       <div className={`mb-1 flex justify-between text-subtle-foreground ${style.values}`}>
         <span>{format(low)}</span>
         <span>{format(high)}</span>

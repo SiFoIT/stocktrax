@@ -10,6 +10,19 @@ export function isMarketRange(value: unknown): value is MarketRange {
   return typeof value === "string" && (MARKET_RANGES as readonly string[]).includes(value);
 }
 
+/**
+ * The window spelled out, for places with room to read rather than scan.
+ * The toolbar keeps the short codes; the details modal uses these.
+ */
+export const MARKET_RANGE_NAMES: Record<MarketRange, string> = {
+  "1D": "1 Day",
+  "5D": "5 Day",
+  "1M": "1 Month",
+  "3M": "3 Month",
+  "1Y": "1 Year",
+  "5Y": "5 Year",
+};
+
 type Period = "1d" | "5d" | "1mo" | "3mo" | "1y" | "2y" | "3y" | "5y" | "10y";
 
 interface RangeConfig {

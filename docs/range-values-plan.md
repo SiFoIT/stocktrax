@@ -209,9 +209,21 @@ the modal read another, with nothing on screen saying so.
 - **The second bar follows the window and renames with it** ("5D Range"). The
   52-week bar never moves; it is the fixed anchor for where a price sits in its
   own history.
+- **The window is spelled out in the modal** ("5 Day change", "1 Year Range")
+  via `MARKET_RANGE_NAMES`, while the toolbar keeps the short codes for
+  scanning. A bare "5D" badge says nothing about what it measures.
+- **The selection is loud in both places.** The toolbar's active pill is a
+  solid inverted fill rather than a raised card with a hairline ring, and the
+  bar label is 14px semibold in the foreground colour rather than 12px muted.
+  Both stay hueless: the accent is reserved for direction elsewhere on the
+  page. Geist Mono holds one advance width across weights, so bolding the
+  active pill does not resize it.
 - **Known consequence:** the markets range is remembered in localStorage, so a
   reader who once chose 5Y will see a 5Y change as the modal headline. The
   label is what makes that honest rather than wrong.
+- **Known rough edge:** at the 1Y setting the second bar and the 52-week bar
+  cover the same window and draw identical figures. Suppressing the duplicate
+  needs a decision about which bar goes, so it is left as-is for now.
 
 ## Out of scope
 

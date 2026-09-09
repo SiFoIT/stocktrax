@@ -321,7 +321,12 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
   */
   const headline =
     range?.changePercent !== undefined
-      ? { label: range.label, change: range.change, changePercent: range.changePercent }
+      ? {
+          // "5D" alone says nothing; name what the figure beside it measures.
+          label: `${range.label} change`,
+          change: range.change,
+          changePercent: range.changePercent,
+        }
       : { label: "Today", change: details?.change, changePercent: details?.changePercent };
   const isPositive = (headline.changePercent ?? 0) >= 0;
 
@@ -404,7 +409,10 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                   <span className={`text-lg font-semibold ${isPositive ? "text-positive" : "text-negative"}`}>
                     {formatPercentRaw(headline.changePercent)}
                   </span>
-                  <span className="ml-1 text-sm text-muted-foreground">{headline.label}</span>
+                  {/* Badged, not plain text, so the window reads as a live selection. */}
+                  <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-xs font-semibold text-foreground">
+                    {headline.label}
+                  </span>
                   {details.lastTradeTime && (
                     <span className="text-sm text-muted-foreground ml-2">
                       {formatTradeTime(details.lastTradeTime)}

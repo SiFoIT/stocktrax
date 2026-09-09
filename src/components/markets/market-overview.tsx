@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Category, CATEGORIES, CATEGORY_LABELS, HEADLINE_SYMBOLS } from "@/lib/markets/symbols";
-import { DEFAULT_MARKET_RANGE, isMarketRange, MarketRange } from "@/lib/markets/ranges";
+import { DEFAULT_MARKET_RANGE, isMarketRange, MARKET_RANGE_NAMES, MarketRange } from "@/lib/markets/ranges";
 import {
   MarketData,
   AlertRuleDTO,
@@ -336,7 +336,7 @@ export function MarketOverview({
           const item = flatMarketData.find((d) => d.symbol === detailsSymbol);
           if (!item) return undefined;
           return {
-            label: range,
+            label: MARKET_RANGE_NAMES[range],
             change: item.rangeChange,
             changePercent: item.rangeChangePercent,
             low: item.rangeLow,
