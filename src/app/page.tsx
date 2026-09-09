@@ -510,9 +510,14 @@ export default function Dashboard() {
         {activeTab === "screens" && (
           <ScreenContent
             screen={currentScreen}
+            onScreenCreated={(created) => {
+              setScreens((prev) => [...prev, created]);
+              setSelectedScreenId(created.id);
+            }}
             onScreenUpdated={(updated) => {
+              // currentScreen is derived from screens + selectedScreenId, so a
+              // late save for a screen that is no longer selected stays put
               setScreens((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-              setCurrentScreen(updated);
             }}
           />
         )}

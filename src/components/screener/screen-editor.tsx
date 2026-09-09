@@ -26,6 +26,8 @@ interface ScreenEditorProps {
   onMatchChange: (match: "all" | "any") => void;
   onRun: () => void;
   running: boolean;
+  /** Autosave status, rendered beside the Run Screen button. */
+  saveIndicator?: React.ReactNode;
 }
 
 export function ScreenEditor({
@@ -37,6 +39,7 @@ export function ScreenEditor({
   onMatchChange,
   onRun,
   running,
+  saveIndicator,
 }: ScreenEditorProps) {
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -341,6 +344,7 @@ export function ScreenEditor({
             </div>
           )}
         </Button>
+        {saveIndicator}
       </div>
     </div>
   );

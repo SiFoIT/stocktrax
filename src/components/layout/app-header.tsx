@@ -78,6 +78,22 @@ export function AppHeader({
     fetchData();
   }, []);
 
+  // A screen can be created from the page body (the empty state), so refetch
+  // the list when the selection points at an id this header has not seen.
+  // Refetch at most once per id, or a deleted id would loop forever.
+  const refetchedScreenId = useRef<number | null>(null);
+  useEffect(() => {
+    if (selectedScreenId == null || refetchedScreenId.current === selectedScreenId) return;
+    if (screens.some((s) => s.id === selectedScreenId)) return;
+    refetchedScreenId.current = selectedScreenId;
+    fetch("/api/screens")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setScreens(data);
+      })
+      .catch(() => {});
+  }, [selectedScreenId, screens]);
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (navRef.current && !navRef.current.contains(e.target as Node)) {
