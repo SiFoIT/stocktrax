@@ -5,8 +5,10 @@ import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  DEFAULT_METRIC,
   METRICS,
   SCREEN_OPERATORS,
+  defaultRuleFor,
   getMetricsByCategory,
   type ScreenRule,
   type ScreenOperator,
@@ -69,12 +71,26 @@ export function ScreenEditor({
   }, []);
 
   const addRule = () => {
-    onRulesChange([...rules, { metric: "pct_off_52w_high", operator: "lte", value: 0 }]);
+    onRulesChange([...rules, defaultRuleFor(DEFAULT_METRIC)]);
   };
 
   const updateRule = (index: number, updates: Partial<ScreenRule>) => {
     const newRules = [...rules];
-    newRules[index] = { ...newRules[index], ...updates };
+    const next = { ...newRules[index], ...updates };
+    if (next.operator === "between") {
+      if (next.valueTo === undefined) next.valueTo = next.value;
+    } else {
+      delete next.valueTo;
+    }
+    newRules[index] = next;
+    onRulesChange(newRules);
+  };
+
+  // A different metric means a different scale and direction, so the old
+  // operator and value rarely make sense. Start from that metric's default.
+  const changeMetric = (index: number, metric: string) => {
+    const newRules = [...rules];
+    newRules[index] = defaultRuleFor(metric);
     onRulesChange(newRules);
   };
 
@@ -234,7 +250,7 @@ export function ScreenEditor({
             {/* Metric select */}
             <select
               value={rule.metric}
-              onChange={(e) => updateRule(index, { metric: e.target.value })}
+              onChange={(e) => changeMetric(index, e.target.value)}
               className="h-9 rounded-lg border border-border bg-muted px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 min-w-[180px]"
             >
               {Object.entries(metricsByCategory).map(([category, metrics]) => (
@@ -262,24 +278,18 @@ export function ScreenEditor({
             </select>
 
             {/* Value input */}
-            <Input
-              type="number"
-              step="any"
+            <NumberField
               value={rule.value}
-              onChange={(e) => updateRule(index, { value: e.target.value === "" || e.target.value === "-" ? 0 : parseFloat(e.target.value) })}
-              className="h-9 w-24 bg-muted border-border focus:ring-violet-500/50"
+              onCommit={(value) => updateRule(index, { value })}
             />
 
             {/* Second value for "between" */}
             {rule.operator === "between" && (
               <>
                 <span className="text-xs text-muted-foreground">and</span>
-                <Input
-                  type="number"
-                  step="any"
-                  value={rule.valueTo ?? 0}
-                  onChange={(e) => updateRule(index, { valueTo: e.target.value === "" || e.target.value === "-" ? 0 : parseFloat(e.target.value) })}
-                  className="h-9 w-24 bg-muted border-border focus:ring-violet-500/50"
+                <NumberField
+                  value={rule.valueTo ?? rule.value}
+                  onCommit={(valueTo) => updateRule(index, { valueTo })}
                 />
               </>
             )}
@@ -333,5 +343,41 @@ export function ScreenEditor({
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * A number box that keeps what the user typed while they type it. Holding the
+ * text as a string means an emptied box stays empty and a leading zero does
+ * not stick; the parsed number is committed on every valid keystroke and the
+ * text is tidied to the committed value on blur.
+ */
+function NumberField({
+  value,
+  onCommit,
+}: {
+  value: number;
+  onCommit: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <Input
+      type="number"
+      step="any"
+      value={focused ? draft : String(value)}
+      onFocus={() => {
+        setDraft(String(value));
+        setFocused(true);
+      }}
+      onBlur={() => setFocused(false)}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const parsed = parseFloat(e.target.value);
+        if (Number.isFinite(parsed) && parsed !== value) onCommit(parsed);
+      }}
+      className="h-9 w-24 bg-muted border-border focus:ring-violet-500/50"
+    />
   );
 }

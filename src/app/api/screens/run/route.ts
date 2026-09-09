@@ -3,7 +3,7 @@ import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getStockDetails, getHistoricalChanges } from "@/lib/api/yahoo-finance";
-import { METRICS, PERFORMANCE_METRICS, evaluateRule, type ScreenRule, type ScreenOperator } from "@/lib/screener/metrics";
+import { METRICS, PERFORMANCE_METRICS, evaluateRule, normalizeRules, type ScreenRule } from "@/lib/screener/metrics";
 
 const runSchema = z.union([
   z.object({ screenId: z.number() }),
@@ -93,11 +93,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Screen not found" }, { status: 404 });
       }
       source = screen.source;
-      rules = JSON.parse(screen.rules);
+      rules = normalizeRules(JSON.parse(screen.rules));
       match = screen.match;
     } else {
       source = parsed.source;
-      rules = parsed.rules as ScreenRule[];
+      rules = normalizeRules(parsed.rules);
       match = parsed.match;
     }
 
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       // Evaluate rules
       const ruleResults = rules.map((rule) => {
         const value = metricValues[rule.metric];
-        return evaluateRule(value, rule.operator as ScreenOperator, rule.value, rule.valueTo);
+        return evaluateRule(value, rule.operator, rule.value, rule.valueTo);
       });
 
       const passes = match === "all"

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { normalizeRules } from "@/lib/screener/metrics";
 
 const createPresetSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -18,7 +19,7 @@ function formatPreset(row: typeof schema.screenPresets.$inferSelect) {
   return {
     id: row.id,
     name: row.name,
-    rules: JSON.parse(row.rules),
+    rules: normalizeRules(JSON.parse(row.rules)),
     match: row.match,
     createdAt: row.createdAt.toISOString(),
   };

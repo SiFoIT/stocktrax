@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { METRICS, type ScreenRule } from "@/lib/screener/metrics";
+import { METRICS, formatMetricValue, metricHeading, type ScreenRule } from "@/lib/screener/metrics";
 import type { ScreenResult } from "@/lib/screener/api";
+import { cn, getChangeColor } from "@/lib/utils";
 
 interface ScreenResultsProps {
   results: ScreenResult[] | null;
@@ -13,16 +14,6 @@ interface ScreenResultsProps {
 }
 
 type SortDir = "asc" | "desc";
-
-function formatMetricValue(value: number | undefined, unit: string): string {
-  if (value === undefined || value === null) return "N/A";
-  if (unit === "$" && Math.abs(value) >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
-  if (unit === "$" && Math.abs(value) >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
-  if (unit === "$") return `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-  if (unit === "%") return `${value.toFixed(2)}%`;
-  if (unit === "x") return `${value.toFixed(2)}x`;
-  return value.toFixed(2);
-}
 
 export function ScreenResults({ results, rules, totalScanned, matchCount }: ScreenResultsProps) {
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -112,7 +103,7 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Name</th>
                 {renderSortHeader("Price", "price")}
                 {renderSortHeader("Today's Change", "changePercent")}
-                {usedMetrics.map((key) => renderSortHeader(METRICS[key]?.label ?? key, key))}
+                {usedMetrics.map((key) => renderSortHeader(metricHeading(key), key))}
               </tr>
             </thead>
             <tbody>
@@ -128,17 +119,21 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
                   <td className="px-3 py-2.5 font-mono text-foreground">
                     {result.price != null ? `$${result.price.toFixed(2)}` : "N/A"}
                   </td>
-                  <td className={`px-3 py-2.5 font-mono ${
-                    (result.changePercent ?? 0) >= 0 ? "text-positive" : "text-negative"
-                  }`}>
+                  <td className={cn("px-3 py-2.5 font-mono", getChangeColor(result.changePercent))}>
                     {result.changePercent != null ? `${result.changePercent >= 0 ? "+" : ""}${result.changePercent.toFixed(2)}%` : "N/A"}
                   </td>
                   {usedMetrics.map((key) => {
-                    const metricDef = METRICS[key];
                     const value = result.metricValues[key];
+                    const signed = METRICS[key]?.signed ?? false;
                     return (
-                      <td key={key} className="px-3 py-2.5 font-mono text-foreground/80">
-                        {formatMetricValue(value, metricDef?.unit ?? "")}
+                      <td
+                        key={key}
+                        className={cn(
+                          "px-3 py-2.5 font-mono",
+                          signed ? getChangeColor(value) : "text-foreground"
+                        )}
+                      >
+                        {formatMetricValue(value, key)}
                       </td>
                     );
                   })}

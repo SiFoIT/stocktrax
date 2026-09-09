@@ -10,7 +10,7 @@ export const SCREEN_PRESETS: ScreenPreset[] = [
   {
     name: "20% Off Highs",
     rules: [
-      { metric: "pct_off_52w_high", operator: "lte", value: -20 },
+      { metric: "below_52w_high", operator: "gte", value: 20 },
     ],
     match: "all",
   },
@@ -25,9 +25,8 @@ export const SCREEN_PRESETS: ScreenPreset[] = [
   {
     name: "Value Play",
     rules: [
-      { metric: "trailing_pe", operator: "lte", value: 15 },
+      { metric: "trailing_pe", operator: "between", value: 0, valueTo: 15 },
       { metric: "price_to_book", operator: "lte", value: 2 },
-      { metric: "trailing_pe", operator: "gt", value: 0 },
     ],
     match: "all",
   },

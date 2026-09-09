@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { normalizeRules } from "@/lib/screener/metrics";
 
 const createScreenSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -30,7 +31,7 @@ const updateScreenSchema = z.object({
 function formatScreen(row: typeof schema.screens.$inferSelect) {
   return {
     ...row,
-    rules: JSON.parse(row.rules),
+    rules: normalizeRules(JSON.parse(row.rules)),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
