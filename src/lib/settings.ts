@@ -1,5 +1,10 @@
 import { db, schema } from "@/lib/db";
 import { eq, like } from "drizzle-orm";
+import {
+  DEFAULT_SECTIONS,
+  MarketSections,
+  marketSectionsSchema,
+} from "@/lib/markets/symbols";
 
 /**
  * Server-side settings, stored JSON-encoded in the `settings` table.
@@ -200,4 +205,21 @@ export async function getDigestConfig(): Promise<DigestConfig> {
     quietThresholdPct,
     appUrl,
   };
+}
+
+/** The user's chosen Markets rows. Missing or corrupt falls back to shipped. */
+export const MARKET_SECTIONS_KEY = "markets.sections";
+
+export async function getMarketSections(): Promise<MarketSections> {
+  const stored = await getSetting<unknown>(MARKET_SECTIONS_KEY, null);
+  if (stored === null) return DEFAULT_SECTIONS;
+
+  // A hand-edited or stale value must not take the Markets page down, so a
+  // parse failure reads as "never customized".
+  const parsed = marketSectionsSchema.safeParse(stored);
+  return parsed.success ? parsed.data : DEFAULT_SECTIONS;
+}
+
+export async function setMarketSections(sections: MarketSections): Promise<void> {
+  await setSetting(MARKET_SECTIONS_KEY, sections);
 }

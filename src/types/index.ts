@@ -1,3 +1,5 @@
+import type { Category as MarketCategory, MarketSections } from "@/lib/markets/symbols";
+
 export type MarketState = "REGULAR" | "CLOSED" | "PRE" | "PREPRE" | "POST" | "POSTPOST";
 
 export interface ExtendedHoursData {
@@ -137,6 +139,10 @@ export interface FuturesQuote {
 export interface MarketData {
   symbol: string;
   name: string;
+  /** Short label after the code on the table sub-line, e.g. "CAD per USD". */
+  short?: string;
+  /** Full sentence for the name's tooltip and the section picker. */
+  description?: string;
   price: number;
   /** Daily change. Alerts and the glance tiles always read these two. */
   change: number;
@@ -155,6 +161,16 @@ export interface MarketData {
   extendedHours?: ExtendedHoursData;
   futures?: FuturesQuote;
 }
+
+/**
+ * The Markets page payload. `hidden` carries symbols that only an alert rule
+ * still references, so those rules keep evaluating after their row is removed;
+ * nothing renders them.
+ */
+export type MarketsResponse = Record<MarketCategory, MarketData[]> & {
+  hidden: MarketData[];
+  sections: MarketSections;
+};
 
 export interface TransactionWithSymbol {
   id: number;

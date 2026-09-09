@@ -2,14 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { getQuote, getTimeSeries, type QuoteWithRange } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
-import { MARKET_SYMBOLS, Category, CATEGORIES } from "@/lib/markets/symbols";
+import {
+  Category,
+  CATEGORIES,
+  MarketSymbol,
+  resolveSections,
+  sectionSymbols,
+} from "@/lib/markets/symbols";
+import { catalogEntry } from "@/lib/markets/catalog";
+import { getMarketSections } from "@/lib/settings";
 import {
   DEFAULT_MARKET_RANGE,
   isMarketRange,
   MarketRange,
   RANGE_CONFIG,
 } from "@/lib/markets/ranges";
-import { ExtendedHoursData, FuturesQuote, MarketData } from "@/types";
+import { ExtendedHoursData, FuturesQuote, MarketData, MarketsResponse } from "@/types";
 import { buildSparkline, sparklineWindow, SparklineWindow } from "@/lib/markets/session";
 import { CACHE_TTL } from "@/lib/config";
 
@@ -17,18 +25,22 @@ import { CACHE_TTL } from "@/lib/config";
  * Quotes and sparkline series are cached apart from each other: the quote is
  * short-lived so the price column is always fresh, while a 1Y series can sit
  * for an hour because its shape barely moves. The two are joined per request.
+ *
+ * Both are keyed per symbol rather than per category. The sections are the
+ * user's to change, so a category-wide key would be invalidated by every edit;
+ * per-symbol keys mean adding a row or flipping a pair fetches only that row.
  */
 interface MarketQuote {
   symbol: string;
   name: string;
+  short?: string;
+  description?: string;
   price: number;
   change: number;
   changePercent: number;
   extendedHours?: ExtendedHoursData;
   futures?: FuturesQuote;
 }
-
-type SeriesByCategory = Record<string, SparklineWindow>;
 
 async function readCache<T>(key: string, ttl: number, skipCache: boolean): Promise<T | null> {
   if (skipCache) return null;
@@ -72,60 +84,59 @@ function buildFuturesQuote(
   };
 }
 
-async function fetchQuotes(category: Category, skipCache: boolean): Promise<MarketQuote[]> {
-  const cacheKey = `markets_quotes_${category}`;
-  const cached = await readCache<MarketQuote[]>(cacheKey, CACHE_TTL.markets, skipCache);
-  if (cached) return cached;
+/**
+ * The cached half of a quote. Labels are resolved from the catalog on every
+ * request instead, so renaming an entry does not wait for a cache to expire.
+ */
+type CachedQuote = Omit<MarketQuote, "name" | "short" | "description">;
 
-  const quotes: MarketQuote[] = await Promise.all(
-    MARKET_SYMBOLS[category].map(async ({ symbol, name, futures }) => {
-      try {
-        const [quote, futuresQuote] = await Promise.all([
-          getQuote(symbol),
-          // includeRange for lastTradeTime, which the card exposes as a tooltip
-          // so a stale weekend quote is inspectable.
-          futures ? getQuote(futures.symbol, true).catch(() => null) : Promise.resolve(null),
-        ]);
+async function fetchQuote(entry: MarketSymbol, skipCache: boolean): Promise<MarketQuote> {
+  const labels = { name: entry.name, short: entry.short, description: entry.description };
+  const cacheKey = `markets_quote_${entry.symbol}`;
+  const cached = await readCache<CachedQuote>(cacheKey, CACHE_TTL.markets, skipCache);
+  if (cached) return { ...cached, ...labels };
 
-        return {
-          symbol,
-          name,
-          price: quote?.price ?? 0,
-          change: quote?.change ?? 0,
-          changePercent: quote?.changePercent ?? 0,
-          extendedHours: quote?.extendedHours,
-          futures: buildFuturesQuote(futures, futuresQuote as QuoteWithRange | null),
-        };
-      } catch {
-        return { symbol, name, price: 0, change: 0, changePercent: 0 };
-      }
-    })
-  );
+  try {
+    const [quote, futuresQuote] = await Promise.all([
+      getQuote(entry.symbol),
+      // includeRange for lastTradeTime, which the card exposes as a tooltip
+      // so a stale weekend quote is inspectable.
+      entry.futures ? getQuote(entry.futures.symbol, true).catch(() => null) : Promise.resolve(null),
+    ]);
 
-  await writeCache(cacheKey, quotes);
-  return quotes;
+    const fresh: CachedQuote = {
+      symbol: entry.symbol,
+      price: quote?.price ?? 0,
+      change: quote?.change ?? 0,
+      changePercent: quote?.changePercent ?? 0,
+      extendedHours: quote?.extendedHours,
+      futures: buildFuturesQuote(entry.futures, futuresQuote as QuoteWithRange | null),
+    };
+
+    await writeCache(cacheKey, fresh);
+    return { ...fresh, ...labels };
+  } catch {
+    // Not cached: a failed fetch should be retried on the next request rather
+    // than held for the full TTL.
+    return { symbol: entry.symbol, price: 0, change: 0, changePercent: 0, ...labels };
+  }
 }
 
 async function fetchSeries(
-  category: Category,
+  symbol: string,
   range: MarketRange,
   skipCache: boolean
-): Promise<SeriesByCategory> {
-  const cacheKey = `markets_series_v2_${category}_${range}`;
-  const cached = await readCache<SeriesByCategory>(cacheKey, CACHE_TTL.marketSeries[range], skipCache);
+): Promise<SparklineWindow> {
+  const cacheKey = `markets_series_v3_${symbol}_${range}`;
+  const cached = await readCache<SparklineWindow>(cacheKey, CACHE_TTL.marketSeries[range], skipCache);
   if (cached) return cached;
 
   const { period, interval, sessions } = RANGE_CONFIG[range];
-  const entries = await Promise.all(
-    MARKET_SYMBOLS[category].map(async ({ symbol }) => {
-      const series = await getTimeSeries(symbol, period, interval).catch(() => []);
-      return [symbol, sparklineWindow(series, sessions)] as const;
-    })
-  );
+  const series = await getTimeSeries(symbol, period, interval).catch(() => []);
+  const window = sparklineWindow(series, sessions);
 
-  const result: SeriesByCategory = Object.fromEntries(entries);
-  await writeCache(cacheKey, result);
-  return result;
+  await writeCache(cacheKey, window);
+  return window;
 }
 
 /**
@@ -162,16 +173,44 @@ function joinQuote(quote: MarketQuote, window: SparklineWindow | undefined, rang
   };
 }
 
-async function fetchCategoryData(
-  category: Category,
+async function fetchRows(
+  entries: MarketSymbol[],
   range: MarketRange,
   skipCache: boolean
 ): Promise<MarketData[]> {
-  const [quotes, series] = await Promise.all([
-    fetchQuotes(category, skipCache),
-    fetchSeries(category, range, skipCache),
-  ]);
-  return quotes.map((quote) => joinQuote(quote, series[quote.symbol], range));
+  return Promise.all(
+    entries.map(async (entry) => {
+      const [quote, window] = await Promise.all([
+        fetchQuote(entry, skipCache),
+        fetchSeries(entry.symbol, range, skipCache),
+      ]);
+      return joinQuote(quote, window, range);
+    })
+  );
+}
+
+/**
+ * Symbols an alert rule still watches but no section shows any more, because
+ * the user removed the row or flipped the pair. They are fetched and returned
+ * apart from the visible rows so those rules keep evaluating instead of
+ * silently going quiet, and stay editable in the alerts panel.
+ */
+async function hiddenAlertEntries(visible: Set<string>): Promise<MarketSymbol[]> {
+  const rules = await db
+    .select({ symbol: schema.alertRules.symbol })
+    .from(schema.alertRules)
+    .where(eq(schema.alertRules.scope, "market"));
+
+  const orphans = [...new Set(rules.map((r) => r.symbol))].filter((s) => !visible.has(s));
+  return orphans.map((symbol) => {
+    const entry = catalogEntry(symbol);
+    return {
+      symbol,
+      name: entry?.name ?? symbol,
+      short: entry?.short,
+      description: entry?.description,
+    };
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -180,19 +219,25 @@ export async function GET(request: NextRequest) {
   const rangeParam = url.searchParams.get("range");
   const range = isMarketRange(rangeParam) ? rangeParam : DEFAULT_MARKET_RANGE;
 
-  // Fetch all categories in parallel
-  const results = await Promise.all(
-    CATEGORIES.map(async (category) => ({
-      category,
-      data: await fetchCategoryData(category, range, skipCache),
-    }))
-  );
+  const sections = await getMarketSections();
+  const resolved = resolveSections(sections);
+  const visible = new Set(sectionSymbols(sections));
 
-  // Return as a record keyed by category
-  const response: Record<Category, MarketData[]> = {} as Record<Category, MarketData[]>;
-  for (const { category, data } of results) {
-    response[category] = data;
+  const [categoryResults, hidden] = await Promise.all([
+    Promise.all(
+      CATEGORIES.map(async (category) => ({
+        category,
+        data: await fetchRows(resolved[category], range, skipCache),
+      }))
+    ),
+    hiddenAlertEntries(visible).then((entries) => fetchRows(entries, range, skipCache)),
+  ]);
+
+  const byCategory = {} as Record<Category, MarketData[]>;
+  for (const { category, data } of categoryResults) {
+    byCategory[category] = data;
   }
 
+  const response: MarketsResponse = { ...byCategory, hidden, sections };
   return NextResponse.json(response);
 }

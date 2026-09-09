@@ -15,19 +15,39 @@ export function isCurrencySymbol(symbol: string): boolean {
   return symbol.includes("=X");
 }
 
-export function formatMarketPrice(price: number, symbol: string): string {
-  if (isCurrencySymbol(symbol)) {
-    return price.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-  }
-  if (price >= 10000) {
-    return price.toLocaleString(undefined, { maximumFractionDigits: 0 });
-  }
-  return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/**
+ * Decimals scale with magnitude, because one fixed width cannot serve a row
+ * set the user chooses. A pair flipped into JPY/CAD quotes near 0.009 and a
+ * sub-dollar token near 0.087; at the widths that suit USD/CAD and Gold both
+ * would round away to nothing. Every instrument on the shipped page keeps the
+ * width it had.
+ */
+function priceDecimals(value: number, symbol: string): number {
+  const abs = Math.abs(value);
+  const currency = isCurrencySymbol(symbol);
+  // A failed quote reads 0; it should print as a price, not as 0.000000.
+  if (abs === 0) return currency ? 3 : 2;
+  if (currency) return abs >= 0.1 ? 3 : 5;
+  if (abs >= 10000) return 0;
+  if (abs >= 1) return 2;
+  return abs >= 0.01 ? 4 : 6;
 }
 
-export function formatMarketChange(change: number, symbol: string): string {
+export function formatMarketPrice(price: number, symbol: string): string {
+  const decimals = priceDecimals(price, symbol);
+  return price.toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+/**
+ * Width comes from the row's price, not from the change, so the two columns
+ * of a row never disagree about how precise the instrument is.
+ */
+export function formatMarketChange(change: number, symbol: string, price = change): string {
   const sign = change >= 0 ? "+" : "";
-  return `${sign}${change.toFixed(isCurrencySymbol(symbol) ? 3 : 2)}`;
+  return `${sign}${change.toFixed(priceDecimals(price, symbol))}`;
 }
 
 /**
@@ -63,7 +83,7 @@ const etTimestamp = new Intl.DateTimeFormat("en-US", {
  */
 export function futuresTooltip(futures: FuturesQuote): string {
   const level = formatMarketPrice(futures.price, futures.symbol);
-  const change = formatMarketChange(futures.change, futures.symbol);
+  const change = formatMarketChange(futures.change, futures.symbol, futures.price);
   const parts = [`${futures.symbol} ${level} (${change})`];
 
   const traded = futures.lastTradeTime ? new Date(futures.lastTradeTime) : null;

@@ -1,10 +1,19 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Category, CATEGORIES, CATEGORY_LABELS, HEADLINE_SYMBOLS } from "@/lib/markets/symbols";
+import {
+  Category,
+  CATEGORIES,
+  CATEGORY_LABELS,
+  HEADLINE_SYMBOLS,
+  isPairSelection,
+  MarketSections,
+} from "@/lib/markets/symbols";
+import { parsePairSymbol } from "@/lib/markets/catalog";
 import { DEFAULT_MARKET_RANGE, isMarketRange, MARKET_RANGE_NAMES, MarketRange } from "@/lib/markets/ranges";
 import {
   MarketData,
+  MarketsResponse,
   AlertRuleDTO,
   AlertHistoryEntry,
   WatchlistItemWithQuote,
@@ -16,6 +25,7 @@ import { MarketCard } from "./market-card";
 import { MarketTable } from "./market-table";
 import { MarketGlance } from "./market-glance";
 import { MarketStatus } from "./market-status";
+import { MarketSectionsModal } from "./market-sections-modal";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { AlertsPanel } from "@/components/alerts/alerts-panel";
@@ -29,8 +39,6 @@ import {
   resetAlertRule,
   CreateAlertRuleInput,
 } from "@/lib/alerts/api";
-
-type MarketDataByCategory = Record<Category, MarketData[]>;
 
 const RANGE_STORAGE_KEY = "market_overview_range";
 
@@ -63,7 +71,10 @@ export function MarketOverview({
   watchlistLoading,
   watchlistAlerts,
 }: MarketOverviewProps) {
-  const [marketData, setMarketData] = useState<MarketDataByCategory | null>(null);
+  const [marketData, setMarketData] = useState<MarketsResponse | null>(null);
+  const [sections, setSections] = useState<MarketSections | null>(null);
+  /** The section the picker opens on; null while it is closed. */
+  const [editTab, setEditTab] = useState<Category | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   // Null until mounted: the stored choice is read on the client only, so the
@@ -96,8 +107,9 @@ export function MarketOverview({
       if (refresh) params.set("refresh", "true");
       const response = await fetch(`/api/markets?${params}`);
       if (response.ok) {
-        const data = await response.json();
+        const data: MarketsResponse = await response.json();
         setMarketData(data);
+        setSections(data.sections);
         setUpdatedAt(new Date());
       }
     } catch {
@@ -122,10 +134,15 @@ export function MarketOverview({
     setRange(next);
   }, []);
 
-  // Trigger market alerts whenever market data changes
+  // Trigger market alerts whenever market data changes. `hidden` carries the
+  // symbols only a rule still watches, so removing a row mutes the row and not
+  // the alert.
   useEffect(() => {
     if (!marketData) return;
-    const allItems = CATEGORIES.flatMap((c) => marketData[c] ?? []);
+    const allItems = [
+      ...CATEGORIES.flatMap((c) => marketData[c] ?? []),
+      ...(marketData.hidden ?? []),
+    ];
     if (allItems.length === 0) return;
     triggerMarketAlerts(allItems).then((triggered) => {
       setMarketAlerts(triggered);
@@ -139,6 +156,52 @@ export function MarketOverview({
   const handleRefresh = () => {
     fetchMarketData(range ?? DEFAULT_MARKET_RANGE, true);
   };
+
+  /** The picker already saved; this just adopts the result and re-reads. */
+  const handleSectionsSaved = useCallback(
+    (next: MarketSections) => {
+      setSections(next);
+      fetchMarketData(range ?? DEFAULT_MARKET_RANGE);
+    },
+    [range, fetchMarketData]
+  );
+
+  /**
+   * Reverse a currency row in place. Yahoo quotes both directions, so the new
+   * orientation is fetched rather than derived: inverting a change percent and
+   * a session range by hand gets them subtly wrong.
+   */
+  const handleFlip = useCallback(
+    async (symbol: string) => {
+      if (!sections) return;
+      const pair = parsePairSymbol(symbol);
+      if (!pair) return;
+
+      const next: MarketSections = {
+        ...sections,
+        currency: sections.currency.map((item) =>
+          isPairSelection(item) && item.base === pair.base && item.quote === pair.quote
+            ? { base: pair.quote, quote: pair.base }
+            : item
+        ),
+      };
+
+      setSections(next);
+      try {
+        const response = await fetch("/api/settings/markets", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(next),
+        });
+        if (!response.ok) throw new Error("Save failed");
+      } catch {
+        setSections(sections);
+        return;
+      }
+      fetchMarketData(range ?? DEFAULT_MARKET_RANGE);
+    },
+    [sections, range, fetchMarketData]
+  );
 
   const flatMarketData = useMemo(() => {
     if (!marketData) return [];
@@ -175,14 +238,15 @@ export function MarketOverview({
     return states;
   }, [marketRules, marketAlerts]);
 
-  // Source options for AlertsPanel (synthetic IDs from index)
+  // Source options for AlertsPanel (synthetic IDs from index). Hidden symbols
+  // are listed too, so a rule outlives the row it was created from.
   const marketSourceOptions = useMemo(() => {
-    return flatMarketData.map((d, i) => ({
+    return [...flatMarketData, ...(marketData?.hidden ?? [])].map((d, i) => ({
       id: i + 1, // synthetic 1-based ID
       label: d.name,
       symbol: d.symbol,
     }));
-  }, [flatMarketData]);
+  }, [flatMarketData, marketData]);
 
   // The four headline indices become cards; everything else becomes rows.
   const headlineCards = useMemo(() => {
@@ -194,7 +258,7 @@ export function MarketOverview({
 
   const demotedByCategory = useMemo(() => {
     const headline = new Set<string>(HEADLINE_SYMBOLS);
-    const result = {} as MarketDataByCategory;
+    const result = {} as Record<Category, MarketData[]>;
     for (const category of CATEGORIES) {
       result[category] = (marketData?.[category] ?? []).filter((d) => !headline.has(d.symbol));
     }
@@ -314,6 +378,8 @@ export function MarketOverview({
                     onChartClick={(symbol) => setChartIndex(symbolIndexMap.get(symbol) ?? 0)}
                     alertStates={marketAlertStates}
                     onAlertClick={handleOpenAlerts}
+                    onEdit={sections ? () => setEditTab(category) : undefined}
+                    onFlip={category === "currency" && sections ? handleFlip : undefined}
                   />
                 ))}
               </div>
@@ -358,6 +424,15 @@ export function MarketOverview({
           return changes;
         }}
         onClose={() => setChartIndex(null)}
+      />
+    )}
+    {sections && (
+      <MarketSectionsModal
+        open={editTab !== null}
+        initialTab={editTab ?? "markets"}
+        sections={sections}
+        onClose={() => setEditTab(null)}
+        onSave={handleSectionsSaved}
       />
     )}
     <AlertsPanel
