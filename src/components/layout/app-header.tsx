@@ -7,6 +7,7 @@ import { SettingsMenu } from "@/components/settings/settings-menu";
 import { NavDropdown } from "@/components/layout/nav-dropdown";
 import { Portfolio, Watchlist } from "@/lib/db/schema";
 import { createScreen, deleteScreen, updateScreen, type ScreenDTO } from "@/lib/screener/api";
+import { createPortfolio } from "@/lib/portfolios/api";
 import { getDefaultTab, type DefaultTab } from "@/components/settings/general-settings-modal";
 
 export type Tab = "general" | "watchlist" | "portfolios" | "screens";
@@ -198,30 +199,23 @@ export function AppHeader({
   };
 
   // Portfolio handlers
+  /**
+   * A new portfolio opens, the same as picking one from this list: it is
+   * empty, so what comes next is its transaction form, not a zero row on the
+   * dashboard. The destination mounts its own header and refetches the list;
+   * the append below only covers a header that survives the navigation.
+   */
   const handleCreatePortfolio = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPortfolioName.trim()) return;
 
     setCreatingPortfolio(true);
     try {
-      const response = await fetch("/api/portfolios", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newPortfolioName }),
-      });
-
-      if (response.ok) {
-        const newPortfolio = await response.json();
-        setNewPortfolioName("");
-        setPortfolios((prev) => [...prev, newPortfolio]);
-        if (isSubPage) {
-          router.push(`/portfolio/${newPortfolio.id}`);
-        } else {
-          onSelectPortfolio(newPortfolio.id);
-          onTabChange("portfolios");
-        }
-        setOpenDropdown(null);
-      }
+      const newPortfolio = await createPortfolio(newPortfolioName);
+      setNewPortfolioName("");
+      setPortfolios((prev) => [...prev, newPortfolio]);
+      setOpenDropdown(null);
+      router.push(`/portfolio/${newPortfolio.id}`);
     } catch {
       // silently handle fetch error
     } finally {

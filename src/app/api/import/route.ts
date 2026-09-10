@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { invalidatePortfolioSummary } from "@/lib/portfolio-summary";
 import {
   portfolios,
   holdings,
@@ -220,6 +221,9 @@ export async function POST(request: NextRequest) {
         recomputeHolding(h.id, tx);
       }
     });
+
+    // A restore replaces everything the cached dashboard lists.
+    await invalidatePortfolioSummary();
 
     return NextResponse.json({
       success: true,

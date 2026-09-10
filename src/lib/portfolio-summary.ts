@@ -8,6 +8,17 @@ import { CACHE_TTL } from "@/lib/config";
 const CACHE_KEY = "PORTFOLIO_SUMMARY";
 
 /**
+ * Drops the cached dashboard so the next read recomputes. Called by the
+ * writes that change what the dashboard lists — creating, renaming or
+ * deleting a portfolio, and the two imports — and deliberately not by
+ * transaction entry: a rebuild is 1 + 5N Yahoo calls for N holdings, and a
+ * portfolio's own page shows a new transaction without one.
+ */
+export async function invalidatePortfolioSummary(): Promise<void> {
+  await db.delete(schema.stockCache).where(eq(schema.stockCache.symbol, CACHE_KEY));
+}
+
+/**
  * The portfolio dashboard calculation, extracted from its route handler so the
  * email digest can call it in-process instead of issuing an HTTP request to
  * itself. `GET /api/portfolios/summary` is now a thin wrapper over this.

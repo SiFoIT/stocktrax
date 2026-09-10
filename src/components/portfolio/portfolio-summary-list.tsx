@@ -1,9 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowUpRight, Plus } from "lucide-react";
 import { PortfolioDashboardData } from "@/types";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { createPortfolio } from "@/lib/portfolios/api";
 import { formatCurrency, formatPercent, getChangeColor } from "@/lib/utils";
 
 interface PortfolioSummaryListProps {
@@ -24,11 +29,74 @@ function ReturnCell({ amount, percent, currency = "CAD" }: { amount: number; per
   );
 }
 
+/**
+ * The panel's own way to add a portfolio, so the Portfolios menu is not the
+ * only one. A plus until clicked, then a name field; submitting opens the
+ * new portfolio, exactly as creating one from the menu does.
+ */
+function NewPortfolioButton() {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const close = () => {
+    setOpen(false);
+    setName("");
+  };
+
+  if (!open) {
+    return (
+      <Button
+        variant="outline"
+        size="icon-sm"
+        aria-label="New portfolio"
+        title="New portfolio"
+        className="bg-muted border-border hover:bg-accent"
+        onClick={() => setOpen(true)}
+      >
+        <Plus className="size-4" />
+      </Button>
+    );
+  }
+
+  return (
+    <form
+      className="flex items-center gap-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        setCreating(true);
+        try {
+          const portfolio = await createPortfolio(name);
+          router.push(`/portfolio/${portfolio.id}`);
+        } catch {
+          setCreating(false);
+        }
+      }}
+    >
+      <Input
+        autoFocus
+        placeholder="New portfolio name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") close();
+        }}
+        className="h-8 w-44 text-sm"
+      />
+      <Button type="submit" size="sm" disabled={creating || !name.trim()}>
+        Add
+      </Button>
+    </form>
+  );
+}
+
 export function PortfolioSummaryList({ data, loading }: PortfolioSummaryListProps) {
   if (loading) {
     return (
       <Panel>
-        <PanelHeader title="Portfolios" />
+        <PanelHeader title="Portfolios" right={<NewPortfolioButton />} />
         <PanelBody className="space-y-2 p-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-14 animate-pulse rounded-md bg-muted" />
@@ -40,12 +108,15 @@ export function PortfolioSummaryList({ data, loading }: PortfolioSummaryListProp
 
   if (!data || data.portfolios.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center">
-        <p className="text-sm font-medium text-foreground">No portfolios yet</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Create your first portfolio from the Portfolios menu above.
-        </p>
-      </div>
+      <Panel>
+        <PanelHeader title="Portfolios" right={<NewPortfolioButton />} />
+        <PanelBody className="px-6 py-12 text-center">
+          <p className="text-sm font-medium text-foreground">No portfolios yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Add one with the + above, or from the Portfolios menu.
+          </p>
+        </PanelBody>
+      </Panel>
     );
   }
 
@@ -55,7 +126,7 @@ export function PortfolioSummaryList({ data, loading }: PortfolioSummaryListProp
 
   return (
     <Panel>
-      <PanelHeader title="Portfolios" meta="All values in CAD" />
+      <PanelHeader title="Portfolios" meta="All values in CAD" right={<NewPortfolioButton />} />
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>

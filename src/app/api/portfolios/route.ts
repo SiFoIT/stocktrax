@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { invalidatePortfolioSummary } from "@/lib/portfolio-summary";
 
 const createPortfolioSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -24,6 +25,10 @@ export async function POST(request: NextRequest) {
       .insert(schema.portfolios)
       .values(validated)
       .returning();
+
+    // The dashboard summary is cached for five minutes; a new portfolio
+    // should not wait that long to be listed.
+    await invalidatePortfolioSummary();
 
     return NextResponse.json(portfolio, { status: 201 });
   } catch (error) {
@@ -59,6 +64,8 @@ export async function PATCH(request: NextRequest) {
       .where(eq(schema.portfolios.id, parseInt(id)))
       .returning();
 
+    await invalidatePortfolioSummary();
+
     return NextResponse.json(updated);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -80,6 +87,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   await db.delete(schema.portfolios).where(eq(schema.portfolios.id, parseInt(id)));
+  await invalidatePortfolioSummary();
 
   return NextResponse.json({ success: true });
 }

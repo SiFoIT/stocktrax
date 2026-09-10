@@ -3,6 +3,7 @@ import { db, schema } from "@/lib/db";
 import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { recomputeHolding } from "@/lib/holdings";
+import { invalidatePortfolioSummary } from "@/lib/portfolio-summary";
 import { stockTxnDedupKey, cashTxnDedupKey } from "@/lib/import/wealthsimple-parser";
 
 const stockTransactionSchema = z.object({
@@ -179,6 +180,9 @@ export async function POST(request: NextRequest) {
         errors.push(`Error importing cash transaction: ${e}`);
       }
     }
+
+    // A duplicates-only run changed nothing, so it leaves the cache alone.
+    if (stockImported + cashImported > 0) await invalidatePortfolioSummary();
 
     return NextResponse.json({
       stockImported,
