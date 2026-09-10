@@ -92,7 +92,7 @@ describe("resolveSections", () => {
   it("keeps the futures contracts on the headline indices", () => {
     const resolved = resolveSections(DEFAULT_SECTIONS);
     const sp500 = resolved.markets.find((s) => s.symbol === "^GSPC");
-    expect(sp500?.futures).toEqual({ symbol: "ES=F", label: "Futures" });
+    expect(sp500?.futures).toEqual({ symbol: "ES=F", name: "E-mini S&P 500" });
   });
 
   it("matches the shipped rows, with AUD/USD in place of CAD/USD", () => {

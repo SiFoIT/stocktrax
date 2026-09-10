@@ -65,17 +65,18 @@ async function writeCache(key: string, value: unknown): Promise<void> {
 
 /**
  * A futures quote is strictly additive: if Yahoo has nothing for the contract,
- * the card renders exactly as it did before this existed.
+ * the card renders exactly as it did before this existed. The contract's name
+ * is left out, because like the row's own labels it comes from the catalog on
+ * every request rather than from the cache.
  */
 function buildFuturesQuote(
-  futures: { symbol: string; label: string } | undefined,
+  futures: { symbol: string } | undefined,
   quote: QuoteWithRange | null
-): FuturesQuote | undefined {
+): CachedFutures | undefined {
   if (!futures || !quote) return undefined;
 
   return {
     symbol: futures.symbol,
-    label: futures.label,
     price: quote.price,
     change: quote.change,
     changePercent: quote.changePercent,
@@ -84,17 +85,31 @@ function buildFuturesQuote(
   };
 }
 
+/** Falls back to the bare code for a contract dropped from the catalog. */
+function nameFutures(
+  cached: CachedFutures | undefined,
+  entry: { name: string } | undefined
+): FuturesQuote | undefined {
+  if (!cached) return undefined;
+  return { ...cached, name: entry?.name ?? cached.symbol };
+}
+
 /**
  * The cached half of a quote. Labels are resolved from the catalog on every
  * request instead, so renaming an entry does not wait for a cache to expire.
  */
-type CachedQuote = Omit<MarketQuote, "name" | "short" | "description">;
+type CachedFutures = Omit<FuturesQuote, "name">;
+type CachedQuote = Omit<MarketQuote, "name" | "short" | "description" | "futures"> & {
+  futures?: CachedFutures;
+};
 
 async function fetchQuote(entry: MarketSymbol, skipCache: boolean): Promise<MarketQuote> {
   const labels = { name: entry.name, short: entry.short, description: entry.description };
   const cacheKey = `markets_quote_${entry.symbol}`;
   const cached = await readCache<CachedQuote>(cacheKey, CACHE_TTL.markets, skipCache);
-  if (cached) return { ...cached, ...labels };
+  if (cached) {
+    return { ...cached, ...labels, futures: nameFutures(cached.futures, entry.futures) };
+  }
 
   try {
     const [quote, futuresQuote] = await Promise.all([
@@ -114,7 +129,7 @@ async function fetchQuote(entry: MarketSymbol, skipCache: boolean): Promise<Mark
     };
 
     await writeCache(cacheKey, fresh);
-    return { ...fresh, ...labels };
+    return { ...fresh, ...labels, futures: nameFutures(fresh.futures, entry.futures) };
   } catch {
     // Not cached: a failed fetch should be retried on the next request rather
     // than held for the full TTL.

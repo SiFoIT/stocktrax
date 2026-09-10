@@ -84,13 +84,23 @@ const etTimestamp = new Intl.DateTimeFormat("en-US", {
 });
 
 /**
- * The detail the card deliberately leaves out: which contract, at what level,
- * as of when. Over a weekend the timestamp is what reveals a stale quote.
+ * The card prints the bare contract code, because "ES" is how the contract is
+ * named and "=F" is Yahoo's plumbing. The full name is in the tooltip.
+ */
+export function futuresCode(futures: FuturesQuote): string {
+  return futures.symbol.replace(/=F$/, "");
+}
+
+/**
+ * The detail the bare code leaves out: which contract, at what level, as of
+ * when. The name earns its place on the Nasdaq card, whose contract tracks the
+ * 100 rather than the Composite the card itself shows. Over a weekend the
+ * timestamp is what reveals a stale quote.
  */
 export function futuresTooltip(futures: FuturesQuote): string {
   const level = formatMarketPrice(futures.price, futures.symbol);
   const change = formatMarketChange(futures.change, futures.symbol, futures.price);
-  const parts = [`${futures.symbol} ${level} (${change})`];
+  const parts = [futures.name, `${futures.symbol} ${level} (${change})`];
 
   const traded = futures.lastTradeTime ? new Date(futures.lastTradeTime) : null;
   if (traded && !Number.isNaN(traded.getTime())) {

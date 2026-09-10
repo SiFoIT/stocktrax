@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { formatMarketChange, formatMarketPrice } from "../market-format";
+import { FuturesQuote } from "@/types";
+import {
+  formatMarketChange,
+  formatMarketPrice,
+  futuresCode,
+  futuresTooltip,
+} from "../market-format";
 
 /**
  * The row set is the user's to choose and currency pairs can be flipped, so
@@ -52,5 +58,51 @@ describe("formatMarketChange", () => {
   it("drops the decimals on an index quoted in the thousands", () => {
     // The FTSE prints 10,670, so its change prints as 142, not 141.60.
     expect(formatMarketChange(-141.6, "^FTSE", 10670)).toBe("-142");
+  });
+});
+
+function futures(overrides: Partial<FuturesQuote> = {}): FuturesQuote {
+  return {
+    symbol: "ES=F",
+    name: "E-mini S&P 500",
+    price: 6512.25,
+    change: 27.5,
+    changePercent: 0.42,
+    lastTradeTime: "2026-09-10T20:12:00Z",
+    ...overrides,
+  };
+}
+
+describe("futuresCode", () => {
+  it("drops Yahoo's contract suffix, because the card names the contract", () => {
+    expect(futuresCode(futures())).toBe("ES");
+    expect(futuresCode(futures({ symbol: "NQ=F" }))).toBe("NQ");
+    expect(futuresCode(futures({ symbol: "YM=F" }))).toBe("YM");
+  });
+
+  it("leaves a code that does not carry the suffix alone", () => {
+    expect(futuresCode(futures({ symbol: "ES" }))).toBe("ES");
+  });
+});
+
+describe("futuresTooltip", () => {
+  it("leads with the name, the one thing the bare code cannot carry", () => {
+    expect(futuresTooltip(futures())).toBe(
+      "E-mini S&P 500 · ES=F 6,512.25 (+27.50) · 4:12 PM ET"
+    );
+  });
+
+  it("names the Nasdaq contract for the index it actually tracks", () => {
+    // The card above it says "Nasdaq", meaning the Composite; NQ is the 100.
+    const tooltip = futuresTooltip(
+      futures({ symbol: "NQ=F", name: "E-mini Nasdaq-100", price: 20123.5, change: 45 })
+    );
+    expect(tooltip).toBe("E-mini Nasdaq-100 · NQ=F 20,124 (+45) · 4:12 PM ET");
+  });
+
+  it("drops the timestamp Yahoo did not send rather than printing an invalid date", () => {
+    expect(futuresTooltip(futures({ lastTradeTime: undefined }))).toBe(
+      "E-mini S&P 500 · ES=F 6,512.25 (+27.50)"
+    );
   });
 });

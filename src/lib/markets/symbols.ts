@@ -23,7 +23,7 @@ export interface MarketSymbol {
    * The front-month index future quoted while the cash index is not trading.
    * Only the US indices have one: the TSX contract is not reliably on Yahoo.
    */
-  futures?: { symbol: string; label: string };
+  futures?: { symbol: string; name: string };
 }
 
 /** A currency row the user has oriented: `{base:"USD",quote:"CAD"}` is USD/CAD. */

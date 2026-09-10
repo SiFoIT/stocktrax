@@ -128,7 +128,8 @@ export interface WatchlistItemWithQuote extends QuoteFields {
  */
 export interface FuturesQuote {
   symbol: string;
-  label: string;
+  /** The contract's name, e.g. "E-mini S&P 500". Shown only in the tooltip. */
+  name: string;
   price: number;
   change: number;
   changePercent: number;

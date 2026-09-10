@@ -6,6 +6,7 @@ import { PriceRangeBar } from "@/components/ui/price-range-bar";
 import {
   alertBellClass,
   formatMarketPrice,
+  futuresCode,
   futuresTooltip,
   showFutures,
   type AlertState,
@@ -99,7 +100,7 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
       <div className="mt-1.5 flex items-center gap-1.5 text-xs">
         {showFutures(data) && data.futures ? (
           <span className="flex items-center gap-1.5" title={futuresTooltip(data.futures)}>
-            <span className="text-muted-foreground">{data.futures.label}</span>
+            <span className="text-muted-foreground">{futuresCode(data.futures)}</span>
             <span className={getChangeColor(data.futures.changePercent)}>
               {formatPercent(data.futures.changePercent)}
             </span>

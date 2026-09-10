@@ -17,8 +17,11 @@ export interface CatalogEntry {
   /** Full sentence, shown in the picker and as the name's tooltip. */
   description: string;
   group: string;
-  /** The front-month contract quoted while the cash index is closed. */
-  futures?: { symbol: string; label: string };
+  /**
+   * The front-month contract quoted while the cash index is closed. The card
+   * prints the bare code from `symbol`; `name` is what its tooltip leads with.
+   */
+  futures?: { symbol: string; name: string };
 }
 
 /** An orientable FX pair. Name, code and prose all derive from the direction. */
@@ -87,7 +90,7 @@ export const HEADLINE_ENTRIES: CatalogEntry[] = [
     short: "US large caps",
     description: "The 500 largest companies listed in the United States",
     group: "US",
-    futures: { symbol: "ES=F", label: "Futures" },
+    futures: { symbol: "ES=F", name: "E-mini S&P 500" },
   },
   {
     // The TSX contract is not reliably on Yahoo, so this card has no futures.
@@ -98,14 +101,15 @@ export const HEADLINE_ENTRIES: CatalogEntry[] = [
     group: "Canada",
   },
   {
-    // NQ=F tracks the Nasdaq 100, not the Composite this card shows, so it is
-    // labelled for what it actually is.
+    // NQ=F tracks the Nasdaq 100, not the Composite this card shows. The card
+    // has room only for the code, so the contract's name carries that caveat
+    // into the tooltip.
     symbol: "^IXIC",
     name: "Nasdaq",
     short: "US tech-heavy",
     description: "Every company listed on the Nasdaq exchange",
     group: "US",
-    futures: { symbol: "NQ=F", label: "NDX futures" },
+    futures: { symbol: "NQ=F", name: "E-mini Nasdaq-100" },
   },
   {
     symbol: "^DJI",
@@ -113,7 +117,7 @@ export const HEADLINE_ENTRIES: CatalogEntry[] = [
     short: "US blue chips",
     description: "Thirty long-established US companies, weighted by share price",
     group: "US",
-    futures: { symbol: "YM=F", label: "Futures" },
+    futures: { symbol: "YM=F", name: "E-mini Dow" },
   },
 ];
 

@@ -280,12 +280,6 @@ export function MarketOverview({
     loadAlertHistory();
   }, [loadAlertHistory]);
 
-  /** The S&P 500 is the index the status tile speaks for. */
-  const sp500Futures = useMemo(
-    () => marketData?.markets.find((d) => d.symbol === "^GSPC")?.futures ?? null,
-    [marketData]
-  );
-
   const handleOpenAlerts = useCallback((symbol: string) => {
     setFocusedAlertSymbol(symbol);
     setAlertsPanelOpen(true);
@@ -321,7 +315,6 @@ export function MarketOverview({
         alertSymbols={glanceAlertSymbols}
         onSelectSymbol={setDetailsSymbol}
         onOpenAlerts={handleOpenGlanceAlerts}
-        futures={sp500Futures}
       />
 
       <Panel>
