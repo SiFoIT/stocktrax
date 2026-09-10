@@ -72,12 +72,19 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
         mover tiles run at the top of the page. The absolute change is left to
         the details modal; the percent is what compares across four indices
         priced on completely different scales.
+
+        Two columns on a 375px phone leave the card about 133px, which an
+        eight-digit index and its percent just outgrow. `flex-wrap` drops the
+        percent to its own row only at the widths where it did not fit, so
+        every wider screen keeps the single line it already had. The percent
+        carries `ml-auto` so it stays hard right either way: on one line the
+        auto margin absorbs the same gap `justify-between` did.
       */}
-      <div className="flex items-baseline justify-between gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2">
         <span className="text-lg font-semibold tracking-tight text-foreground">
           {formatMarketPrice(data.price, data.symbol)}
         </span>
-        <span className={`text-lg font-semibold tracking-tight ${changeColor}`}>
+        <span className={`ml-auto text-lg font-semibold tracking-tight ${changeColor}`}>
           {formatPercent(data.rangeChangePercent)}
         </span>
       </div>
