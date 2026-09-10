@@ -64,12 +64,15 @@ interface MarketOverviewProps {
   watchlistItems: WatchlistItemWithQuote[];
   watchlistLoading: boolean;
   watchlistAlerts: TriggeredAlertSummary[];
+  /** Refetches the watchlist above, which this component does not own. */
+  onRefreshWatchlist: () => void;
 }
 
 export function MarketOverview({
   watchlistItems,
   watchlistLoading,
   watchlistAlerts,
+  onRefreshWatchlist,
 }: MarketOverviewProps) {
   const [marketData, setMarketData] = useState<MarketsResponse | null>(null);
   const [sections, setSections] = useState<MarketSections | null>(null);
@@ -153,8 +156,14 @@ export function MarketOverview({
     });
   }, [marketData, loadAlertRules, loadAlertHistory]);
 
+  /*
+    The mover tiles above the panel read the dashboard's watchlist rather than
+    this component's market data, so a refresh that only refetched the market
+    rows left the gainer and loser on the prices they were mounted with.
+  */
   const handleRefresh = () => {
     fetchMarketData(range ?? DEFAULT_MARKET_RANGE, true);
+    onRefreshWatchlist();
   };
 
   /** The picker already saved; this just adopts the result and re-reads. */
@@ -326,7 +335,9 @@ export function MarketOverview({
               range={range ?? DEFAULT_MARKET_RANGE}
               onRangeChange={handleRangeChange}
               onRefresh={handleRefresh}
-              isLoading={isLoading}
+              // Both halves of what the button starts, so it stops spinning
+              // when the tiles have landed, not when the rows have.
+              isLoading={isLoading || watchlistLoading}
               updatedAt={updatedAt}
             />
           }

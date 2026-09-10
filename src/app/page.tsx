@@ -415,6 +415,7 @@ export default function Dashboard() {
             watchlistItems={watchlistItems}
             watchlistLoading={watchlistLoading}
             watchlistAlerts={watchlistAlerts}
+            onRefreshWatchlist={handleRefresh}
           />
         )}
 

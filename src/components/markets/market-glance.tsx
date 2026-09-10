@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { WatchlistItemWithQuote } from "@/types";
-import { formatCurrency, formatPercent, getChangeColor } from "@/lib/utils";
+import { cn, formatCurrency, formatPercent, getChangeColor } from "@/lib/utils";
 import { getNextMarketTransition } from "@/lib/markets/calendar";
 import { StatCard } from "@/components/ui/stat-card";
 import { StockIcon } from "@/components/ui/stock-icon";
@@ -146,7 +146,15 @@ export function MarketGlance({
           moverSub
         )
       }
-      className={item ? "cursor-pointer transition-colors hover:border-border-strong" : undefined}
+      className={cn(
+        item && "cursor-pointer hover:border-border-strong",
+        // Dimmed while a refresh is in flight, the same tell the Markets panel
+        // below gives: these prices are the previous ones until it lands.
+        // `transition` rather than `transition-colors` so the border and the
+        // opacity both ease; it is not `transition-all`.
+        "transition",
+        watchlistLoading && item && "opacity-50"
+      )}
       role={item ? "button" : undefined}
       tabIndex={item ? 0 : undefined}
       onClick={item ? () => onSelectSymbol(item.symbol) : undefined}
