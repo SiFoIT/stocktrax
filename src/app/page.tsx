@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { WatchlistItem } from "@/lib/db/schema";
 import {
@@ -38,9 +38,8 @@ import {
 } from "@/lib/alerts/api";
 import type { CreateAlertRuleInput } from "@/lib/alerts/api";
 
-// Helper to get tab from URL on initial load
+/** `?tab=` wins, then the sessionStorage hand-off, then the stored default. */
 function getTabFromUrl(): Tab {
-  if (typeof window === "undefined") return "general";
   const params = new URLSearchParams(window.location.search);
   const tab = params.get("tab");
   if (tab && ["general", "watchlist", "portfolios", "screens"].includes(tab)) {
@@ -67,8 +66,14 @@ const WATCHLIST_VIEWS: readonly PanelTab<WatchlistView>[] = [
 ];
 
 export default function Dashboard() {
-  // Tab state - read from URL immediately
-  const [activeTab, setActiveTab] = useState<Tab>(getTabFromUrl);
+  // Null until mounted. The landing tab comes from the URL, a sessionStorage
+  // hand-off and a stored preference, none of which the static server render
+  // can see, so seeding it during render made the first client render
+  // disagree with the server's and React threw the whole page away. Markets
+  // stands in until the effect below resolves it — the same thing the server
+  // painted, so hydration matches.
+  const [resolvedTab, setActiveTab] = useState<Tab | null>(null);
+  const activeTab: Tab = resolvedTab ?? "general";
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
   // null means the screens index; an id means that screen is open.
@@ -80,26 +85,33 @@ export default function Dashboard() {
   // starts its run without a second click.
   const [runOnOpenId, setRunOnOpenId] = useState<number | null>(null);
 
-  // Clean up URL and get watchlist ID after mount
+  /**
+   * Where to land, read once. Reading is destructive — it cleans the URL and
+   * consumes the one-shot sessionStorage hand-offs — and in development
+   * StrictMode runs the mount effect twice, so a second read would find
+   * nothing and send every deep link to Markets. The ref outlives that
+   * simulated remount; the effect only applies what it holds.
+   */
+  const landing = useRef<{ tab: Tab; watchlistId: number | null; screenId: number | null } | null>(null);
   useEffect(() => {
-    // Clean up URL params after reading
-    const params = new URLSearchParams(window.location.search);
-    // Read every param before the URL is cleaned, or they are gone.
-    const screenFromUrl = readScreenId(params);
-    if (params.has("tab") || params.has("screen")) {
-      window.history.replaceState({}, "", window.location.pathname);
+    if (!landing.current) {
+      const params = new URLSearchParams(window.location.search);
+      // Read every param before the URL is cleaned, or they are gone.
+      const screenFromUrl = readScreenId(params);
+      landing.current = {
+        tab: getTabFromUrl(),
+        watchlistId: getInitialWatchlistId(),
+        // A URL deep link wins over the sessionStorage hand-off from a sub-page.
+        screenId: screenFromUrl ?? getInitialScreenId(),
+      };
+      if (params.has("tab") || params.has("screen")) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
     }
-
-    const initialWatchlistId = getInitialWatchlistId();
-    if (initialWatchlistId) {
-      setSelectedWatchlistId(initialWatchlistId);
-    }
-
-    // A URL deep link wins over the sessionStorage hand-off from a sub-page.
-    const initialScreenId = screenFromUrl ?? getInitialScreenId();
-    if (initialScreenId) {
-      setSelectedScreenId(initialScreenId);
-    }
+    const { tab, watchlistId, screenId } = landing.current;
+    setActiveTab(tab);
+    if (watchlistId) setSelectedWatchlistId(watchlistId);
+    if (screenId) setSelectedScreenId(screenId);
   }, []);
 
   // Watchlist state
