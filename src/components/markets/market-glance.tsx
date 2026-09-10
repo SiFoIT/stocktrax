@@ -115,7 +115,14 @@ export function MarketGlance({
         item ? (
           // The 24px icon sits inside the value line's 28px leading, so adding it
           // does not change the tile's height.
-          <span className="flex items-center gap-2 whitespace-nowrap">
+          //
+          // Wraps rather than overflows: two columns on a 375px phone leave the
+          // tile about 130px of content, and the icon, price and percent need
+          // closer to 180px. `flex-wrap` only breaks the line when it does not
+          // fit, so every width that already held the line on one row keeps it.
+          // `whitespace-nowrap` still binds each value, so the break lands
+          // between them and never inside a price.
+          <span className="flex flex-wrap items-center gap-x-2 whitespace-nowrap">
             <StockIcon symbol={item.symbol} size="sm" />
             {item.price !== undefined && (
               <span className="text-foreground">{formatCurrency(item.price, item.currency)}</span>
