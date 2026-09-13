@@ -108,6 +108,28 @@ npm test         # Run Vitest
 
 Database file: `data/stocktrax.db`
 
+## Versioning and Releases
+
+**NEVER increment the major or minor version without discussing it first.** In
+`X.Y.Z`, only `Z` may be bumped on request; a change to `X` or `Y` is a
+judgement call about what the release means and belongs to the user, not to
+whoever is cutting the build. When a request would imply one, stop and ask.
+
+Cutting a release:
+
+```bash
+# 1. Bump Z in package.json and package-lock.json, then:
+git commit -am "chore: bump version to X.Y.Z"
+# 2. Annotated tag, message "vX.Y.Z — what's in it"
+git tag -a vX.Y.Z -m "vX.Y.Z — short summary"
+git push origin main --follow-tags
+```
+
+Pushing a `v*` tag triggers `.github/workflows/docker.yml`, which syncs
+`package.json` to the tag name and publishes `ghcr.io/SiFoIT/stocktrax` at both
+the version and `latest`. The tag is what actually defines the shipped version;
+the bump commit keeps the repo honest between releases.
+
 ## Docker Deployment
 
 For containerized deployment, use an entrypoint script to initialize the database:
