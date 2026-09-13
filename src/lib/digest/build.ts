@@ -506,11 +506,9 @@ export async function buildWeeklyDigest(
     return inWeek(dateStr);
   });
 
-  const alertCounts = new Map<string, number>();
-  for (const alert of weekAlerts) {
-    alertCounts.set(alert.symbol, (alertCounts.get(alert.symbol) ?? 0) + 1);
-  }
-  const topAlert = [...alertCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+  // Which symbols tripped, not how often: the weekly points at them, and the
+  // app holds the firing history for anyone who wants it.
+  const alertSymbols = [...new Set(weekAlerts.map((alert) => alert.symbol))].sort();
 
   const topHoldingItem = summary.breakdowns.topHoldings[0];
   const topHolding =
@@ -561,13 +559,7 @@ export async function buildWeeklyDigest(
       nextWeekExDiv,
       activity: buys > 0 || sells > 0 || netCash !== 0 ? { buys, sells, netCash } : null,
       alerts:
-        weekAlerts.length > 0
-          ? {
-              count: weekAlerts.length,
-              topSymbol: topAlert?.[0] ?? null,
-              topCount: topAlert?.[1] ?? 0,
-            }
-          : null,
+        weekAlerts.length > 0 ? { count: weekAlerts.length, symbols: alertSymbols } : null,
       topHolding,
     },
     holdings: holdingRows,

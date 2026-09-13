@@ -115,7 +115,7 @@ export interface DigestWeeklyFacts {
   dividends: { total: number; symbols: string[]; ytd: number } | null;
   nextWeekExDiv: { symbol: string; weekday: string }[];
   activity: { buys: number; sells: number; netCash: number } | null;
-  alerts: { count: number; topSymbol: string | null; topCount: number } | null;
+  alerts: { count: number; symbols: string[] } | null;
   topHolding: { symbol: string; percent: number } | null;
 }
 

@@ -437,8 +437,8 @@ function renderWeeklyHtml(data: WeeklyDigestData, options: RenderOptions): strin
   }
 
   if (data.facts.alerts) {
-    const { count, topSymbol, topCount } = data.facts.alerts;
-    const detail = topSymbol && topCount > 1 ? ` &middot; ${topCount} on ${escapeHtml(topSymbol)}` : "";
+    const { count, symbols } = data.facts.alerts;
+    const detail = symbols.length > 0 ? ` &middot; ${escapeHtml(symbols.join(", "))}` : "";
     factRows.push(fact("Alerts", `${count} fired${detail}`));
   }
 
@@ -687,10 +687,8 @@ function renderWeeklyText(data: WeeklyDigestData, options: RenderOptions): strin
     facts.push(`  Activity   ${pieces.join(" · ")}`);
   }
   if (data.facts.alerts) {
-    const { count, topSymbol, topCount } = data.facts.alerts;
-    facts.push(
-      `  Alerts     ${count} fired${topSymbol && topCount > 1 ? ` · ${topCount} on ${topSymbol}` : ""}`
-    );
+    const { count, symbols } = data.facts.alerts;
+    facts.push(`  Alerts     ${count} fired${symbols.length > 0 ? ` · ${symbols.join(", ")}` : ""}`);
   }
   if (data.facts.topHolding) {
     facts.push(

@@ -62,7 +62,7 @@ const weekly: WeeklyDigestData = {
     dividends: { total: 214, symbols: ["ENB.TO", "RY.TO"], ytd: 1870 },
     nextWeekExDiv: [{ symbol: "T.TO", weekday: "Tue" }],
     activity: { buys: 2, sells: 0, netCash: 2000 },
-    alerts: { count: 6, topSymbol: "NVDA", topCount: 4 },
+    alerts: { count: 6, symbols: ["ENB.TO", "NVDA"] },
     topHolding: { symbol: "NVDA", percent: 18 },
   },
   holdings: [
@@ -214,6 +214,30 @@ describe("empty sections", () => {
     expect(html).not.toContain("52-week");
     expect(html).not.toContain("Next week");
     expect(html).not.toContain("Top holding");
+  });
+});
+
+describe("alerts fact", () => {
+  const withAlerts = (alerts: WeeklyDigestData["facts"]["alerts"]): WeeklyDigestData => ({
+    ...weekly,
+    facts: { ...weekly.facts, alerts },
+  });
+
+  it("names every symbol that fired", () => {
+    const html = renderHtml(withAlerts({ count: 6, symbols: ["ENB.TO", "NVDA"] }), WITH_DOLLARS);
+    expect(html).toContain("6 fired");
+    expect(html).toContain("ENB.TO, NVDA");
+  });
+
+  it("names the symbol behind a lone firing", () => {
+    const html = renderHtml(withAlerts({ count: 1, symbols: ["T.TO"] }), WITH_DOLLARS);
+    expect(html).toContain("1 fired");
+    expect(html).toContain("T.TO");
+  });
+
+  it("names them in text too", () => {
+    const text = renderText(withAlerts({ count: 3, symbols: ["AQN.TO", "T.TO"] }), WITH_DOLLARS);
+    expect(text).toContain("3 fired · AQN.TO, T.TO");
   });
 });
 
