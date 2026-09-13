@@ -494,7 +494,9 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
             type="button"
             className={`${PRIMARY_BUTTON} shrink-0`}
             disabled={busy !== null}
-            onClick={() => void save()}
+            // Only the explicit Save closes: the send buttons call save()
+            // first, and closing in there would take the result with it.
+            onClick={() => void save().then((saved) => saved && onClose())}
           >
             {busy === "save" && <Loader2 className="size-4 animate-spin" />}
             Save
