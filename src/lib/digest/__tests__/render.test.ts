@@ -29,6 +29,7 @@ const daily: DailyDigestData = {
   watchlistThreshold: 2,
   alerts: [{ symbol: "NVDA", message: "Last price at or above 120.00" }],
   dividends: [{ symbol: "ENB.TO", amount: 84 }],
+  importReminder: null,
   appUrl: "https://stocktrax.example",
 };
 
@@ -77,6 +78,7 @@ const weekly: WeeklyDigestData = {
       ],
     },
   ],
+  importReminder: null,
   appUrl: "https://stocktrax.example",
 };
 
@@ -298,5 +300,50 @@ describe("escaping", () => {
     expect(html).toContain("&lt;script&gt;");
     expect(html).not.toContain("<script>");
     expect(html).toContain("Bad &amp; Co");
+  });
+});
+
+describe("import reminder", () => {
+  const reminded: DailyDigestData = {
+    ...daily,
+    importReminder: {
+      month: "September",
+      portfolios: [
+        { id: 3, name: "LIRA", coveredThrough: "2026-08-10" },
+        { id: 5, name: "RRSP & Co", coveredThrough: null },
+      ],
+    },
+  };
+
+  it("is absent when nothing is behind", () => {
+    expect(renderHtml(daily, WITH_DOLLARS)).not.toContain("Reminder:");
+    expect(renderText(daily, WITH_DOLLARS)).not.toContain("Reminder:");
+  });
+
+  it("names the month and each portfolio with its coverage", () => {
+    const text = renderText(reminded, WITH_DOLLARS);
+    expect(text).toContain(
+      "Reminder: import September's Wealthsimple CSV for LIRA (latest activity Aug 10, 2026) and RRSP & Co (nothing imported yet)."
+    );
+    // Sits just above the footer line.
+    expect(text.indexOf("Reminder:")).toBeLessThan(text.indexOf("Closing prices"));
+  });
+
+  it("links each portfolio and escapes its name", () => {
+    const html = renderHtml(reminded, WITH_DOLLARS);
+    expect(html).toContain('href="https://stocktrax.example/portfolio/3"');
+    expect(html).toContain("RRSP &amp; Co");
+    expect(html.indexOf("Reminder:")).toBeLessThan(html.indexOf("Closing prices"));
+  });
+
+  it("renders plain names without an app URL", () => {
+    const html = renderHtml({ ...reminded, appUrl: "" }, WITH_DOLLARS);
+    expect(html).toContain("Reminder:");
+    expect(html).not.toContain("/portfolio/3");
+  });
+
+  it("appears in the weekly too", () => {
+    const text = renderText({ ...weekly, importReminder: reminded.importReminder }, WITH_DOLLARS);
+    expect(text).toContain("Reminder: import September's");
   });
 });

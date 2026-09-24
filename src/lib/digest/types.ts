@@ -68,6 +68,10 @@ export interface DigestAlertRow {
   message: string;
 }
 
+/** The monthly CSV import reminder; null when nothing is behind or it is off. */
+export type { ImportReminder as DigestImportReminder } from "@/lib/digest/import-reminder";
+import type { ImportReminder } from "@/lib/digest/import-reminder";
+
 export interface DigestDividendRow {
   symbol: string;
   amount: number;
@@ -85,6 +89,7 @@ export interface DailyDigestData {
   watchlistThreshold: number;
   alerts: DigestAlertRow[];
   dividends: DigestDividendRow[];
+  importReminder: ImportReminder | null;
   appUrl: string;
 }
 
@@ -136,6 +141,7 @@ export interface WeeklyDigestData {
   facts: DigestWeeklyFacts;
   holdings: DigestHoldingRow[];
   watchlists: DigestWatchlistGroup[];
+  importReminder: ImportReminder | null;
   appUrl: string;
 }
 

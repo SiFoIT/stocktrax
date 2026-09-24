@@ -1,6 +1,7 @@
 import type {
   DailyDigestData,
   DigestData,
+  DigestImportReminder,
   DigestMarketTile,
   DigestMover,
   DigestPortfolioRow,
@@ -257,6 +258,52 @@ Closing prices &middot; Values in CAD${links}
 </html>`;
 }
 
+// --- Import reminder ---
+
+const SHORT_MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/** "Aug 10, 2026" from `YYYY-MM-DD`. */
+function shortDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return `${SHORT_MONTHS[m - 1]} ${d}, ${y}`;
+}
+
+function coverageNote(coveredThrough: string | null): string {
+  return coveredThrough ? `latest activity ${shortDate(coveredThrough)}` : "nothing imported yet";
+}
+
+/** "A", "A and B", "A, B and C". */
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/**
+ * One muted line above the footer. Deliberately not the warning colour: it is
+ * a chore, not a market event, and should read as a footnote.
+ */
+function importReminderHtml(reminder: DigestImportReminder | null, appUrl: string): string {
+  if (!reminder) return "";
+  const base = appUrl.replace(/\/+$/, "");
+  const names = reminder.portfolios.map((p) => {
+    const name = base
+      ? `<a href="${escapeHtml(`${base}/portfolio/${p.id}`)}" style="color:${C.text};">${escapeHtml(p.name)}</a>`
+      : `<span style="color:${C.text};">${escapeHtml(p.name)}</span>`;
+    return `${name} (${escapeHtml(coverageNote(p.coveredThrough))})`;
+  });
+  return `<tr><td class="pad" style="padding:12px 24px;border-top:1px solid ${C.border};font-size:13px;line-height:1.5;color:${C.muted};">
+Reminder: import ${escapeHtml(reminder.month)}&rsquo;s Wealthsimple CSV for ${joinNames(names)}.
+</td></tr>`;
+}
+
+function importReminderText(reminder: DigestImportReminder | null): string[] {
+  if (!reminder) return [];
+  const names = reminder.portfolios.map((p) => `${p.name} (${coverageNote(p.coveredThrough)})`);
+  return [`Reminder: import ${reminder.month}'s Wealthsimple CSV for ${joinNames(names)}.`, ""];
+}
+
 // --- Daily ---
 
 function renderDailyHtml(data: DailyDigestData, options: RenderOptions): string {
@@ -330,6 +377,7 @@ function renderDailyHtml(data: DailyDigestData, options: RenderOptions): string 
     );
   }
 
+  parts.push(importReminderHtml(data.importReminder, data.appUrl));
   return shell(`Daily · ${data.dateLabel}`, parts.join("\n"), data.appUrl);
 }
 
@@ -530,6 +578,7 @@ function renderWeeklyHtml(data: WeeklyDigestData, options: RenderOptions): strin
     );
   }
 
+  parts.push(importReminderHtml(data.importReminder, data.appUrl));
   return shell(`Weekly · ${data.rangeLabel}`, parts.join("\n"), data.appUrl);
 }
 
@@ -624,6 +673,7 @@ function renderDailyText(data: DailyDigestData, options: RenderOptions): string 
     );
   }
 
+  lines.push(...importReminderText(data.importReminder));
   lines.push("Closing prices · Values in CAD");
   if (data.appUrl) lines.push(data.appUrl);
   return lines.join("\n");
@@ -727,6 +777,7 @@ function renderWeeklyText(data: WeeklyDigestData, options: RenderOptions): strin
     lines.push("");
   }
 
+  lines.push(...importReminderText(data.importReminder));
   lines.push("Closing prices · Values in CAD");
   if (data.appUrl) lines.push(data.appUrl);
   return lines.join("\n");

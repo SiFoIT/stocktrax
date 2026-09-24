@@ -38,6 +38,13 @@ export interface WealthSimpleParseResult {
   skipped: SkippedRow[];
   unrecognized: UnrecognizedRow[];
   errors: string[];
+  /**
+   * The latest date on any row of the file, skipped and unrecognized rows
+   * included, as `YYYY-MM-DD`. Null when no row carried a readable date. This
+   * is what the import reminder measures, so a month whose only activity was
+   * skipped rows still counts as imported.
+   */
+  coveredThrough: string | null;
 }
 
 // WS types we intentionally skip
@@ -142,6 +149,19 @@ function parseWsDate(dateStr: string): string {
   // WS dates are typically "YYYY-MM-DD" format
   const d = new Date(dateStr + "T12:00:00Z");
   return d.toISOString();
+}
+
+/** A row's date as `YYYY-MM-DD`, or null when it does not parse. */
+function rowDateStr(dateStr: string | undefined): string | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr.trim() + "T12:00:00Z");
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
+function laterDate(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
 }
 
 function parseAmount(amountStr: string): number {
@@ -259,6 +279,7 @@ export function parseWealthSimpleCsv(csvText: string, fileName?: string): Wealth
     skipped: [],
     unrecognized: [],
     errors: [],
+    coveredThrough: null,
   };
 
   let rows: CsvRow[];
@@ -279,6 +300,8 @@ export function parseWealthSimpleCsv(csvText: string, fileName?: string): Wealth
 
     // Skip blank/empty type rows
     if (!wsType) continue;
+
+    result.coveredThrough = laterDate(result.coveredThrough, rowDateStr(row.Date));
 
     // Skip intentionally ignored types
     if (SKIP_TYPES.has(wsType)) {
@@ -354,6 +377,7 @@ export function parseMultipleFiles(
     skipped: [],
     unrecognized: [],
     errors: [],
+    coveredThrough: null,
   };
 
   for (const file of files) {
@@ -363,6 +387,7 @@ export function parseMultipleFiles(
     merged.skipped.push(...result.skipped);
     merged.unrecognized.push(...result.unrecognized);
     merged.errors.push(...result.errors);
+    merged.coveredThrough = laterDate(merged.coveredThrough, result.coveredThrough);
   }
 
   // Sort by date ascending

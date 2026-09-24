@@ -148,6 +148,7 @@ describe("isQuietDay", () => {
     watchlistThreshold: 2,
     alerts: [],
     dividends: [],
+    importReminder: null,
     appUrl: "",
   };
 

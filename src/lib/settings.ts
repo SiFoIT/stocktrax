@@ -49,6 +49,7 @@ export const DIGEST_DEFAULTS = {
   "digest.skipQuietDays": false,
   "digest.quietThresholdPct": 0.5,
   "digest.appUrl": "",
+  "digest.importReminder.enabled": true,
 } as const;
 
 /**
@@ -172,6 +173,9 @@ export interface DigestConfig {
   skipQuietDays: boolean;
   quietThresholdPct: number;
   appUrl: string;
+  importReminderEnabled: boolean;
+  /** Explicit per-portfolio choices keyed by portfolio id; absent means default. */
+  importReminderPortfolios: Record<string, boolean>;
 }
 
 export async function getDigestConfig(): Promise<DigestConfig> {
@@ -184,6 +188,8 @@ export async function getDigestConfig(): Promise<DigestConfig> {
     skipQuietDays,
     quietThresholdPct,
     appUrl,
+    importReminderEnabled,
+    importReminderPortfolios,
   ] = await Promise.all([
     getSetting("digest.daily.enabled", DIGEST_DEFAULTS["digest.daily.enabled"] as boolean),
     getSetting("digest.weekly.enabled", DIGEST_DEFAULTS["digest.weekly.enabled"] as boolean),
@@ -193,6 +199,11 @@ export async function getDigestConfig(): Promise<DigestConfig> {
     getSetting("digest.skipQuietDays", DIGEST_DEFAULTS["digest.skipQuietDays"] as boolean),
     getSetting("digest.quietThresholdPct", DIGEST_DEFAULTS["digest.quietThresholdPct"] as number),
     getSetting("digest.appUrl", DIGEST_DEFAULTS["digest.appUrl"] as string),
+    getSetting(
+      "digest.importReminder.enabled",
+      DIGEST_DEFAULTS["digest.importReminder.enabled"] as boolean
+    ),
+    getSetting<Record<string, boolean>>("digest.importReminder.portfolios", {}),
   ]);
 
   return {
@@ -204,6 +215,8 @@ export async function getDigestConfig(): Promise<DigestConfig> {
     skipQuietDays,
     quietThresholdPct,
     appUrl,
+    importReminderEnabled,
+    importReminderPortfolios,
   };
 }
 

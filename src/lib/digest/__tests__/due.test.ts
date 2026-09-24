@@ -12,6 +12,8 @@ const config: DigestConfig = {
   skipQuietDays: false,
   quietThresholdPct: 0.5,
   appUrl: "",
+  importReminderEnabled: true,
+  importReminderPortfolios: {},
 };
 
 // 2026-09-08 is a Tuesday; 2026-09-12 a Saturday; 2026-09-07 US Labor Day.

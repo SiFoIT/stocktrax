@@ -8,6 +8,8 @@ import {
   setSettings,
 } from "@/lib/settings";
 import { getRecentSends } from "@/lib/digest/send";
+import { loadPortfolioCoverage } from "@/lib/import/coverage";
+import { isReminderEnabled } from "@/lib/digest/import-reminder";
 
 export const runtime = "nodejs";
 
@@ -41,6 +43,9 @@ const settingsSchema = z.object({
       showDollars: z.boolean(),
       skipQuietDays: z.boolean(),
       quietThresholdPct: z.coerce.number().min(0).max(100),
+      importReminderEnabled: z.boolean(),
+      /** Per-portfolio choices to merge over the stored ones, keyed by id. */
+      importReminderPortfolios: z.record(z.string().regex(/^\d+$/), z.boolean()),
     })
     .partial()
     .optional(),
@@ -57,10 +62,11 @@ function isValidTimezone(value: string): boolean {
 
 export async function GET() {
   try {
-    const [config, smtp, recent] = await Promise.all([
+    const [config, smtp, recent, coverage] = await Promise.all([
       getDigestConfig(),
       getSmtpConfig(),
       getRecentSends(1),
+      loadPortfolioCoverage(),
     ]);
 
     const [lastDaily, lastWeekly] = await Promise.all([
@@ -87,6 +93,13 @@ export async function GET() {
         showDollars: config.showDollars,
         skipQuietDays: config.skipQuietDays,
         quietThresholdPct: config.quietThresholdPct,
+      },
+      importReminder: {
+        enabled: config.importReminderEnabled,
+        portfolios: coverage.map((p) => ({
+          ...p,
+          enabled: isReminderEnabled(p, config.importReminderPortfolios),
+        })),
       },
       lastSent: { daily: lastDaily, weekly: lastWeekly },
       lastLog: recent[0] ?? null,
@@ -134,6 +147,18 @@ export async function PUT(request: NextRequest) {
       if (d.skipQuietDays !== undefined) updates["digest.skipQuietDays"] = d.skipQuietDays;
       if (d.quietThresholdPct !== undefined)
         updates["digest.quietThresholdPct"] = d.quietThresholdPct;
+      if (d.importReminderEnabled !== undefined)
+        updates["digest.importReminder.enabled"] = d.importReminderEnabled;
+      if (d.importReminderPortfolios !== undefined) {
+        const stored = await getSetting<Record<string, boolean>>(
+          "digest.importReminder.portfolios",
+          {}
+        );
+        updates["digest.importReminder.portfolios"] = {
+          ...stored,
+          ...d.importReminderPortfolios,
+        };
+      }
     }
 
     await setSettings(updates);

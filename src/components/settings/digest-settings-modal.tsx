@@ -34,9 +34,23 @@ interface LastLog {
   sentAt: string;
 }
 
+interface ReminderPortfolio {
+  id: number;
+  name: string;
+  coveredThrough: string | null;
+  source: "import" | "transactions" | "none";
+  enabled: boolean;
+}
+
+interface ImportReminderForm {
+  enabled: boolean;
+  portfolios: ReminderPortfolio[];
+}
+
 interface DigestSettingsResponse {
   smtp: SmtpForm;
   digest: DigestForm;
+  importReminder: ImportReminderForm;
   lastLog: LastLog | null;
 }
 
@@ -52,24 +66,51 @@ const BUTTON =
 const PRIMARY_BUTTON =
   "inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 disabled:opacity-50";
 
+/** "Aug 10, 2026" from `YYYY-MM-DD`, read as a calendar date. */
+function formatCoverageDate(dateStr: string): string {
+  return new Date(`${dateStr}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function coverageHint(portfolio: ReminderPortfolio): string {
+  if (!portfolio.coveredThrough) return "No activity yet";
+  const date = formatCoverageDate(portfolio.coveredThrough);
+  return portfolio.source === "import"
+    ? `Imported through ${date}`
+    : `Latest transaction ${date}`;
+}
+
 function Toggle({
   checked,
   onChange,
   label,
   hint,
   className,
+  disabled,
 }: {
   checked: boolean;
   onChange: (value: boolean) => void;
   label: string;
   hint?: string;
   className?: string;
+  disabled?: boolean;
 }) {
   return (
-    <label className={cn("flex cursor-pointer items-start gap-3", className)}>
+    <label
+      className={cn(
+        "flex items-start gap-3",
+        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+        className
+      )}
+    >
       <input
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
         className="mt-0.5 size-4 shrink-0 rounded border-border-strong accent-primary"
       />
@@ -85,6 +126,10 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
   const [smtp, setSmtp] = useState<SmtpForm | null>(null);
   const [digest, setDigest] = useState<DigestForm | null>(null);
   const [lastLog, setLastLog] = useState<LastLog | null>(null);
+  const [reminder, setReminder] = useState<ImportReminderForm | null>(null);
+  // Only portfolios the user actually flipped are sent, so the rest keep
+  // following the default (on once a portfolio has any activity).
+  const [reminderChanges, setReminderChanges] = useState<Record<string, boolean>>({});
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -97,6 +142,8 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
       const data: DigestSettingsResponse = await res.json();
       setSmtp(data.smtp);
       setDigest(data.digest);
+      setReminder(data.importReminder);
+      setReminderChanges({});
       setLastLog(data.lastLog);
     } catch {
       setFeedback({ tone: "negative", message: "Could not load digest settings." });
@@ -139,7 +186,13 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
             from: smtp.from,
             to: smtp.to,
           },
-          digest,
+          digest: {
+            ...digest,
+            ...(reminder && {
+              importReminderEnabled: reminder.enabled,
+              importReminderPortfolios: reminderChanges,
+            }),
+          },
         }),
       });
       const body = await res.json();
@@ -411,6 +464,48 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
         </section>
+
+        {/* Import reminder */}
+        {reminder && (
+          <section className={SECTION}>
+            <div className={SECTION_HEAD}>
+              <h3 className="text-sm font-semibold text-foreground">Import reminder</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                From the 15th, a line at the foot of both emails until last month&rsquo;s
+                CSV is imported.
+              </p>
+            </div>
+            <div className="space-y-3 p-4">
+              <Toggle
+                checked={reminder.enabled}
+                onChange={(enabled) => setReminder({ ...reminder, enabled })}
+                label="Remind me to import last month"
+              />
+              {reminder.portfolios.length > 0 && (
+                <div className="space-y-2.5 pl-7">
+                  {reminder.portfolios.map((portfolio) => (
+                    <Toggle
+                      key={portfolio.id}
+                      checked={portfolio.enabled}
+                      disabled={!reminder.enabled}
+                      onChange={(enabled) => {
+                        setReminder({
+                          ...reminder,
+                          portfolios: reminder.portfolios.map((p) =>
+                            p.id === portfolio.id ? { ...p, enabled } : p
+                          ),
+                        });
+                        setReminderChanges({ ...reminderChanges, [portfolio.id]: enabled });
+                      }}
+                      label={portfolio.name}
+                      hint={coverageHint(portfolio)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Actions */}
         <section className={SECTION}>

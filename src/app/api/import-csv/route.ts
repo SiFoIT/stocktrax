@@ -4,6 +4,7 @@ import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { recomputeHolding } from "@/lib/holdings";
 import { invalidatePortfolioSummary } from "@/lib/portfolio-summary";
+import { recordImportCoverage } from "@/lib/import/coverage";
 import { stockTxnDedupKey, cashTxnDedupKey } from "@/lib/import/wealthsimple-parser";
 
 const stockTransactionSchema = z.object({
@@ -27,6 +28,11 @@ const importSchema = z.object({
   portfolioId: z.number(),
   stockTransactions: z.array(stockTransactionSchema),
   cashTransactions: z.array(cashTransactionSchema),
+  /** Latest date on any row of the file(s), for the monthly import reminder. */
+  coveredThrough: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullish(),
 });
 
 export async function POST(request: NextRequest) {
@@ -179,6 +185,11 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         errors.push(`Error importing cash transaction: ${e}`);
       }
+    }
+
+    // Recorded even when every row was a duplicate: a quiet month still counts.
+    if (validated.coveredThrough) {
+      await recordImportCoverage(validated.portfolioId, validated.coveredThrough);
     }
 
     // A duplicates-only run changed nothing, so it leaves the cache alone.

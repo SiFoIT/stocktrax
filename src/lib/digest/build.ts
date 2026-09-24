@@ -5,6 +5,8 @@ import type { QuoteWithRange } from "@/lib/api/yahoo-finance";
 import { getPortfolioSummary } from "@/lib/portfolio-summary";
 import { getDigestConfig, type DigestConfig } from "@/lib/settings";
 import { getSnapshot, getSnapshotTotals } from "@/lib/digest/snapshots";
+import { loadPortfolioCoverage } from "@/lib/import/coverage";
+import { selectImportReminder } from "@/lib/digest/import-reminder";
 import {
   addDays,
   dateStrToUtc,
@@ -185,6 +187,17 @@ function txDateStr(date: Date | string | number): string {
   return utcToDateStr(new Date(date));
 }
 
+/** The foot-of-email import reminder, in the user's own timezone. */
+async function loadImportReminder(now: Date, cfg: DigestConfig) {
+  if (!cfg.importReminderEnabled) return null;
+  const coverage = await loadPortfolioCoverage();
+  return selectImportReminder(
+    zonedDateStr(now, cfg.timezone),
+    coverage,
+    cfg.importReminderPortfolios
+  );
+}
+
 // --- Daily ---
 
 export async function buildDailyDigest(
@@ -286,6 +299,7 @@ export async function buildDailyDigest(
     dividends: [...dividendTotals.entries()]
       .map(([symbol, amount]) => ({ symbol, amount }))
       .sort((a, b) => b.amount - a.amount),
+    importReminder: await loadImportReminder(now, cfg),
     appUrl: cfg.appUrl,
   };
 }
@@ -564,6 +578,7 @@ export async function buildWeeklyDigest(
     },
     holdings: holdingRows,
     watchlists,
+    importReminder: await loadImportReminder(now, cfg),
     appUrl: cfg.appUrl,
   };
 }

@@ -206,6 +206,7 @@ export function CsvImportModal({
           portfolioId,
           stockTransactions: finalStock,
           cashTransactions: dedupedCash,
+          coveredThrough: parseResult?.coveredThrough ?? null,
         }),
       });
 
@@ -233,6 +234,10 @@ export function CsvImportModal({
       setStep("success");
     }
   };
+
+  // A file with nothing new can still be recorded, so a quiet month silences
+  // the digest's import reminder.
+  const newCount = dedupedStock.length + dedupedCash.length;
 
   const handleSuccessClose = () => {
     onImportComplete();
@@ -646,10 +651,14 @@ export function CsvImportModal({
                     handleImport();
                   }
                 }}
-                disabled={dedupedStock.length === 0 && dedupedCash.length === 0}
+                disabled={newCount === 0 && !parseResult?.coveredThrough}
                 className="px-6 py-2.5 rounded-md bg-primary text-foreground font-medium disabled:opacity-50 transition-colors"
               >
-                {acbEntries.length > 0 ? "Next: Enter Cost Basis" : `Import ${dedupedStock.length + dedupedCash.length} Transactions`}
+                {acbEntries.length > 0
+                  ? "Next: Enter Cost Basis"
+                  : newCount === 0 && parseResult?.coveredThrough
+                    ? `Mark as imported through ${parseResult.coveredThrough}`
+                    : `Import ${newCount} Transactions`}
               </button>
             </>
           )}
