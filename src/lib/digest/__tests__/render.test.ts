@@ -27,7 +27,17 @@ const daily: DailyDigestData = {
   ],
   watchlist: [{ symbol: "AMD", name: "Advanced Micro Devices", price: 168.4, changePercent: 3.2 }],
   watchlistThreshold: 2,
-  alerts: [{ symbol: "NVDA", message: "Last price at or above 120.00" }],
+  alerts: [
+    {
+      symbol: "^VIX",
+      metric: "last_price",
+      value: 20.65,
+      operator: "gte",
+      threshold: 20,
+      message: "^VIX price 20.65",
+      count: 1,
+    },
+  ],
   dividends: [{ symbol: "ENB.TO", amount: 84 }],
   importReminder: null,
   appUrl: "https://stocktrax.example",
@@ -63,9 +73,19 @@ const weekly: WeeklyDigestData = {
     dividends: { total: 214, symbols: ["ENB.TO", "RY.TO"], ytd: 1870 },
     nextWeekExDiv: [{ symbol: "T.TO", weekday: "Tue" }],
     activity: { buys: 2, sells: 0, netCash: 2000 },
-    alerts: { count: 6, symbols: ["ENB.TO", "NVDA"] },
     topHolding: { symbol: "NVDA", percent: 18 },
   },
+  alerts: [
+    {
+      symbol: "ENB.TO",
+      metric: "daily_change_percent",
+      value: -5.2,
+      operator: "lte",
+      threshold: -5,
+      message: "ENB.TO down -5.20% today",
+      count: 3,
+    },
+  ],
   holdings: [
     { symbol: "NVDA", price: 124.18, weekPercent: 7.2, value: 33150, weekAmount: 1050 },
     { symbol: "ENB.TO", price: 56.4, weekPercent: -3, value: 9400, weekAmount: -290 },
@@ -100,6 +120,9 @@ describe("plain text", () => {
         Nasdaq        23,105  +0.9%
         CAD/USD        0.726  −0.2%
 
+      ALERTS FIRED
+        ^VIX: Price 20.65 · rule at or above 20.00
+
       PORTFOLIO · TODAY
         Dividend Portfolio    $184,210    +$1,340   +0.73%
         TFSA                   $42,800      −$310   −0.72%
@@ -111,9 +134,6 @@ describe("plain text", () => {
 
       WATCHLIST · MOVES OVER 2%
         AMD           $168.40   +3.2%
-
-      ALERTS FIRED
-        NVDA: Last price at or above 120.00
 
       DIVIDENDS
         Received $84.00 from ENB.TO
@@ -208,7 +228,6 @@ describe("empty sections", () => {
         dividends: null,
         nextWeekExDiv: [],
         activity: null,
-        alerts: null,
         topHolding: null,
       },
     };
@@ -219,27 +238,38 @@ describe("empty sections", () => {
   });
 });
 
-describe("alerts fact", () => {
-  const withAlerts = (alerts: WeeklyDigestData["facts"]["alerts"]): WeeklyDigestData => ({
-    ...weekly,
-    facts: { ...weekly.facts, alerts },
+describe("alerts", () => {
+  it("shows the reading and the rule it crossed", () => {
+    const html = renderHtml(daily, WITH_DOLLARS);
+    expect(html).toContain("^VIX");
+    expect(html).toContain("Price 20.65");
+    expect(html).toContain("rule at or above 20.00");
+    expect(html).not.toContain("Expected volatility");
   });
 
-  it("names every symbol that fired", () => {
-    const html = renderHtml(withAlerts({ count: 6, symbols: ["ENB.TO", "NVDA"] }), WITH_DOLLARS);
-    expect(html).toContain("6 fired");
-    expect(html).toContain("ENB.TO, NVDA");
+  it("sits between the markets and the portfolio in the daily", () => {
+    const html = renderHtml(daily, WITH_DOLLARS);
+    const at = html.indexOf("Alerts fired");
+    expect(at).toBeGreaterThan(html.indexOf("Markets · today"));
+    expect(at).toBeLessThan(html.indexOf("Portfolio · today"));
+    const text = renderText(daily, WITH_DOLLARS);
+    expect(text.indexOf("ALERTS FIRED")).toBeLessThan(text.indexOf("PORTFOLIO · TODAY"));
   });
 
-  it("names the symbol behind a lone firing", () => {
-    const html = renderHtml(withAlerts({ count: 1, symbols: ["T.TO"] }), WITH_DOLLARS);
-    expect(html).toContain("1 fired");
-    expect(html).toContain("T.TO");
+  it("badges the weekly too, with how often each fired", () => {
+    const html = renderHtml(weekly, WITH_DOLLARS);
+    expect(html).toContain("Alerts fired this week");
+    expect(html).toContain("Day change −5.20%");
+    expect(html).toContain("rule at or below −5.00% · fired 3×");
+    expect(html.indexOf("Alerts fired")).toBeLessThan(html.indexOf("Portfolio · this week"));
   });
 
-  it("names them in text too", () => {
-    const text = renderText(withAlerts({ count: 3, symbols: ["AQN.TO", "T.TO"] }), WITH_DOLLARS);
-    expect(text).toContain("3 fired · AQN.TO, T.TO");
+  it("falls back to the stored sentence when the rule is gone", () => {
+    const orphan: DailyDigestData = {
+      ...daily,
+      alerts: [{ ...daily.alerts[0], metric: null }],
+    };
+    expect(renderText(orphan, WITH_DOLLARS)).toContain("^VIX: ^VIX price 20.65");
   });
 });
 
@@ -327,13 +357,15 @@ describe("import reminder", () => {
     );
     // Sits just above the footer line.
     expect(text.indexOf("Reminder:")).toBeLessThan(text.indexOf("Closing prices"));
+    expect(text.indexOf("Reminder:")).toBeGreaterThan(text.indexOf("DIVIDENDS"));
   });
 
   it("links each portfolio and escapes its name", () => {
     const html = renderHtml(reminded, WITH_DOLLARS);
     expect(html).toContain('href="https://stocktrax.example/portfolio/3"');
     expect(html).toContain("RRSP &amp; Co");
-    expect(html.indexOf("Reminder:")).toBeLessThan(html.indexOf("Closing prices"));
+    expect(html.indexOf("Import due")).toBeLessThan(html.indexOf("Closing prices"));
+    expect(html.indexOf("Import due")).toBeGreaterThan(html.indexOf("Dividends"));
   });
 
   it("renders plain names without an app URL", () => {

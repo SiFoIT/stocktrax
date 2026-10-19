@@ -1,5 +1,7 @@
+import { ALERT_OPERATOR_LABELS } from "@/lib/alerts/config";
 import type {
   DailyDigestData,
+  DigestAlertRow,
   DigestData,
   DigestImportReminder,
   DigestMarketTile,
@@ -36,6 +38,10 @@ const C = {
   negative: "#b91c1c",
   badgeBg: "#fef3c7",
   badgeText: "#92400e",
+  // The app's one accent (--primary), for the import nudge and its links.
+  accent: "#2f6fe0",
+  accentBg: "#eff5ff",
+  accentText: "#1d4ed8",
 } as const;
 
 const SANS =
@@ -220,6 +226,67 @@ function moverRows(movers: DigestMover[], withName: boolean): string {
     .join("");
 }
 
+// --- Alerts ---
+
+const ALERT_SUBJECT: Record<string, string> = {
+  last_price: "Price",
+  daily_change_percent: "Day change",
+  price_vs_anchor: "vs anchor",
+  holding_gain_percent: "Holding gain",
+};
+
+/** "20.65" for a price rule, "−5.20%" for the percent ones. */
+function alertNumber(metric: DigestAlertRow["metric"], value: number): string {
+  return metric === "last_price" ? level(value, 2) : percent(value, 2);
+}
+
+/**
+ * "Price 20.65 · rule at or above 20.00 · 2×": the reading, the line it
+ * crossed, and how often. Without the rule the evaluator's sentence stands in.
+ */
+function alertDetail(alert: DigestAlertRow): { reading: string; rule: string } {
+  if (!alert.metric || alert.value === null) {
+    return { reading: alert.message, rule: alert.count > 1 ? `${alert.count}×` : "" };
+  }
+  const pieces = [
+    `rule ${ALERT_OPERATOR_LABELS[alert.operator]} ${alertNumber(alert.metric, alert.threshold)}`,
+  ];
+  if (alert.count > 1) pieces.push(`fired ${alert.count}×`);
+  return {
+    reading: `${ALERT_SUBJECT[alert.metric] ?? "Value"} ${alertNumber(alert.metric, alert.value)}`,
+    rule: pieces.join(" · "),
+  };
+}
+
+function alertsHtml(alerts: DigestAlertRow[], label: string): string {
+  if (alerts.length === 0) return "";
+  const rows = alerts
+    .map((alert) => {
+      const { reading, rule } = alertDetail(alert);
+      return `<tr><td width="1" valign="top" style="padding:6px 12px 6px 0;white-space:nowrap;"><span style="display:inline-block;background:${C.badgeBg};color:${C.badgeText};border-radius:4px;padding:1px 6px;font-size:12px;font-weight:600;">${escapeHtml(
+        alert.symbol
+      )}</span></td><td valign="top" style="padding:6px 0;"><span style="font-family:${MONO};">${escapeHtml(
+        reading
+      )}</span>${
+        rule ? ` <span style="color:${C.muted};">&middot; ${escapeHtml(rule)}</span>` : ""
+      }</td></tr>`;
+    })
+    .join("");
+  return section(
+    `${heading(label)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">${rows}</table>`,
+    "14px 24px 4px"
+  );
+}
+
+function alertsText(alerts: DigestAlertRow[], label: string): string[] {
+  if (alerts.length === 0) return [];
+  const lines = alerts.map((alert) => {
+    const { reading, rule } = alertDetail(alert);
+    return `  ${alert.symbol}: ${reading}${rule ? ` · ${rule}` : ""}`;
+  });
+  return [label.toUpperCase(), ...lines, ""];
+}
+
 function shell(headerRight: string, body: string, appUrl: string): string {
   const links = appUrl
     ? ` &middot; <a href="${escapeHtml(appUrl)}" style="color:${C.muted};">Open StockTrax</a>`
@@ -281,27 +348,35 @@ function joinNames(names: string[]): string {
 }
 
 /**
- * One muted line above the footer. Deliberately not the warning colour: it is
- * a chore, not a market event, and should read as a footnote.
+ * A tinted callout above the footer. It is a chore rather than a market event,
+ * so it takes the accent, not the alert amber; the tint is what keeps it from
+ * reading as a footnote under a long weekly table.
  */
 function importReminderHtml(reminder: DigestImportReminder | null, appUrl: string): string {
   if (!reminder) return "";
   const base = appUrl.replace(/\/+$/, "");
   const names = reminder.portfolios.map((p) => {
     const name = base
-      ? `<a href="${escapeHtml(`${base}/portfolio/${p.id}`)}" style="color:${C.text};">${escapeHtml(p.name)}</a>`
-      : `<span style="color:${C.text};">${escapeHtml(p.name)}</span>`;
-    return `${name} (${escapeHtml(coverageNote(p.coveredThrough))})`;
+      ? `<a href="${escapeHtml(`${base}/portfolio/${p.id}`)}" style="color:${C.accentText};font-weight:600;">${escapeHtml(p.name)}</a>`
+      : `<b>${escapeHtml(p.name)}</b>`;
+    return `${name} <span style="color:${C.muted};">(${escapeHtml(coverageNote(p.coveredThrough))})</span>`;
   });
-  return `<tr><td class="pad" style="padding:12px 24px;border-top:1px solid ${C.border};font-size:13px;line-height:1.5;color:${C.muted};">
+  return `<tr><td class="pad" style="padding:4px 24px 20px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:10px 14px;background:${C.accentBg};border-left:3px solid ${C.accent};border-radius:6px;font-size:14px;line-height:1.5;color:${C.text};">
+<div style="font-size:12px;font-weight:600;color:${C.accentText};text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Import due</div>
 Reminder: import ${escapeHtml(reminder.month)}&rsquo;s Wealthsimple CSV for ${joinNames(names)}.
+</td></tr></table>
 </td></tr>`;
 }
 
 function importReminderText(reminder: DigestImportReminder | null): string[] {
   if (!reminder) return [];
   const names = reminder.portfolios.map((p) => `${p.name} (${coverageNote(p.coveredThrough)})`);
-  return [`Reminder: import ${reminder.month}'s Wealthsimple CSV for ${joinNames(names)}.`, ""];
+  return [
+    "IMPORT DUE",
+    `  Reminder: import ${reminder.month}'s Wealthsimple CSV for ${joinNames(names)}.`,
+    "",
+  ];
 }
 
 // --- Daily ---
@@ -310,6 +385,7 @@ function renderDailyHtml(data: DailyDigestData, options: RenderOptions): string 
   const parts: string[] = [];
 
   parts.push(section(marketTiles(data.markets, "Markets · today"), "20px 24px 6px"));
+  parts.push(alertsHtml(data.alerts, "Alerts fired"));
 
   const portfolio = portfolioLine(data, "Portfolio · today", options, "", 2);
   if (portfolio) parts.push(section(portfolio, "14px 24px 18px"));
@@ -346,20 +422,6 @@ function renderDailyHtml(data: DailyDigestData, options: RenderOptions): string 
     );
   }
 
-  if (data.alerts.length > 0) {
-    const rows = data.alerts
-      .map(
-        (alert) =>
-          `<span style="display:inline-block;background:${C.badgeBg};color:${C.badgeText};border-radius:4px;padding:1px 6px;font-size:12px;font-weight:600;">${escapeHtml(
-            alert.symbol
-          )}</span> ${escapeHtml(alert.message)}`
-      )
-      .join("<br>");
-    parts.push(
-      section(`${heading("Alerts fired")}<div style="font-size:14px;line-height:1.6;">${rows}</div>`)
-    );
-  }
-
   if (data.dividends.length > 0) {
     const symbols = data.dividends.map((d) => d.symbol).join(", ");
     const total = data.dividends.reduce((sum, d) => sum + d.amount, 0);
@@ -387,6 +449,7 @@ function renderWeeklyHtml(data: WeeklyDigestData, options: RenderOptions): strin
   const parts: string[] = [];
 
   parts.push(section(marketTiles(data.markets, "Markets · this week"), "20px 24px 6px"));
+  parts.push(alertsHtml(data.alerts, "Alerts fired this week"));
 
   let allTimeRow = "";
   if (data.allTime) {
@@ -482,12 +545,6 @@ function renderWeeklyHtml(data: WeeklyDigestData, options: RenderOptions): strin
       );
     }
     factRows.push(fact("Activity", pieces.join(" &middot; ")));
-  }
-
-  if (data.facts.alerts) {
-    const { count, symbols } = data.facts.alerts;
-    const detail = symbols.length > 0 ? ` &middot; ${escapeHtml(symbols.join(", "))}` : "";
-    factRows.push(fact("Alerts", `${count} fired${detail}`));
   }
 
   if (data.facts.topHolding) {
@@ -636,6 +693,7 @@ function renderDailyText(data: DailyDigestData, options: RenderOptions): string 
   const lines: string[] = [`StockTrax daily · ${data.dateLabel}`, ""];
 
   lines.push(...textMarketTiles(data.markets, "MARKETS · TODAY"));
+  lines.push(...alertsText(data.alerts, "Alerts fired"));
 
   lines.push(...textPortfolio(data, "Portfolio · today", options, 2));
 
@@ -652,12 +710,6 @@ function renderDailyText(data: DailyDigestData, options: RenderOptions): string 
         ).padStart(7)}`
       );
     }
-    lines.push("");
-  }
-
-  if (data.alerts.length > 0) {
-    lines.push("ALERTS FIRED");
-    for (const alert of data.alerts) lines.push(`  ${alert.symbol}: ${alert.message}`);
     lines.push("");
   }
 
@@ -683,6 +735,7 @@ function renderWeeklyText(data: WeeklyDigestData, options: RenderOptions): strin
   const lines: string[] = [`StockTrax weekly · ${data.rangeLabel}`, ""];
 
   lines.push(...textMarketTiles(data.markets, "MARKETS · THIS WEEK"));
+  lines.push(...alertsText(data.alerts, "Alerts fired this week"));
 
   lines.push(...textPortfolio(data, "Portfolio · this week", options));
 
@@ -735,10 +788,6 @@ function renderWeeklyText(data: WeeklyDigestData, options: RenderOptions): strin
       );
     }
     facts.push(`  Activity   ${pieces.join(" · ")}`);
-  }
-  if (data.facts.alerts) {
-    const { count, symbols } = data.facts.alerts;
-    facts.push(`  Alerts     ${count} fired${symbols.length > 0 ? ` · ${symbols.join(", ")}` : ""}`);
   }
   if (data.facts.topHolding) {
     facts.push(

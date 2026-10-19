@@ -27,8 +27,10 @@ import {
   selectWatchlistRows,
   type MergedPosition,
 } from "@/lib/digest/select";
+import type { AlertMetric } from "@/lib/alerts/config";
 import type {
   DailyDigestData,
+  DigestAlertRow,
   DigestFiftyTwoWeekNote,
   DigestHoldingRow,
   DigestMarketTile,
@@ -187,6 +189,48 @@ function txDateStr(date: Date | string | number): string {
   return utcToDateStr(new Date(date));
 }
 
+/**
+ * Alerts that fired since `since` and on a day `inPeriod` accepts, one row per
+ * rule: its latest firing plus how many times it fired.
+ */
+async function loadAlerts(
+  since: Date,
+  inPeriod: (dateStr: string) => boolean
+): Promise<DigestAlertRow[]> {
+  const [fired, rules] = await Promise.all([
+    db.query.alerts.findMany({ where: gte(schema.alerts.triggeredAt, since) }),
+    db.query.alertRules.findMany(),
+  ]);
+  const metricByRule = new Map(rules.map((rule) => [rule.id, rule.metric as AlertMetric]));
+
+  const byRule = new Map<number, { alert: (typeof fired)[number]; count: number }>();
+  for (const alert of fired) {
+    if (!inPeriod(zonedDateStr(new Date(alert.triggeredAt), MARKET_TIMEZONE))) continue;
+    const seen = byRule.get(alert.ruleId);
+    if (!seen) {
+      byRule.set(alert.ruleId, { alert, count: 1 });
+    } else {
+      seen.count += 1;
+      if (new Date(alert.triggeredAt) > new Date(seen.alert.triggeredAt)) seen.alert = alert;
+    }
+  }
+
+  return [...byRule.values()]
+    .sort((a, b) => new Date(b.alert.triggeredAt).getTime() - new Date(a.alert.triggeredAt).getTime())
+    .map(({ alert, count }) => {
+      const metric = metricByRule.get(alert.ruleId) ?? null;
+      return {
+        symbol: alert.symbol,
+        metric,
+        value: metric === "last_price" ? (alert.price ?? alert.metricValue) : alert.metricValue,
+        operator: alert.operator,
+        threshold: alert.threshold,
+        message: alert.message,
+        count,
+      };
+    });
+}
+
 /** The foot-of-email import reminder, in the user's own timezone. */
 async function loadImportReminder(now: Date, cfg: DigestConfig) {
   if (!cfg.importReminderEnabled) return null;
@@ -229,12 +273,7 @@ export async function buildDailyDigest(
 
   // Alerts carry a real timestamp, so they are matched in the user's timezone.
   const dayAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
-  const recentAlerts = await db.query.alerts.findMany({
-    where: gte(schema.alerts.triggeredAt, dayAgo),
-  });
-  const alerts = recentAlerts
-    .filter((alert) => zonedDateStr(new Date(alert.triggeredAt), MARKET_TIMEZONE) === today)
-    .map((alert) => ({ symbol: alert.symbol, message: alert.message }));
+  const alerts = await loadAlerts(dayAgo, (dateStr) => dateStr === today);
 
   const holdingById = new Map(allHoldings.map((h) => [h.id, h]));
   const dividendTotals = new Map<string, number>();
@@ -513,16 +552,7 @@ export async function buildWeeklyDigest(
     .sort((a, b) => a.symbol.localeCompare(b.symbol));
 
   const weekStartUtc = dateStrToUtc(week.start);
-  const weekAlerts = (
-    await db.query.alerts.findMany({ where: gte(schema.alerts.triggeredAt, weekStartUtc) })
-  ).filter((alert) => {
-    const dateStr = zonedDateStr(new Date(alert.triggeredAt), MARKET_TIMEZONE);
-    return inWeek(dateStr);
-  });
-
-  // Which symbols tripped, not how often: the weekly points at them, and the
-  // app holds the firing history for anyone who wants it.
-  const alertSymbols = [...new Set(weekAlerts.map((alert) => alert.symbol))].sort();
+  const alerts = await loadAlerts(weekStartUtc, inWeek);
 
   const topHoldingItem = summary.breakdowns.topHoldings[0];
   const topHolding =
@@ -564,6 +594,7 @@ export async function buildWeeklyDigest(
     allTime,
     best,
     worst,
+    alerts,
     facts: {
       fiftyTwoWeek,
       dividends:
@@ -572,8 +603,6 @@ export async function buildWeeklyDigest(
           : null,
       nextWeekExDiv,
       activity: buys > 0 || sells > 0 || netCash !== 0 ? { buys, sells, netCash } : null,
-      alerts:
-        weekAlerts.length > 0 ? { count: weekAlerts.length, symbols: alertSymbols } : null,
       topHolding,
     },
     holdings: holdingRows,

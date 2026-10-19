@@ -165,7 +165,22 @@ describe("isQuietDay", () => {
   });
 
   it("is not quiet when an alert fired", () => {
-    expect(isQuietDay({ ...base, alerts: [{ symbol: "NVDA", message: "above 120" }] }, 0.5)).toBe(false);
+    expect(
+      isQuietDay({
+        ...base,
+        alerts: [
+          {
+            symbol: "NVDA",
+            metric: "last_price",
+            value: 121,
+            operator: "gte",
+            threshold: 120,
+            message: "above 120",
+            count: 1,
+          },
+        ],
+      }, 0.5)
+    ).toBe(false);
   });
 
   it("is not quiet when a dividend arrived", () => {

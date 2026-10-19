@@ -1,3 +1,5 @@
+import type { AlertMetric, AlertOperator } from "@/lib/alerts/config";
+
 /**
  * The shape the renderers consume. Deliberately plain numbers and strings: no
  * Drizzle rows and no Yahoo types leak in here, so `render.ts` stays pure and
@@ -63,9 +65,19 @@ export interface DigestWatchlistRow {
   rangeNote?: string;
 }
 
+/** One alert firing, with enough of its rule to say what tripped and why. */
 export interface DigestAlertRow {
   symbol: string;
+  /** Null when the rule has since been deleted; the renderer falls back to `message`. */
+  metric: AlertMetric | null;
+  /** The metric's value when it fired: a price, or a percent for the % metrics. */
+  value: number | null;
+  operator: AlertOperator;
+  threshold: number;
+  /** The evaluator's own sentence, kept as the fallback. */
   message: string;
+  /** How many times it fired over the period; 1 in the daily. */
+  count: number;
 }
 
 /** The monthly CSV import reminder; null when nothing is behind or it is off. */
@@ -120,7 +132,6 @@ export interface DigestWeeklyFacts {
   dividends: { total: number; symbols: string[]; ytd: number } | null;
   nextWeekExDiv: { symbol: string; weekday: string }[];
   activity: { buys: number; sells: number; netCash: number } | null;
-  alerts: { count: number; symbols: string[] } | null;
   topHolding: { symbol: string; percent: number } | null;
 }
 
@@ -139,6 +150,8 @@ export interface WeeklyDigestData {
   best: DigestMover[];
   worst: DigestMover[];
   facts: DigestWeeklyFacts;
+  /** The latest firing per rule over the week, most recent first. */
+  alerts: DigestAlertRow[];
   holdings: DigestHoldingRow[];
   watchlists: DigestWatchlistGroup[];
   importReminder: ImportReminder | null;
