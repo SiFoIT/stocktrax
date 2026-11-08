@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useBodyScrollLock } from "@/lib/hooks/use-body-scroll-lock";
 import {
   collectSettings,
   restoreSettings,
@@ -16,6 +17,8 @@ interface DataSettingsModalProps {
 type ImportStatus = "idle" | "preview" | "importing" | "success" | "error";
 
 export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
+  // Touch-only: on desktop this overlay never locked the page, so keep it that way.
+  useBodyScrollLock(true, { touchOnly: true });
   const [iCloudAvailable, setICloudAvailable] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState<{

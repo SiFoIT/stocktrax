@@ -145,7 +145,7 @@ export function DividendTable({
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full" data-phone-hide="2 3 4 6 8 9 10 11">
           <thead>
             <tr className="border-b border-border">
               <DividendHeaderCell column="symbol" label="Symbol" align="left" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />

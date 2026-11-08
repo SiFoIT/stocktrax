@@ -8,6 +8,7 @@ import { formatVolume, formatPercentRatio, formatRelativeTime } from "@/lib/util
 import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
 import { InfoTip } from "@/components/ui/info-tip";
 import { PriceRangeBar } from "@/components/ui/price-range-bar";
+import { useBodyScrollLock } from "@/lib/hooks/use-body-scroll-lock";
 
 interface StockDetails {
   symbol: string;
@@ -222,6 +223,8 @@ function hasAnyValue(...values: (number | string | undefined | null)[]): boolean
 }
 
 export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalProps) {
+  // Touch-only: on desktop this overlay never locked the page, so keep it that way.
+  useBodyScrollLock(true, { touchOnly: true });
   const [details, setDetails] = useState<StockDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -339,7 +342,7 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
         : null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 py-6 px-4 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 py-6 px-4 overflow-y-auto overscroll-contain" onClick={onClose}>
       <div
         className="bg-card border border-border rounded-lg max-w-5xl w-full overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}

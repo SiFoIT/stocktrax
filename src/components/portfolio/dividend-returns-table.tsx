@@ -482,7 +482,7 @@ export function DividendReturnsTable({
 
       {/* ─── Per-Stock Table ─── */}
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full" data-phone-hide="4 6 7">
           <thead>
             <tr className="border-b border-border">
               {headerCell("symbol", "Symbol", "left")}
@@ -506,11 +506,16 @@ export function DividendReturnsTable({
                     onClick={() => setDetailsSymbol(row.holding.symbol)}
                   >
                     <StockIcon symbol={row.holding.symbol} />
-                    <span className="text-[13px] font-semibold text-foreground transition-colors group-hover/sym:text-primary">
-                      {row.holding.symbol}
+                    <span className="flex flex-col items-start">
+                      <span className="text-[13px] font-semibold text-foreground transition-colors group-hover/sym:text-primary">{row.holding.symbol}</span>
+                      {row.holding.shortName && (
+                        <span className="hidden max-w-[110px] truncate text-[11px] font-normal text-subtle-foreground touch:block">
+                          {row.holding.shortName}
+                        </span>
+                      )}
                     </span>
                     {row.holding.shortName && (
-                      <span className="pointer-events-none absolute left-0 -top-9 z-50 hidden group-hover/sym:block whitespace-nowrap rounded-lg bg-popover border border-border px-3 py-1.5 text-xs text-foreground">
+                      <span className="pointer-events-none absolute left-0 -top-9 z-50 hidden group-hover/sym:block touch:hidden! whitespace-nowrap rounded-lg bg-popover border border-border px-3 py-1.5 text-xs text-foreground">
                         {row.holding.shortName}
                       </span>
                     )}

@@ -545,9 +545,9 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-3 justify-between items-center">
+      <div className="flex gap-3 justify-between items-center max-sm:flex-wrap">
         {/* Time Range Buttons */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 max-sm:flex-wrap max-sm:gap-2">
           <div className="inline-flex rounded-md border border-border bg-muted p-0.5">
             {ranges.map((range) => (
               <button

@@ -168,7 +168,7 @@ export function PortfolioDividendTable({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full" data-phone-hide="2 3 4 5 8 10 11 12">
           <thead>
             <tr className="border-b border-border">
               {headerCell("symbol", "Symbol", "left")}
@@ -216,7 +216,7 @@ export function PortfolioDividendTable({
                         </button>
                       </div>
                       {holding.shortName && (
-                        <span className="text-[11px] text-subtle-foreground truncate max-w-[180px]">{holding.shortName}</span>
+                        <span className="text-[11px] text-subtle-foreground truncate max-w-[180px] max-sm:max-w-[90px]">{holding.shortName}</span>
                       )}
                     </div>
                   </div>

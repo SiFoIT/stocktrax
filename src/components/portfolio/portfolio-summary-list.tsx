@@ -128,7 +128,7 @@ export function PortfolioSummaryList({ data, loading }: PortfolioSummaryListProp
     <Panel>
       <PanelHeader title="Portfolios" meta="All values in CAD" right={<NewPortfolioButton />} />
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full" data-phone-hide="4 5 6 7">
           <thead>
             <tr className="border-b border-border">
               <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-left">Portfolio</th>
@@ -160,7 +160,7 @@ export function PortfolioSummaryList({ data, loading }: PortfolioSummaryListProp
                         Created {new Date(portfolio.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </span>
                     </div>
-                    <ArrowUpRight className="ml-1 size-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+                    <ArrowUpRight className="ml-1 size-3.5 opacity-0 transition-opacity group-hover:opacity-100 max-sm:hidden" />
                   </Link>
                 </td>
                 <td className="px-4 py-4 text-right">
@@ -223,7 +223,9 @@ export function PortfolioSummaryList({ data, loading }: PortfolioSummaryListProp
                 <td className="px-4 py-4 text-right">
                   <span className="font-mono font-bold text-foreground/80">100%</span>
                 </td>
-                <td className="px-3.5 py-3" colSpan={2}></td>
+                {/* Two cells, not one colSpan, so phone column hiding stays aligned. */}
+                <td className="px-3.5 py-3"></td>
+                <td className="px-3.5 py-3"></td>
                 <td className="px-4 py-4 text-right">
                   <ReturnCell amount={data.totals.gainLoss} percent={data.totals.gainLossPercent} />
                 </td>

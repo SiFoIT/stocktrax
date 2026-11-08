@@ -23,6 +23,8 @@ interface NavDropdownProps {
   onRename: (id: number, name: string) => void;
   onDelete: (id: number) => void;
   width?: string;
+  /** "above" opens upward as a full-width sheet, for the phone bottom bar. */
+  placement?: "below" | "above";
 }
 
 /**
@@ -42,6 +44,7 @@ export function NavDropdown({
   onRename,
   onDelete,
   width = "w-72",
+  placement = "below",
 }: NavDropdownProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -53,7 +56,7 @@ export function NavDropdown({
 
   return (
     <div
-      className={`absolute top-full left-0 mt-1 ${width} overflow-hidden rounded-md border border-border bg-popover shadow-md z-50`}
+      className={`absolute ${placement === "above" ? "bottom-full inset-x-0 mb-2 w-auto" : `top-full left-0 mt-1 ${width}`} overflow-hidden rounded-md border border-border bg-popover shadow-md z-50`}
     >
       <div className="border-b border-border p-2">
         <form onSubmit={onCreate} className="flex gap-2">
@@ -118,7 +121,7 @@ export function NavDropdown({
                       />
                       {item.name}
                     </span>
-                    <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 touch:opacity-100">
                       <button
                         type="button"
                         aria-label={`Rename ${item.name}`}

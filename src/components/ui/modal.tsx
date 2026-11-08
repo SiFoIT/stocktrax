@@ -3,6 +3,7 @@
 import * as React from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useBodyScrollLock } from "@/lib/hooks/use-body-scroll-lock";
 
 interface ModalProps {
   open?: boolean;
@@ -36,18 +37,14 @@ export function Modal({
   bodyClassName,
   children,
 }: ModalProps) {
+  useBodyScrollLock(open);
   React.useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
   if (!open) return null;
@@ -55,7 +52,7 @@ export function Modal({
   return (
     <div
       className={cn(
-        "fixed inset-0 z-50 flex justify-center overflow-y-auto bg-black/60 px-4 py-6",
+        "fixed inset-0 z-50 flex justify-center overflow-y-auto overscroll-contain bg-black/60 px-4 py-6",
         center ? "items-center" : "items-start"
       )}
       onClick={onClose}

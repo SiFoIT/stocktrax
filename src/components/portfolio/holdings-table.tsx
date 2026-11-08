@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Bell, Plus, Trash2 } from "lucide-react";
+import { Bell, Ellipsis, Plus, Trash2 } from "lucide-react";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
@@ -38,6 +38,10 @@ interface ContextMenu {
   y: number;
   holdingId: number;
 }
+
+/** Columns dropped on phones; the rest fit a 430px screen without sideways scrolling. */
+const PHONE_HIDDEN = new Set<string>(["shares", "avgCost", "price", "port"]);
+// Actions are hidden on phones too; the row's "⋯" button opens the same menu instead.
 
 export function HoldingsTable({
   holdings,
@@ -159,6 +163,18 @@ export function HoldingsTable({
     };
   }, []);
 
+  // Phones have no right-click (iOS never fires contextmenu on long-press), so
+  // the row's "⋯" button opens the menu anchored under itself.
+  const openMenuFromButton = (e: React.MouseEvent<HTMLButtonElement>, holdingId: number) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 180;
+    setContextMenu({
+      x: Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8)),
+      y: rect.bottom + 4,
+      holdingId,
+    });
+  };
+
   const handleContextMenu = (e: React.MouseEvent, holdingId: number) => {
     e.preventDefault();
     setContextMenu({
@@ -196,14 +212,14 @@ export function HoldingsTable({
             ] as const).map(([col, label, align]) => (
               <th
                 key={col}
-                className={`px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-${align} cursor-pointer hover:text-foreground transition-colors select-none`}
+                className={`px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-${align} cursor-pointer hover:text-foreground transition-colors select-none max-sm:px-1 ${PHONE_HIDDEN.has(col) ? "max-sm:hidden" : ""}`}
                 onClick={() => handleSort(col)}
               >
                 {label}
                 <SortIcon direction={sortColumn === col ? sortDirection : null} />
               </th>
             ))}
-            <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-right">Actions</th>
+            <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-right max-sm:hidden">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -213,11 +229,11 @@ export function HoldingsTable({
               className={`border-b border-border transition-colors hover:bg-accent`}
               onContextMenu={(e) => handleContextMenu(e, holding.id)}
             >
-              <td className="px-3.5 py-2.5">
+              <td className="px-3.5 py-2.5 max-sm:px-1">
                 <div className="flex items-center gap-3">
-                  <StockIcon symbol={holding.symbol} />
+                  <span className="contents max-sm:hidden"><StockIcon symbol={holding.symbol} /></span>
                   <div className="flex flex-col items-start">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 max-sm:gap-0.5">
                       <button
                         className="group/sym"
                         onClick={() => setDetailsSymbol(holding.symbol)}
@@ -236,26 +252,34 @@ export function HoldingsTable({
                           <path d="M1 12l4-5 3 3 7-8" />
                         </svg>
                       </button>
+                      <button
+                        type="button"
+                        className="rounded p-0.5 text-subtle-foreground transition-colors hover:bg-accent hover:text-foreground sm:hidden"
+                        onClick={(e) => openMenuFromButton(e, holding.id)}
+                        aria-label={`Actions for ${holding.symbol}`}
+                      >
+                        <Ellipsis className="size-3.5" />
+                      </button>
                     </div>
                     {holding.shortName && (
-                      <span className="text-[11px] text-subtle-foreground truncate max-w-[180px]">{holding.shortName}</span>
+                      <span className="text-[11px] text-subtle-foreground truncate max-w-[180px] max-sm:max-w-[80px]">{holding.shortName}</span>
                     )}
                   </div>
                 </div>
               </td>
-              <td className="px-3.5 py-2.5 text-right">
+              <td className="px-3.5 py-2.5 text-right max-sm:px-1 max-sm:hidden">
                 <span className="font-mono text-foreground">{holding.shares.toLocaleString()}</span>
               </td>
-              <td className="px-3.5 py-2.5 text-right">
+              <td className="px-3.5 py-2.5 text-right max-sm:px-1 max-sm:hidden">
                 <span className="font-mono text-foreground/80">{formatCurrency(holding.avgCost, holding.currency)}</span>
               </td>
-              <td className="px-3.5 py-2.5 text-right">
+              <td className="px-3.5 py-2.5 text-right max-sm:px-1 max-sm:hidden">
                 <span className="font-mono font-semibold text-foreground">{formatCurrency(holding.currentPrice, holding.currency)}</span>
                 {holding.extendedHours && (
                   <ExtendedHoursLabel extendedHours={holding.extendedHours} currency={holding.currency} compact />
                 )}
               </td>
-              <td className="px-3.5 py-2.5 text-right">
+              <td className="px-3.5 py-2.5 text-right max-sm:px-1">
                 {holding.change !== undefined && (
                   <div className="flex flex-col items-end gap-0.5">
                     <span className={`font-mono text-[12.5px] ${getChangeColor(holding.change)}`}>
@@ -267,17 +291,17 @@ export function HoldingsTable({
                   </div>
                 )}
               </td>
-              <td className="px-3.5 py-2.5 text-right">
-                <span className="font-mono font-semibold text-foreground">{formatCurrency(holding.marketValue, holding.currency)}</span>
+              <td className="px-3.5 py-2.5 text-right max-sm:px-1">
+                <span className="font-mono font-semibold text-foreground max-sm:text-[13px]">{formatCurrency(holding.marketValue, holding.currency)}</span>
               </td>
-              <td className="px-3.5 py-2.5 text-right">
+              <td className="px-3.5 py-2.5 text-right max-sm:px-1 max-sm:hidden">
                 {holding.marketValue !== undefined && totalPortfolioValue > 0 && (
                   <span className="font-mono text-foreground/80">
                     {((toCAD(holding.marketValue, holding.currency, usdCadRate) / totalPortfolioValue) * 100).toFixed(1)}%
                   </span>
                 )}
               </td>
-              <td className="px-3.5 py-2.5 text-right">
+              <td className="px-3.5 py-2.5 text-right max-sm:px-1">
                 {holding.gainLoss !== undefined && (
                   <div className="flex flex-col items-end gap-1">
                     <span className={`font-mono text-[12.5px] ${getChangeColor(holding.gainLoss)}`}>
@@ -289,7 +313,7 @@ export function HoldingsTable({
                   </div>
                 )}
               </td>
-              <td className="px-3.5 py-2.5 text-right">
+              <td className="px-3.5 py-2.5 text-right max-sm:hidden">
                 <div className="flex items-center justify-end gap-1">
                   {onOpenAlerts && (
                     <button
@@ -326,6 +350,19 @@ export function HoldingsTable({
           className="fixed z-50 min-w-[140px] rounded-md bg-popover border border-border overflow-hidden"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
+          {onOpenAlerts && (
+            <button
+              className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-accent flex items-center gap-3 transition-colors sm:hidden"
+              onClick={() => {
+                const holding = holdings.find((h) => h.id === contextMenu.holdingId);
+                if (holding) onOpenAlerts(holding.symbol, holding.id);
+                setContextMenu(null);
+              }}
+            >
+              <Bell className="size-4 text-muted-foreground" />
+              Manage Alerts
+            </button>
+          )}
           {onAddTransaction && (
             <button
               className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-accent flex items-center gap-3 transition-colors"

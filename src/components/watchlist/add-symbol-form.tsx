@@ -175,8 +175,8 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
 
   if (compact) {
     return (
-      <form onSubmit={handleSubmit} className="flex gap-2 items-center">
-        <div className="relative w-52 lg:w-64">
+      <form onSubmit={handleSubmit} className="flex gap-2 items-center max-sm:w-full">
+        <div className="relative w-52 lg:w-64 max-sm:w-auto max-sm:flex-1">
           <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle-foreground">
             <Search className="size-3.5" />
           </div>

@@ -45,7 +45,7 @@ export function MarketStatus({ range, onRangeChange, onRefresh, isLoading, updat
                 one advance width across weights, so the pills do not resize as
                 the selection moves.
               */
-              className={`rounded px-2 py-0.5 font-mono text-xs transition-colors ${
+              className={`rounded px-2 py-0.5 font-mono text-xs transition-colors touch:px-2.5 touch:py-1.5 ${
                 active
                   ? "bg-foreground font-semibold text-background"
                   : "font-medium text-muted-foreground hover:bg-accent hover:text-foreground"

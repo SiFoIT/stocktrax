@@ -93,7 +93,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
+    const root = document.documentElement;
+    root.classList.toggle("dark", resolvedTheme === "dark");
+    // Tints the iPhone status bar and Safari's chrome to the page background,
+    // so a dark app doesn't get a white bar when installed to the home screen.
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "theme-color";
+      document.head.appendChild(meta);
+    }
+    meta.content = getComputedStyle(root).getPropertyValue("--background").trim();
   }, [resolvedTheme]);
 
   const setTheme = useCallback((next: ThemePreference) => {

@@ -21,6 +21,7 @@ export function StockIcon({ symbol, size = "md" }: StockIconProps) {
   if (hasError) {
     return (
       <div
+        data-stock-icon
         className="rounded-lg bg-muted flex items-center justify-center"
         style={{ width: pixels, height: pixels }}
       >
@@ -40,6 +41,7 @@ export function StockIcon({ symbol, size = "md" }: StockIconProps) {
       alt={`${symbol} logo`}
       width={pixels}
       height={pixels}
+      data-stock-icon
       className="rounded-lg"
       unoptimized
       onError={() => setHasError(true)}

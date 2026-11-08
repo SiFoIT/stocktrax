@@ -92,7 +92,7 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm" data-phone-hide="2 5 6 7 8 9 10 11 12 13 14 15 16">
             <thead>
               <tr className="border-b border-border">
                 {renderSortHeader("Symbol", "symbol")}

@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { Info } from "lucide-react";
 import { createPortal } from "react-dom";
+
+const isTouch = () => window.matchMedia("(hover: none)").matches;
 
 export function InfoTip({ text }: { text: string }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -21,12 +23,43 @@ export function InfoTip({ text }: { text: string }) {
 
   const hide = useCallback(() => setPos(null), []);
 
+  // Touch screens have no hover, so a tap toggles the tip instead. Mouse users
+  // keep the hover behaviour unchanged.
+  const toggle = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isTouch()) return;
+      e.stopPropagation();
+      if (pos) hide();
+      else show();
+    },
+    [pos, show, hide]
+  );
+
+  // A tip opened by tap closes on the next tap elsewhere or on scroll, since
+  // there is no mouseleave to do it.
+  useEffect(() => {
+    if (!pos || !isTouch()) return;
+    const close = (e: Event) => {
+      if (ref.current && e.target instanceof Node && ref.current.contains(e.target)) return;
+      hide();
+    };
+    document.addEventListener("click", close, true);
+    window.addEventListener("scroll", hide, true);
+    return () => {
+      document.removeEventListener("click", close, true);
+      window.removeEventListener("scroll", hide, true);
+    };
+  }, [pos, hide]);
+
   return (
     <span
       ref={ref}
       className="inline-flex ml-1 align-middle"
-      onMouseEnter={show}
-      onMouseLeave={hide}
+      // iOS fires mouseenter on tap just before click; ignore it there so the
+      // tap toggle is not cancelled out.
+      onMouseEnter={() => !isTouch() && show()}
+      onMouseLeave={() => !isTouch() && hide()}
+      onClick={toggle}
     >
       <Info className="size-3.5 text-subtle-foreground hover:text-foreground transition-colors cursor-help" />
       {pos &&

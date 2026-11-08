@@ -278,14 +278,26 @@ export function TransactionsTable({
               className="w-32 px-2 py-1 text-sm rounded-lg bg-accent border border-border-strong text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           ) : (
-            <span className="text-foreground/80">{formatDate(txn.date)}</span>
+            <span className="text-foreground/80 max-sm:text-xs">
+              {/* Keep "Jan 30," together so a narrow column breaks only before the year. */}
+              {(() => {
+                const date = formatDate(txn.date);
+                const cut = date.lastIndexOf(" ");
+                if (cut < 0) return date;
+                return (
+                  <>
+                    <span className="whitespace-nowrap">{date.slice(0, cut)}</span> {date.slice(cut + 1)}
+                  </>
+                );
+              })()}
+            </span>
           )}
         </td>
         {showSymbol && (
           <td className="px-3.5 py-2.5">
             {isCash ? (
               <div className="flex items-center gap-2">
-                <Coins className="size-3.5 shrink-0 text-subtle-foreground" />
+                <Coins className="size-3.5 shrink-0 text-subtle-foreground max-sm:hidden" />
                 {isEditing ? (
                   <input
                     type="text"
@@ -295,7 +307,7 @@ export function TransactionsTable({
                     className="w-40 px-2 py-1 text-sm rounded-lg bg-accent border border-border-strong text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 ) : (
-                  <span className="text-sm text-foreground/80 truncate max-w-[200px]" title={txn.description}>
+                  <span className="text-sm text-foreground/80 truncate max-w-[200px] max-sm:max-w-[52px]" title={txn.description}>
                     {txn.description}
                   </span>
                 )}
@@ -309,7 +321,7 @@ export function TransactionsTable({
           </td>
         )}
         <td className="px-3.5 py-2.5">
-          <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-medium border ${getTypeBadge(txn.type)}`}>
+          <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-medium border max-sm:px-1 ${getTypeBadge(txn.type)}`}>
             {formatTypeLabel(txn.type)}
           </span>
         </td>
@@ -376,18 +388,18 @@ export function TransactionsTable({
           )}
         </td>
         <td className="px-3.5 py-2.5 text-right">
-          <div className="flex items-center justify-end gap-1">
+          <div className="flex items-center justify-end gap-1 max-sm:gap-0">
             {isEditing ? (
               <>
                 <button
-                  className="text-positive hover:text-positive/80 hover:bg-positive/10 p-2 rounded-lg transition-colors"
+                  className="text-positive hover:text-positive/80 hover:bg-positive/10 p-2 rounded-lg transition-colors max-sm:p-1"
                   onClick={saveEditing}
                   title="Save"
                 >
                   <Check className="size-4" />
                 </button>
                 <button
-                  className="text-subtle-foreground hover:text-foreground hover:bg-accent p-2 rounded-lg transition-colors"
+                  className="text-subtle-foreground hover:text-foreground hover:bg-accent p-2 rounded-lg transition-colors max-sm:p-1"
                   onClick={cancelEditing}
                   title="Cancel"
                 >
@@ -397,7 +409,7 @@ export function TransactionsTable({
             ) : (
               <>
                 <button
-                  className="text-subtle-foreground hover:text-primary hover:bg-primary/10 p-2 rounded-lg transition-colors"
+                  className="text-subtle-foreground hover:text-primary hover:bg-primary/10 p-2 rounded-lg transition-colors max-sm:p-1"
                   onClick={() => startEditing(txn)}
                   title="Edit"
                 >
@@ -406,7 +418,7 @@ export function TransactionsTable({
                   </svg>
                 </button>
                 <button
-                  className="text-subtle-foreground hover:text-negative hover:bg-negative/10 p-2 rounded-lg transition-colors"
+                  className="text-subtle-foreground hover:text-negative hover:bg-negative/10 p-2 rounded-lg transition-colors max-sm:p-1"
                   onClick={() => onDeleteTransaction(txn.kind, txn.id)}
                   title="Delete"
                 >
@@ -562,7 +574,7 @@ export function TransactionsTable({
         </div>
       ) : viewMode === "chronological" ? (
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full" data-phone-hide={editingKey ? undefined : "1 5 6"}>
             {tableHeaders(true, filtered.map(selKey))}
             <tbody>
               {filtered.map((txn, i) => renderRow(txn, i, true))}
@@ -597,7 +609,7 @@ export function TransactionsTable({
                 </button>
                 {!isCollapsed && (
                   <div className="overflow-x-auto">
-                    <table className="w-full">
+                    <table className="w-full" data-phone-hide={editingKey ? undefined : "1 4 5"}>
                       {tableHeaders(false, txns.map(selKey))}
                       <tbody>
                         {txns.map((txn, i) => renderRow(txn, i, false))}

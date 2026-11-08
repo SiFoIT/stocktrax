@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
+/* Touch screens have no hover, so anything revealed on hover must show outright. */
+@custom-variant touch (@media (hover: none));
 
 @theme inline {
   --color-background: var(--background);
@@ -131,5 +133,88 @@
   body {
     @apply bg-background text-foreground;
     font-variant-numeric: tabular-nums;
+  }
+}
+
+/*
+ * Phone-only adjustments. Everything here is scoped to narrow screens or touch
+ * input so the desktop layout is untouched.
+ */
+@media (max-width: 639px) {
+  /*
+   * Wide tables name the columns to drop on phones by position, e.g.
+   * <table data-phone-hide="2 5 6">. Only direct rows match, so nested tables
+   * are left alone. Rows with colSpan cells would shift, so avoid them there.
+   */
+  table[data-phone-hide~="1"] > * > tr > :nth-child(1),
+  table[data-phone-hide~="2"] > * > tr > :nth-child(2),
+  table[data-phone-hide~="3"] > * > tr > :nth-child(3),
+  table[data-phone-hide~="4"] > * > tr > :nth-child(4),
+  table[data-phone-hide~="5"] > * > tr > :nth-child(5),
+  table[data-phone-hide~="6"] > * > tr > :nth-child(6),
+  table[data-phone-hide~="7"] > * > tr > :nth-child(7),
+  table[data-phone-hide~="8"] > * > tr > :nth-child(8),
+  table[data-phone-hide~="9"] > * > tr > :nth-child(9),
+  table[data-phone-hide~="10"] > * > tr > :nth-child(10),
+  table[data-phone-hide~="11"] > * > tr > :nth-child(11),
+  table[data-phone-hide~="12"] > * > tr > :nth-child(12),
+  table[data-phone-hide~="13"] > * > tr > :nth-child(13),
+  table[data-phone-hide~="14"] > * > tr > :nth-child(14),
+  table[data-phone-hide~="15"] > * > tr > :nth-child(15),
+  table[data-phone-hide~="16"] > * > tr > :nth-child(16) {
+    display: none;
+  }
+  /* Their remaining cells get tighter side padding so they fit the width. */
+  table[data-phone-hide] > thead > tr > th,
+  table[data-phone-hide] > tbody > tr > td {
+    padding-left: 0.375rem;
+    padding-right: 0.375rem;
+  }
+  /* Numbers settle at one compact size instead of 14-16px headline figures. */
+  table[data-phone-hide] .font-mono {
+    font-size: 0.8125rem;
+  }
+  /* Logos are decoration; the symbol beside them says the same thing. */
+  table[data-phone-hide] [data-stock-icon] {
+    display: none;
+  }
+  /* Long headings ("Buys (6mo)" plus its info icon) may wrap rather than widen. */
+  table[data-phone-hide] > thead > tr > th {
+    white-space: normal;
+  }
+
+  /* A stray wide element should never let the whole page slide sideways. */
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+
+/*
+ * iOS Safari zooms the page when a field under 16px gets focus. Unlayered, so
+ * it beats text-sm on any input; scoped to phones so desktop keeps 14px.
+ */
+@media (max-width: 639px) and (hover: none) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/*
+ * Keep content clear of the notch and home indicator (viewport-fit=cover).
+ * The insets are 0 everywhere but notched phones, so desktop is unaffected.
+ */
+body {
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+
+/* Phones: room for the fixed bottom tab bar (h-14) in app-header.tsx. */
+@media (max-width: 639px) {
+  body {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
   }
 }

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { ChevronRight, X } from "lucide-react";
 import { PriceChart } from "@/components/charts/price-chart";
 import { formatPercent, getChangeColor } from "@/lib/utils";
+import { useBodyScrollLock } from "@/lib/hooks/use-body-scroll-lock";
 
 interface TimeframeChanges {
   "1D"?: number;
@@ -77,14 +78,7 @@ export function PriceChartModal({
     setCurrentIndex(index);
   }, []);
 
-  // Body scroll lock
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
+  useBodyScrollLock();
 
   // Keyboard navigation
   useEffect(() => {
@@ -131,7 +125,7 @@ export function PriceChartModal({
         {/* Sidebar panel — outside the modal */}
         {panelExpanded && (
           <div
-            className="w-[180px] shrink-0 bg-card border border-border rounded-lg flex flex-col overflow-hidden"
+            className="w-[180px] shrink-0 bg-card border border-border rounded-lg flex flex-col overflow-hidden max-sm:hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Collapse button */}
@@ -181,13 +175,13 @@ export function PriceChartModal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0 max-sm:px-3">
             <div className="flex items-center gap-3">
               {/* Panel toggle (when collapsed) */}
               {!panelExpanded && (
                 <button
                   onClick={togglePanel}
-                  className="flex size-8 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  className="flex size-8 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-colors max-sm:hidden"
                   title="Show stock list"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -233,7 +227,7 @@ export function PriceChartModal({
           </div>
 
           {/* Chart area — full width */}
-          <div className="flex-1 overflow-auto p-5">
+          <div className="flex-1 overflow-auto p-5 max-sm:p-3">
             <PriceChart
               symbol={currentSymbol}
               height={400}

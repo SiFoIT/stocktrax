@@ -13,6 +13,7 @@ import type {
 import { CreateAlertRuleInput } from "@/lib/alerts/api";
 import { ALERT_METRIC_LABELS, ALERT_OPERATOR_LABELS, ALERT_RESET_LABELS, MARKET_METRICS } from "@/lib/alerts/config";
 import { InfoTip } from "@/components/ui/info-tip";
+import { useBodyScrollLock } from "@/lib/hooks/use-body-scroll-lock";
 
 interface AlertsPanelProps {
   open: boolean;
@@ -65,6 +66,8 @@ export function AlertsPanel({
   onDeleteRule,
   onResetRule,
 }: AlertsPanelProps) {
+  // Touch-only: on desktop this overlay never locked the page, so keep it that way.
+  useBodyScrollLock(open, { touchOnly: true });
   const [selectedSource, setSelectedSource] = useState<number | null>(null);
   const [metric, setMetric] = useState<AlertMetric>(scope === "holding" ? "holding_gain_percent" : "daily_change_percent");
   const [operator, setOperator] = useState<AlertOperator>("lte");

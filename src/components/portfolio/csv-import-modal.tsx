@@ -12,6 +12,7 @@ import {
   type ParsedCashTransaction,
 } from "@/lib/import/wealthsimple-parser";
 import { TransactionWithSymbol } from "@/types";
+import { useBodyScrollLock } from "@/lib/hooks/use-body-scroll-lock";
 
 interface CsvImportModalProps {
   portfolioId: number;
@@ -42,6 +43,8 @@ export function CsvImportModal({
   onImportComplete,
   onClose,
 }: CsvImportModalProps) {
+  // Touch-only: on desktop this overlay never locked the page, so keep it that way.
+  useBodyScrollLock(true, { touchOnly: true });
   const [step, setStep] = useState<Step>("institution");
   const [parseResult, setParseResult] = useState<WealthSimpleParseResult | null>(null);
   const [dedupedStock, setDedupedStock] = useState<ParsedStockTransaction[]>([]);

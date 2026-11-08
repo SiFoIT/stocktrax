@@ -146,7 +146,7 @@ export function PortfolioPerformanceTable({
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full" data-phone-hide="2 3 5 6 7 8 10 12">
           <thead>
             <tr className="border-b border-border">
               {headerCell("symbol", "Symbol", "left")}
@@ -200,7 +200,7 @@ export function PortfolioPerformanceTable({
                         </button>
                       </div>
                       {holding.shortName && (
-                        <span className="text-[11px] text-subtle-foreground truncate max-w-[180px]">{holding.shortName}</span>
+                        <span className="text-[11px] text-subtle-foreground truncate max-w-[180px] max-sm:max-w-[90px]">{holding.shortName}</span>
                       )}
                     </div>
                   </div>

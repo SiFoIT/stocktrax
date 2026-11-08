@@ -64,7 +64,7 @@ export function PanelHeader<T extends string>({
       )}
       {children}
       {right !== undefined && (
-        <div className="ml-auto flex items-center gap-3 whitespace-nowrap text-xs text-subtle-foreground">{right}</div>
+        <div className="ml-auto flex items-center gap-3 whitespace-nowrap text-xs text-subtle-foreground max-sm:basis-full max-sm:flex-wrap max-sm:justify-end">{right}</div>
       )}
     </div>
   );

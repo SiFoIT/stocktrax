@@ -7,8 +7,9 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Track your investments with real-time data",
     start_url: "/",
     display: "standalone",
-    background_color: "#0a0a0a",
-    theme_color: "#7c3aed",
+    // Dark --background from globals.css; the app defaults to the dark theme.
+    background_color: "#0c0e12",
+    theme_color: "#0c0e12",
     icons: [
       {
         src: "/icon-192.png",

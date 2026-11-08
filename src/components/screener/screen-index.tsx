@@ -171,7 +171,7 @@ export function ScreenIndex({
           </form>
         }
       />
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
@@ -261,7 +261,7 @@ export function ScreenIndex({
                     )}
                   </td>
                   <td className="px-3.5 py-3">
-                    <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 touch:opacity-100">
                       <button
                         type="button"
                         aria-label={`Run ${screen.name}`}

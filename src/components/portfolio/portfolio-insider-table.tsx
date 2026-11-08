@@ -167,7 +167,7 @@ export function PortfolioInsiderTable({
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full" data-phone-hide="2 3 7 8">
           <thead>
             <tr className="border-b border-border">
               <HeaderCell column="symbol" label="Symbol" align="left" {...sortProps} />
@@ -203,9 +203,16 @@ export function PortfolioInsiderTable({
                         onClick={() => setDetailsSymbol(holding.symbol)}
                       >
                         <StockIcon symbol={holding.symbol} />
-                        <span className="text-[13px] font-semibold text-foreground transition-colors group-hover/sym:text-primary">{holding.symbol}</span>
+                        <span className="flex flex-col items-start">
+                          <span className="text-[13px] font-semibold text-foreground transition-colors group-hover/sym:text-primary">{holding.symbol}</span>
+                          {holding.shortName && (
+                            <span className="hidden max-w-[110px] truncate text-[11px] font-normal text-subtle-foreground touch:block">
+                              {holding.shortName}
+                            </span>
+                          )}
+                        </span>
                         {holding.shortName && (
-                          <span className="pointer-events-none absolute left-0 -top-9 z-50 hidden group-hover/sym:block whitespace-nowrap rounded-lg bg-popover border border-border px-3 py-1.5 text-xs text-foreground">
+                          <span className="pointer-events-none absolute left-0 -top-9 z-50 hidden group-hover/sym:block touch:hidden! whitespace-nowrap rounded-lg bg-popover border border-border px-3 py-1.5 text-xs text-foreground">
                             {holding.shortName}
                           </span>
                         )}

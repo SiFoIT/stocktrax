@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronDown } from "lucide-react";
+import { Bell, Briefcase, ChartLine, ChevronDown, Eye, ListFilter } from "lucide-react";
 import { SettingsMenu } from "@/components/settings/settings-menu";
 import { NavDropdown } from "@/components/layout/nav-dropdown";
 import { Portfolio, Watchlist } from "@/lib/db/schema";
@@ -35,8 +35,8 @@ interface AppHeaderProps {
 
 /**
  * The whole application chrome in one 52px row: wordmark, tabs (three of which
- * carry a list dropdown) and the action buttons. Below `md` the tabs wrap to a
- * second, horizontally scrollable row.
+ * carry a list dropdown) and the action buttons. On phones the tabs move to a
+ * fixed bottom bar and the header keeps just the wordmark and actions.
  */
 export function AppHeader({
   activeTab,
@@ -71,6 +71,7 @@ export function AppHeader({
 
   const [openDropdown, setOpenDropdown] = useState<Tab | null>(null);
   const navRef = useRef<HTMLElement>(null);
+  const mobileNavRef = useRef<HTMLElement>(null);
 
   const [newWatchlistName, setNewWatchlistName] = useState("");
   const [creatingWatchlist, setCreatingWatchlist] = useState(false);
@@ -125,9 +126,11 @@ export function AppHeader({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) {
-        setOpenDropdown(null);
-      }
+      // The desktop tabs and the phone bottom bar each host the dropdowns; a
+      // press inside either one is not "outside".
+      const target = e.target as Node;
+      if (navRef.current?.contains(target) || mobileNavRef.current?.contains(target)) return;
+      setOpenDropdown(null);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -351,23 +354,98 @@ export function AppHeader({
     setOpenDropdown(null);
   };
 
+  /** The list dropdown for a tab; `above` opens it as a sheet over the phone bottom bar. */
+  const dropdownFor = (tab: "watchlist" | "portfolios" | "screens", placement: "below" | "above" = "below") => {
+    switch (tab) {
+      case "watchlist":
+        return (
+      <NavDropdown
+        placement={placement}
+        items={watchlists}
+        selectedId={selectedWatchlistId}
+        emptyLabel="No watchlists yet"
+        createPlaceholder="New watchlist name"
+        creating={creatingWatchlist}
+        newName={newWatchlistName}
+        onNewNameChange={setNewWatchlistName}
+        onCreate={handleCreateWatchlist}
+        onSelect={handleSelectWatchlistItem}
+        onRename={handleRenameWatchlist}
+        onDelete={handleDeleteWatchlist}
+      />
+        );
+      case "portfolios":
+        return (
+      <NavDropdown
+        placement={placement}
+        items={portfolios}
+        selectedId={selectedPortfolioId}
+        emptyLabel="No portfolios yet"
+        createPlaceholder="New portfolio name"
+        creating={creatingPortfolio}
+        newName={newPortfolioName}
+        onNewNameChange={setNewPortfolioName}
+        onCreate={handleCreatePortfolio}
+        onSelect={handleSelectPortfolioItem}
+        onRename={handleRenamePortfolio}
+        onDelete={handleDeletePortfolio}
+        width="w-80"
+      />
+        );
+      case "screens":
+        return (
+      <NavDropdown
+        placement={placement}
+        items={screens}
+        selectedId={selectedScreenId}
+        emptyLabel="No screens yet"
+        createPlaceholder="New screen name"
+        creating={creatingScreen}
+        newName={newScreenName}
+        onNewNameChange={setNewScreenName}
+        onCreate={handleCreateScreen}
+        onSelect={handleSelectScreenItem}
+        onRename={handleRenameScreen}
+        onDelete={handleDeleteScreen}
+      />
+        );
+    }
+  };
+
+  // Phone bottom bar: a tap switches section; tapping the section you're
+  // already on opens its list, since there's no room for a separate chevron.
+  const handleMobileTabClick = (tab: Tab) => {
+    if (tab !== "general" && activeTab === tab) {
+      setOpenDropdown(openDropdown === tab ? null : tab);
+      return;
+    }
+    handleTabClick(tab);
+  };
+
+  const mobileTabs: { tab: Tab; label: string; icon: typeof Bell }[] = [
+    { tab: "general", label: "Markets", icon: ChartLine },
+    { tab: "watchlist", label: "Watchlists", icon: Eye },
+    { tab: "portfolios", label: "Portfolios", icon: Briefcase },
+    { tab: "screens", label: "Screens", icon: ListFilter },
+  ];
+
   const tabClass =
     "flex h-11 items-center border-b-2 border-transparent text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[active=true]:border-primary data-[active=true]:text-foreground";
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
-      <div className="mx-auto flex min-h-[52px] max-w-[1536px] flex-wrap items-center gap-x-7 gap-y-1 px-6">
+      <div className="mx-auto flex min-h-[52px] max-w-[1536px] flex-wrap items-center gap-x-7 gap-y-1 px-6 max-sm:min-h-0 max-sm:gap-y-0 max-sm:px-4 max-sm:pt-[env(safe-area-inset-top)]">
         <button
           type="button"
           onClick={() => handleTabClick("general")}
           aria-label="StockTrax home"
-          className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground"
+          className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground max-sm:h-12"
         >
           <span className="size-2 rounded-[2px] bg-primary" />
           StockTrax
         </button>
 
-        <nav ref={navRef} className="-mb-px flex flex-wrap gap-0.5" aria-label="Sections">
+        <nav ref={navRef} className="-mb-px flex flex-wrap gap-0.5 max-sm:hidden" aria-label="Sections">
           <button type="button" onClick={() => handleTabClick("general")} data-active={activeTab === "general"} className={`${tabClass} shrink-0 px-3`}>
             Markets
           </button>
@@ -386,21 +464,7 @@ export function AppHeader({
                 <ChevronDown className={`size-3.5 transition-transform ${openDropdown === "watchlist" ? "rotate-180" : ""}`} />
               </button>
             </div>
-            {openDropdown === "watchlist" && (
-              <NavDropdown
-                items={watchlists}
-                selectedId={selectedWatchlistId}
-                emptyLabel="No watchlists yet"
-                createPlaceholder="New watchlist name"
-                creating={creatingWatchlist}
-                newName={newWatchlistName}
-                onNewNameChange={setNewWatchlistName}
-                onCreate={handleCreateWatchlist}
-                onSelect={handleSelectWatchlistItem}
-                onRename={handleRenameWatchlist}
-                onDelete={handleDeleteWatchlist}
-              />
-            )}
+            {openDropdown === "watchlist" && dropdownFor("watchlist")}
           </div>
 
           <div className="relative shrink-0">
@@ -417,22 +481,7 @@ export function AppHeader({
                 <ChevronDown className={`size-3.5 transition-transform ${openDropdown === "portfolios" ? "rotate-180" : ""}`} />
               </button>
             </div>
-            {openDropdown === "portfolios" && (
-              <NavDropdown
-                items={portfolios}
-                selectedId={selectedPortfolioId}
-                emptyLabel="No portfolios yet"
-                createPlaceholder="New portfolio name"
-                creating={creatingPortfolio}
-                newName={newPortfolioName}
-                onNewNameChange={setNewPortfolioName}
-                onCreate={handleCreatePortfolio}
-                onSelect={handleSelectPortfolioItem}
-                onRename={handleRenamePortfolio}
-                onDelete={handleDeletePortfolio}
-                width="w-80"
-              />
-            )}
+            {openDropdown === "portfolios" && dropdownFor("portfolios")}
           </div>
 
           <div className="relative shrink-0">
@@ -449,21 +498,7 @@ export function AppHeader({
                 <ChevronDown className={`size-3.5 transition-transform ${openDropdown === "screens" ? "rotate-180" : ""}`} />
               </button>
             </div>
-            {openDropdown === "screens" && (
-              <NavDropdown
-                items={screens}
-                selectedId={selectedScreenId}
-                emptyLabel="No screens yet"
-                createPlaceholder="New screen name"
-                creating={creatingScreen}
-                newName={newScreenName}
-                onNewNameChange={setNewScreenName}
-                onCreate={handleCreateScreen}
-                onSelect={handleSelectScreenItem}
-                onRename={handleRenameScreen}
-                onDelete={handleDeleteScreen}
-              />
-            )}
+            {openDropdown === "screens" && dropdownFor("screens")}
           </div>
         </nav>
 
@@ -473,7 +508,7 @@ export function AppHeader({
               type="button"
               onClick={onOpenAlerts}
               aria-label="Alerts"
-              className={`relative flex size-8 items-center justify-center rounded-md transition-colors ${
+              className={`relative flex size-8 touch:size-10 items-center justify-center rounded-md transition-colors ${
                 hasTriggeredAlerts
                   ? "text-negative hover:bg-negative/10"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -492,6 +527,40 @@ export function AppHeader({
           <SettingsMenu />
         </div>
       </div>
+
+      <nav
+        ref={mobileNavRef}
+        aria-label="Sections"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] sm:hidden"
+      >
+        {openDropdown && openDropdown !== "general" && (
+          <div className="relative mx-4">{dropdownFor(openDropdown, "above")}</div>
+        )}
+        <div className="grid h-14 grid-cols-4">
+          {mobileTabs.map(({ tab, label, icon: Icon }) => {
+            const active = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => handleMobileTabClick(tab)}
+                aria-current={active ? "page" : undefined}
+                className={`flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+                  active ? "text-primary" : "text-muted-foreground"
+                }`}
+              >
+                <span className="flex items-center gap-0.5">
+                  <Icon className="size-5" />
+                  {tab !== "general" && active && (
+                    <ChevronDown className={`size-3 transition-transform ${openDropdown === tab ? "" : "rotate-180"}`} />
+                  )}
+                </span>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </header>
   );
 }

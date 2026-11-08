@@ -59,7 +59,7 @@ export function SettingsMenu() {
       <div className="relative">
         <button
           onClick={() => setOpenMenu(openMenu === "theme" ? null : "theme")}
-          className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex size-8 touch:size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           aria-label={`Theme: ${activeOption.label}`}
           aria-haspopup="menu"
           aria-expanded={openMenu === "theme"}
@@ -111,7 +111,7 @@ export function SettingsMenu() {
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex size-8 touch:size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           aria-label="Settings"
         >
           <Settings className="size-4" />
