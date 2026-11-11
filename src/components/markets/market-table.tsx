@@ -75,15 +75,15 @@ export function MarketTable({
     <section>
       {heading}
       <div className="relative overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full" data-phone>
           <thead>
             <tr className="border-b border-border">
               <th className={`${headerCell} text-left`}>Name</th>
               <th className={`${headerCell} text-right`}>Price</th>
-              <th className={`${headerCell} hidden text-right sm:table-cell`}>{range} Chg</th>
+              <th className={`${headerCell} text-right`}>{range} Chg</th>
               <th className={`${headerCell} text-right`}>{range} %</th>
-              <th className={`${headerCell} hidden text-center sm:table-cell`}>{range} Range</th>
-              <th className={`${headerCell} hidden text-right sm:table-cell`}>Trend</th>
+              <th className={`${headerCell} text-center`}>{range} Range</th>
+              <th className={`${headerCell} text-right`}>Trend</th>
               <th className={`${headerCell} text-right ${onFlip ? "w-16" : "w-10"}`}>
                 <span className="sr-only">Actions</span>
               </th>
@@ -123,7 +123,7 @@ export function MarketTable({
                       <ExtendedHoursLabel extendedHours={data.extendedHours} compact />
                     )}
                   </td>
-                  <td className="hidden px-3 py-2 text-right whitespace-nowrap sm:table-cell">
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
                     <span className={`font-mono text-[12.5px] ${changeColor}`}>
                       {formatMarketChange(data.rangeChange, data.symbol, data.price)}
                     </span>
@@ -133,7 +133,7 @@ export function MarketTable({
                       {formatPercent(data.rangeChangePercent)}
                     </span>
                   </td>
-                  <td className="hidden px-3 py-2 sm:table-cell">
+                  <td className="px-3 py-2">
                     {data.rangeLow !== undefined && data.rangeHigh !== undefined && (
                       <div className="mx-auto w-28">
                         <PriceRangeBar
@@ -146,7 +146,7 @@ export function MarketTable({
                       </div>
                     )}
                   </td>
-                  <td className="hidden px-3 py-2 text-right sm:table-cell">
+                  <td className="px-3 py-2 text-right">
                     <div className="flex justify-end">
                       {data.sparklineData.length >= 2 ? (
                         onChartClick ? (

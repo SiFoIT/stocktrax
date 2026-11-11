@@ -492,7 +492,7 @@ export function TransactionsTable({
   return (
     <div>
       {/* Toolbar: view toggle + selection actions + search + delete all */}
-      <div className="flex items-center justify-between gap-4 mb-4">
+      <div className="flex items-center justify-between gap-4 mb-4 max-sm:flex-wrap max-sm:gap-2">
         <div className="flex items-center gap-3">
           <div className="flex gap-1 p-1 rounded-lg bg-muted border border-border w-fit">
             <button
@@ -537,15 +537,15 @@ export function TransactionsTable({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex items-center gap-3 max-sm:w-full">
+          <div className="relative max-sm:flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-subtle-foreground" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter by symbol, type, or description..."
-              className="w-64 pl-9 pr-8 py-1.5 text-sm rounded-lg bg-muted border border-border text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+              className="w-64 max-sm:w-full pl-9 pr-8 py-1.5 text-sm rounded-lg bg-muted border border-border text-foreground placeholder:text-subtle-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
             />
             {search && (
               <button
@@ -574,7 +574,7 @@ export function TransactionsTable({
         </div>
       ) : viewMode === "chronological" ? (
         <div className="overflow-x-auto">
-          <table className="w-full" data-phone-hide={editingKey ? undefined : "1 5 6"}>
+          <table className="w-full" data-phone data-phone-hide="1" data-phone-sticky="2">
             {tableHeaders(true, filtered.map(selKey))}
             <tbody>
               {filtered.map((txn, i) => renderRow(txn, i, true))}
@@ -609,7 +609,7 @@ export function TransactionsTable({
                 </button>
                 {!isCollapsed && (
                   <div className="overflow-x-auto">
-                    <table className="w-full" data-phone-hide={editingKey ? undefined : "1 4 5"}>
+                    <table className="w-full" data-phone data-phone-hide="1" data-phone-sticky="2">
                       {tableHeaders(false, txns.map(selKey))}
                       <tbody>
                         {txns.map((txn, i) => renderRow(txn, i, false))}

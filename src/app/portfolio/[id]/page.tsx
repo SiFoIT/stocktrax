@@ -916,7 +916,7 @@ export default function PortfolioPage() {
                 )
               ) : holdingsView === "transactions" ? (
                 <div className="space-y-6">
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 max-sm:flex-wrap">
                     <div className="flex-1">
                       <AddTransactionForm
                         portfolioId={portfolioId}

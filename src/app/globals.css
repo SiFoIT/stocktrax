@@ -142,44 +142,40 @@
  */
 @media (max-width: 639px) {
   /*
-   * Wide tables name the columns to drop on phones by position, e.g.
-   * <table data-phone-hide="2 5 6">. Only direct rows match, so nested tables
-   * are left alone. Rows with colSpan cells would shift, so avoid them there.
+   * Wide tables opt into a compact phone layout with data-phone. They keep
+   * every column and scroll sideways inside their panel, with the symbol
+   * column pinned on the left so each row stays identifiable. The pinned
+   * column is the first one, or the one data-phone-sticky names.
    */
-  table[data-phone-hide~="1"] > * > tr > :nth-child(1),
-  table[data-phone-hide~="2"] > * > tr > :nth-child(2),
-  table[data-phone-hide~="3"] > * > tr > :nth-child(3),
-  table[data-phone-hide~="4"] > * > tr > :nth-child(4),
-  table[data-phone-hide~="5"] > * > tr > :nth-child(5),
-  table[data-phone-hide~="6"] > * > tr > :nth-child(6),
-  table[data-phone-hide~="7"] > * > tr > :nth-child(7),
-  table[data-phone-hide~="8"] > * > tr > :nth-child(8),
-  table[data-phone-hide~="9"] > * > tr > :nth-child(9),
-  table[data-phone-hide~="10"] > * > tr > :nth-child(10),
-  table[data-phone-hide~="11"] > * > tr > :nth-child(11),
-  table[data-phone-hide~="12"] > * > tr > :nth-child(12),
-  table[data-phone-hide~="13"] > * > tr > :nth-child(13),
-  table[data-phone-hide~="14"] > * > tr > :nth-child(14),
-  table[data-phone-hide~="15"] > * > tr > :nth-child(15),
-  table[data-phone-hide~="16"] > * > tr > :nth-child(16) {
+  table[data-phone]:not([data-phone-sticky]) > * > tr > :first-child,
+  table[data-phone][data-phone-sticky="2"] > * > tr > :nth-child(2) {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: var(--card);
+    /* A hairline marks where the scrolling columns slide under it. */
+    box-shadow: inset -1px 0 0 var(--border);
+  }
+  /* Columns that make no sense on a phone, by position: data-phone-hide="1". */
+  table[data-phone-hide~="1"] > * > tr > :nth-child(1) {
     display: none;
   }
-  /* Their remaining cells get tighter side padding so they fit the width. */
-  table[data-phone-hide] > thead > tr > th,
-  table[data-phone-hide] > tbody > tr > td {
+  /* Tighter side padding fits more columns per screen. */
+  table[data-phone] > thead > tr > th,
+  table[data-phone] > tbody > tr > td {
     padding-left: 0.375rem;
     padding-right: 0.375rem;
   }
   /* Numbers settle at one compact size instead of 14-16px headline figures. */
-  table[data-phone-hide] .font-mono {
+  table[data-phone] .font-mono {
     font-size: 0.8125rem;
   }
   /* Logos are decoration; the symbol beside them says the same thing. */
-  table[data-phone-hide] [data-stock-icon] {
+  table[data-phone] [data-stock-icon] {
     display: none;
   }
   /* Long headings ("Buys (6mo)" plus its info icon) may wrap rather than widen. */
-  table[data-phone-hide] > thead > tr > th {
+  table[data-phone] > thead > tr > th {
     white-space: normal;
   }
 

@@ -172,7 +172,7 @@ export function ScreenIndex({
         }
       />
       <div className="relative overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full" data-phone>
           <thead>
             <tr className="border-b border-border">
               <th className="px-3.5 py-2 text-left text-[11.5px] font-medium text-muted-foreground">

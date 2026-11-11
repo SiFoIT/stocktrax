@@ -482,7 +482,7 @@ export function DividendReturnsTable({
 
       {/* ─── Per-Stock Table ─── */}
       <div className="overflow-x-auto">
-        <table className="w-full" data-phone-hide="4 6 7">
+        <table className="w-full" data-phone>
           <thead>
             <tr className="border-b border-border">
               {headerCell("symbol", "Symbol", "left")}

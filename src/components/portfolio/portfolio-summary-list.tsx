@@ -128,7 +128,7 @@ export function PortfolioSummaryList({ data, loading }: PortfolioSummaryListProp
     <Panel>
       <PanelHeader title="Portfolios" meta="All values in CAD" right={<NewPortfolioButton />} />
       <div className="overflow-x-auto">
-        <table className="w-full" data-phone-hide="4 5 6 7">
+        <table className="w-full" data-phone>
           <thead>
             <tr className="border-b border-border">
               <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-left">Portfolio</th>

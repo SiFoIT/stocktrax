@@ -23,13 +23,10 @@ interface HeaderCellProps {
   onSort: (column: SortColumn) => void;
 }
 
-/** Columns dropped on phones, leaving symbol, price, day change and actions. */
-const PHONE_HIDDEN = new Set<string>(["5D", "1M", "3M", "1Y", "5Y"]);
-
 function HeaderCell({ column, label, align = "right", sortColumn, sortDirection, onSort }: HeaderCellProps) {
   return (
     <th
-      className={`px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none max-sm:px-1.5 ${align === "left" ? "text-left" : "text-right"} ${PHONE_HIDDEN.has(column) ? "max-sm:hidden" : ""}`}
+      className={`px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none ${align === "left" ? "text-left" : "text-right"}`}
       onClick={() => onSort(column)}
     >
       {label}
@@ -177,17 +174,17 @@ export function WatchlistTable({
   return (
     <>
       <div className="relative overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full" data-phone>
           <thead>
             <tr className="border-b border-border">
               <HeaderCell column="symbol" label="Symbol" align="left" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <HeaderCell column="price" label="Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <HeaderCell column="1D" label="Chg %" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
-              <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-center cursor-pointer hover:text-foreground transition-colors select-none max-sm:hidden" onClick={() => handleSort("dayRange")}>
+              <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-center cursor-pointer hover:text-foreground transition-colors select-none" onClick={() => handleSort("dayRange")}>
                 Day Range
                 <SortIcon direction={sortColumn === "dayRange" ? sortDirection : null} />
               </th>
-              <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-center cursor-pointer hover:text-foreground transition-colors select-none max-sm:hidden" onClick={() => handleSort("52wRange")}>
+              <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-center cursor-pointer hover:text-foreground transition-colors select-none" onClick={() => handleSort("52wRange")}>
                 52W Range
                 <SortIcon direction={sortColumn === "52wRange" ? sortDirection : null} />
               </th>
@@ -196,7 +193,7 @@ export function WatchlistTable({
               <HeaderCell column="3M" label="3M" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <HeaderCell column="1Y" label="1Y" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
               <HeaderCell column="5Y" label="5Y" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
-              <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-right max-sm:px-1.5"><span className="max-sm:sr-only">Actions</span></th>
+              <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -205,9 +202,9 @@ export function WatchlistTable({
                 key={item.id}
                 className={`border-b border-border transition-colors hover:bg-accent`}
               >
-                <td className="px-3 py-4 max-sm:px-1.5">
+                <td className="px-3 py-4">
                   <div className="flex items-center gap-3">
-                    <span className="contents max-sm:hidden"><StockIcon symbol={item.symbol} /></span>
+                    <StockIcon symbol={item.symbol} />
                     <div className="flex flex-col items-start">
                       <div className="flex items-center gap-1.5">
                         <button
@@ -235,9 +232,9 @@ export function WatchlistTable({
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-4 text-right whitespace-nowrap max-sm:px-1.5">
+                <td className="px-3 py-4 text-right whitespace-nowrap">
                   <div>
-                    <span className="font-mono font-semibold text-foreground max-sm:text-[13px]">{formatCurrency(item.price, item.currency)}</span>
+                    <span className="font-mono font-semibold text-foreground">{formatCurrency(item.price, item.currency)}</span>
                     {item.lastTradeTime && (
                       <div className="text-[10px] text-subtle-foreground">{formatTradeTime(item.lastTradeTime)}</div>
                     )}
@@ -251,41 +248,41 @@ export function WatchlistTable({
                     {formatPercent(item.changePercent)}
                   </span>
                 </td>
-                <td className="px-2 py-4 text-center max-sm:hidden">
+                <td className="px-2 py-4 text-center">
                   {item.dayLow && item.dayHigh && item.price ? (
                     <PriceRangeBar low={item.dayLow} current={item.price} high={item.dayHigh} size="sm" />
                   ) : (
                     <span className="text-subtle-foreground">-</span>
                   )}
                 </td>
-                <td className="px-2 py-4 text-center max-sm:hidden">
+                <td className="px-2 py-4 text-center">
                   {item.fiftyTwoWeekLow && item.fiftyTwoWeekHigh && item.price ? (
                     <PriceRangeBar low={item.fiftyTwoWeekLow} current={item.price} high={item.fiftyTwoWeekHigh} size="sm" />
                   ) : (
                     <span className="text-subtle-foreground">-</span>
                   )}
                 </td>
-                <td className="px-2 py-4 text-right max-sm:hidden">
+                <td className="px-2 py-4 text-right">
                   <span className={`font-mono text-[12.5px] ${getChangeColor(item.change5D)}`}>
                     {formatPercent(item.change5D)}
                   </span>
                 </td>
-                <td className="px-2 py-4 text-right max-sm:hidden">
+                <td className="px-2 py-4 text-right">
                   <span className={`font-mono text-[12.5px] ${getChangeColor(item.change1M)}`}>
                     {formatPercent(item.change1M)}
                   </span>
                 </td>
-                <td className="px-2 py-4 text-right max-sm:hidden">
+                <td className="px-2 py-4 text-right">
                   <span className={`font-mono text-[12.5px] ${getChangeColor(item.change3M)}`}>
                     {formatPercent(item.change3M)}
                   </span>
                 </td>
-                <td className="px-2 py-4 text-right max-sm:hidden">
+                <td className="px-2 py-4 text-right">
                   <span className={`font-mono text-[12.5px] ${getChangeColor(item.change1Y)}`}>
                     {formatPercent(item.change1Y)}
                   </span>
                 </td>
-                <td className="px-2 py-4 text-right max-sm:hidden">
+                <td className="px-2 py-4 text-right">
                   <span className={`font-mono text-[12.5px] ${getChangeColor(item.change5Y)}`}>
                     {formatPercent(item.change5Y)}
                   </span>

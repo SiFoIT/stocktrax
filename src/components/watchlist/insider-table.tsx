@@ -162,7 +162,7 @@ export function InsiderTable({
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full" data-phone-hide="2 6 7 8">
+        <table className="w-full" data-phone>
           <thead>
             <tr className="border-b border-border">
               <HeaderCell column="symbol" label="Symbol" align="left" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />

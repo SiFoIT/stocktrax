@@ -39,10 +39,6 @@ interface ContextMenu {
   holdingId: number;
 }
 
-/** Columns dropped on phones; the rest fit a 430px screen without sideways scrolling. */
-const PHONE_HIDDEN = new Set<string>(["shares", "avgCost", "price", "port"]);
-// Actions are hidden on phones too; the row's "⋯" button opens the same menu instead.
-
 export function HoldingsTable({
   holdings,
   totalPortfolioValue,
@@ -197,7 +193,7 @@ export function HoldingsTable({
   return (
     <>
     <div className="overflow-x-auto relative">
-      <table className="w-full">
+      <table className="w-full" data-phone>
         <thead>
           <tr className="border-b border-border">
             {([
@@ -212,14 +208,14 @@ export function HoldingsTable({
             ] as const).map(([col, label, align]) => (
               <th
                 key={col}
-                className={`px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-${align} cursor-pointer hover:text-foreground transition-colors select-none max-sm:px-1 ${PHONE_HIDDEN.has(col) ? "max-sm:hidden" : ""}`}
+                className={`px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-${align} cursor-pointer hover:text-foreground transition-colors select-none`}
                 onClick={() => handleSort(col)}
               >
                 {label}
                 <SortIcon direction={sortColumn === col ? sortDirection : null} />
               </th>
             ))}
-            <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-right max-sm:hidden">Actions</th>
+            <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -229,9 +225,9 @@ export function HoldingsTable({
               className={`border-b border-border transition-colors hover:bg-accent`}
               onContextMenu={(e) => handleContextMenu(e, holding.id)}
             >
-              <td className="px-3.5 py-2.5 max-sm:px-1">
+              <td className="px-3.5 py-2.5">
                 <div className="flex items-center gap-3">
-                  <span className="contents max-sm:hidden"><StockIcon symbol={holding.symbol} /></span>
+                  <StockIcon symbol={holding.symbol} />
                   <div className="flex flex-col items-start">
                     <div className="flex items-center gap-1.5 max-sm:gap-0.5">
                       <button
@@ -267,19 +263,19 @@ export function HoldingsTable({
                   </div>
                 </div>
               </td>
-              <td className="px-3.5 py-2.5 text-right max-sm:px-1 max-sm:hidden">
+              <td className="px-3.5 py-2.5 text-right">
                 <span className="font-mono text-foreground">{holding.shares.toLocaleString()}</span>
               </td>
-              <td className="px-3.5 py-2.5 text-right max-sm:px-1 max-sm:hidden">
+              <td className="px-3.5 py-2.5 text-right">
                 <span className="font-mono text-foreground/80">{formatCurrency(holding.avgCost, holding.currency)}</span>
               </td>
-              <td className="px-3.5 py-2.5 text-right max-sm:px-1 max-sm:hidden">
+              <td className="px-3.5 py-2.5 text-right">
                 <span className="font-mono font-semibold text-foreground">{formatCurrency(holding.currentPrice, holding.currency)}</span>
                 {holding.extendedHours && (
                   <ExtendedHoursLabel extendedHours={holding.extendedHours} currency={holding.currency} compact />
                 )}
               </td>
-              <td className="px-3.5 py-2.5 text-right max-sm:px-1">
+              <td className="px-3.5 py-2.5 text-right">
                 {holding.change !== undefined && (
                   <div className="flex flex-col items-end gap-0.5">
                     <span className={`font-mono text-[12.5px] ${getChangeColor(holding.change)}`}>
@@ -291,17 +287,17 @@ export function HoldingsTable({
                   </div>
                 )}
               </td>
-              <td className="px-3.5 py-2.5 text-right max-sm:px-1">
-                <span className="font-mono font-semibold text-foreground max-sm:text-[13px]">{formatCurrency(holding.marketValue, holding.currency)}</span>
+              <td className="px-3.5 py-2.5 text-right">
+                <span className="font-mono font-semibold text-foreground">{formatCurrency(holding.marketValue, holding.currency)}</span>
               </td>
-              <td className="px-3.5 py-2.5 text-right max-sm:px-1 max-sm:hidden">
+              <td className="px-3.5 py-2.5 text-right">
                 {holding.marketValue !== undefined && totalPortfolioValue > 0 && (
                   <span className="font-mono text-foreground/80">
                     {((toCAD(holding.marketValue, holding.currency, usdCadRate) / totalPortfolioValue) * 100).toFixed(1)}%
                   </span>
                 )}
               </td>
-              <td className="px-3.5 py-2.5 text-right max-sm:px-1">
+              <td className="px-3.5 py-2.5 text-right">
                 {holding.gainLoss !== undefined && (
                   <div className="flex flex-col items-end gap-1">
                     <span className={`font-mono text-[12.5px] ${getChangeColor(holding.gainLoss)}`}>
@@ -313,7 +309,7 @@ export function HoldingsTable({
                   </div>
                 )}
               </td>
-              <td className="px-3.5 py-2.5 text-right max-sm:hidden">
+              <td className="px-3.5 py-2.5 text-right">
                 <div className="flex items-center justify-end gap-1">
                   {onOpenAlerts && (
                     <button

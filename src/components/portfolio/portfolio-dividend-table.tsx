@@ -168,7 +168,7 @@ export function PortfolioDividendTable({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full" data-phone-hide="2 3 4 5 8 10 11 12">
+        <table className="w-full" data-phone>
           <thead>
             <tr className="border-b border-border">
               {headerCell("symbol", "Symbol", "left")}

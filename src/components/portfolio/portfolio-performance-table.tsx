@@ -146,7 +146,7 @@ export function PortfolioPerformanceTable({
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full" data-phone-hide="2 3 5 6 7 8 10 12">
+        <table className="w-full" data-phone>
           <thead>
             <tr className="border-b border-border">
               {headerCell("symbol", "Symbol", "left")}
