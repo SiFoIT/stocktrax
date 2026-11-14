@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cashTxnDedupKey,
+  createCrossFileMerge,
   fromYahooSymbol,
   parseAmount,
   parseMultipleFiles,
@@ -182,5 +183,55 @@ describe("dedup", () => {
     const usd = cashTxnDedupKey("2026-09-03", "deposit", 100, "USD");
     const cad = cashTxnDedupKey("2026-09-03", "deposit", 100, "CAD");
     expect(usd).not.toBe(cad);
+  });
+});
+
+describe("parseMultipleFiles cross-file merge", () => {
+  const STOCK_HEADER = "date,transaction,description,amount,balance,currency";
+  const buy = "2026-09-03,BUY,TD - Toronto-Dominion Bank: Bought 10.0000 shares (executed at 2026-09-03),-800,0,CAD";
+  const cont = "2026-09-04,CONT,Contribution,500,500,CAD";
+
+  it("keeps identical fills within one file", () => {
+    const csv = [STOCK_HEADER, buy, buy, cont, cont].join("\n");
+    const single = parseWealthSimpleCsv(csv);
+    const merged = parseMultipleFiles([{ name: "a.csv", content: csv }]);
+    expect(single.stockTransactions).toHaveLength(2);
+    expect(merged.stockTransactions).toHaveLength(2);
+    expect(merged.cashTransactions).toHaveLength(2);
+    expect(merged.crossFileDuplicates).toBe(0);
+  });
+
+  it("imports a file picked twice once", () => {
+    const csv = [STOCK_HEADER, buy, buy, cont].join("\n");
+    const single = parseWealthSimpleCsv(csv);
+    const merged = parseMultipleFiles([
+      { name: "a.csv", content: csv },
+      { name: "a copy.csv", content: csv },
+    ]);
+    expect(merged.stockTransactions).toHaveLength(single.stockTransactions.length);
+    expect(merged.cashTransactions).toHaveLength(1);
+    expect(merged.crossFileDuplicates).toBe(single.stockTransactions.length + 1);
+  });
+
+  it("takes the multiset max across overlapping files", () => {
+    const monthly = [STOCK_HEADER, cont, cont].join("\n");
+    const ytd = [STOCK_HEADER, "2026-08-01,CONT,Contribution,500,0,CAD", cont, cont, cont].join("\n");
+    const merged = parseMultipleFiles([
+      { name: "sep.csv", content: monthly },
+      { name: "ytd.csv", content: ytd },
+    ]);
+    const sep4 = merged.cashTransactions.filter((t) => t.date.startsWith("2026-09-04"));
+    expect(sep4).toHaveLength(3);
+    expect(merged.cashTransactions).toHaveLength(4);
+  });
+});
+
+describe("createCrossFileMerge", () => {
+  it("keeps the larger per-file count of each key", () => {
+    const merge = createCrossFileMerge<string>((s) => s);
+    expect(merge.add(["a", "a", "b"])).toEqual(["a", "a", "b"]);
+    expect(merge.add(["a", "a", "b", "b", "c"])).toEqual(["b", "c"]);
+    expect(merge.add(["a", "a", "a"])).toEqual(["a"]);
+    expect(merge.dropped()).toBe(5);
   });
 });

@@ -235,9 +235,14 @@ export interface PortfolioSummary {
    * dividends − money put in. Percent is over the money put in (buys and
    * transfers in), so it stays meaningful after large sells.
    */
-  sinceInception: { amount: number; percent: number };
-  /** Money-weighted annualized return (XIRR) over the portfolio's cash flows, in percent. */
-  cagr: number;
+  /** Null when a holding has no quote: the figure would read it as a total loss. */
+  sinceInception: { amount: number; percent: number } | null;
+  /**
+   * Money-weighted annualized return (XIRR) over the portfolio's cash flows,
+   * in percent. Null when it can't be computed (a quote missing, or under a
+   * month of history).
+   */
+  cagr: number | null;
   periodReturns?: Record<string, { amount: number; percent: number }>;
   /**
    * Return since the close of the Friday before the latest completed Mon–Fri
@@ -262,9 +267,9 @@ export interface PortfolioDashboardData {
     todayReturn: number;
     todayReturnPercent: number;
     /** Sum of the portfolios' sinceInception: the Total row of the Inception column. */
-    sinceInception: { amount: number; percent: number };
-    /** Money-weighted annualized return (XIRR) across every portfolio, in percent. */
-    cagr: number;
+    sinceInception: { amount: number; percent: number } | null;
+    /** Money-weighted annualized return (XIRR) across every portfolio, in percent; null when unavailable. */
+    cagr: number | null;
     earliestTransactionDate: string;
     totalDividends?: number;
     totalCash?: number;
@@ -361,3 +366,35 @@ export interface CashTransactionRow {
 }
 
 export type UnifiedTransaction = StockTransactionRow | CashTransactionRow;
+
+/** Money-weighted returns, in percent; null when there isn't enough history. */
+export interface PerformanceReturns {
+  /** Since the last close of the previous year, not annualized. */
+  ytd: number | null;
+  /** Over the last 12 months, not annualized. */
+  oneYear: number | null;
+  /** Since the first deposit, annualized (XIRR). */
+  annualized: number | null;
+}
+
+export interface PerformanceData {
+  /** Last session in the series. */
+  asOf: string;
+  /** First day with any activity. */
+  since: string;
+  /**
+   * One point per session, in CAD: account value (holdings + cash), external
+   * money contributed so far, and what the same deposits would be worth in
+   * each benchmark (null when its history is unavailable).
+   */
+  points: { day: string; value: number; contributed: number; benchmarks: Record<string, number | null> }[];
+  returns: {
+    portfolio: PerformanceReturns;
+    benchmarks: Record<string, PerformanceReturns | null>;
+  };
+  benchmarks: { symbol: string; label: string }[];
+  /** Symbols whose price history was unavailable (valued at their last trade price). */
+  missing: string[];
+  /** True when USD/CAD history was unavailable and today's rate was used throughout. */
+  fxStale: boolean;
+}

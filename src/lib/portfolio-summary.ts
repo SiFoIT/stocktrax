@@ -1,5 +1,5 @@
 import { db, schema } from "@/lib/db";
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { getQuote, getDailyHistory, getDividendInfo } from "@/lib/api/yahoo-finance";
 import type { DailyHistory, QuoteWithRange } from "@/lib/api/yahoo-finance";
 import { addDays, digestWeek, MARKET_TIMEZONE, zonedDateStr } from "@/lib/digest/time";
@@ -12,6 +12,7 @@ import {
   xirr,
   type CashFlow,
 } from "@/lib/returns";
+import { EXTERNAL_CASH_TYPES } from "@/lib/performance-math";
 import { resolveUsdCadRate } from "@/lib/fx";
 import type { PortfolioDashboardData, PortfolioSummary, BreakdownItem } from "@/types";
 import { CACHE_TTL } from "@/lib/config";
@@ -24,14 +25,15 @@ const CACHE_KEY = "PORTFOLIO_SUMMARY_V2";
 const txDay = (date: Date | string | number) => new Date(date).toISOString().slice(0, 10);
 
 /**
- * Drops the cached dashboard so the next read recomputes. Called by the
- * writes that change what the dashboard lists — creating, renaming or
- * deleting a portfolio, and the two imports — and deliberately not by
- * transaction entry: a rebuild is 1 + 5N Yahoo calls for N holdings, and a
- * portfolio's own page shows a new transaction without one.
+ * Drops the cached dashboard so the next read recomputes. Called by every
+ * write that changes a figure in it: portfolios, transactions, cash, holding
+ * deletes and the imports. A rebuild reads quotes, history and dividends from
+ * the shared Yahoo cache, so it costs about one batched quote request.
  */
 export async function invalidatePortfolioSummary(): Promise<void> {
   await db.delete(schema.stockCache).where(eq(schema.stockCache.symbol, CACHE_KEY));
+  // The value chart replays the same ledger.
+  await db.delete(schema.stockCache).where(like(schema.stockCache.symbol, "PERF_V1:%"));
 }
 
 /**
@@ -66,7 +68,7 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
   if (allPortfolios.length === 0) {
     const empty: PortfolioDashboardData = {
       portfolios: [],
-      totals: { marketValue: 0, costBasis: 0, gainLoss: 0, gainLossPercent: 0, todayReturn: 0, todayReturnPercent: 0, sinceInception: { amount: 0, percent: 0 }, cagr: 0, earliestTransactionDate: new Date().toISOString() },
+      totals: { marketValue: 0, costBasis: 0, gainLoss: 0, gainLossPercent: 0, todayReturn: 0, todayReturnPercent: 0, sinceInception: null, cagr: null, earliestTransactionDate: new Date().toISOString() },
       breakdowns: { assetType: [], sector: [], currency: [], topHoldings: [] },
     };
     return empty;
@@ -329,12 +331,31 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
       }
     }
     flows.push({ day: today, amount: marketValue });
-    allFlows.push(...flows);
+
+    // The annualized return is the account's: when the cash ledger records
+    // money coming in from outside, the flows are those deposits (and shares
+    // transferred in) and the end value includes cash, matching the
+    // performance chart. Without a cash ledger it falls back to trades.
+    const pCash = allCashTransactions.filter((c) => c.portfolioId === portfolio.id);
+    const external = pCash.filter((c) => EXTERNAL_CASH_TYPES.has(c.type));
+    let accountFlows = flows;
+    if (external.length > 0) {
+      let cashBalance = pCash.reduce((sum, c) => sum + toCAD(c.amount, c.currency), 0);
+      accountFlows = external.map((c) => ({ day: txDay(c.date), amount: -toCAD(c.amount, c.currency) }));
+      for (const t of pTransactions) {
+        const value = txValueCAD(t);
+        if (t.type === "buy") cashBalance -= value;
+        else if (t.type === "sell" || t.type === "dividend") cashBalance += value;
+        else if (t.type === "transfer_in" && value > 0) accountFlows.push({ day: txDay(t.date), amount: -value });
+      }
+      accountFlows.push({ day: today, amount: marketValue + cashBalance });
+    }
+    allFlows.push(...accountFlows);
     totalPeakInvested += peakInvested;
 
     const sinceInceptionAmount = marketValue - netInvested + totalDividends;
     const sinceInceptionPercent = peakInvested > 0 ? (sinceInceptionAmount / peakInvested) * 100 : 0;
-    const cagr = portfolioMissing ? 0 : xirr(flows) ?? 0;
+    const cagr = portfolioMissing ? null : xirr(accountFlows);
 
     // Compute period returns (5D, 1M, 3M, 1Y)
     const periodReturns: Record<string, { amount: number; percent: number }> = {};
@@ -369,7 +390,13 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
       id: portfolio.id,
       name: portfolio.name,
       currency: portfolio.currency,
-      createdAt: earliestPortfolioTx instanceof Date ? earliestPortfolioTx.toISOString() : new Date(earliestPortfolioTx).toISOString(),
+      // A calendar day at 12:00 UTC, like transaction dates, so it reads as the
+      // same day in every timezone. An empty portfolio uses its creation day
+      // in market time rather than the raw instant.
+      createdAt:
+        pTransactions.length > 0
+          ? (earliestPortfolioTx as Date).toISOString()
+          : `${zonedDateStr(new Date(earliestPortfolioTx), MARKET_TIMEZONE)}T12:00:00.000Z`,
       marketValue,
       costBasis,
       gainLoss,
@@ -378,7 +405,9 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
       todayReturnPercent,
       percentOfTotal: totalMarketValueAll > 0 ? (marketValue / totalMarketValueAll) * 100 : 0,
       yearlyReturns,
-      sinceInception: { amount: sinceInceptionAmount, percent: sinceInceptionPercent },
+      sinceInception: portfolioMissing
+        ? null
+        : { amount: sinceInceptionAmount, percent: sinceInceptionPercent },
       cagr,
       periodReturns,
       ...(weekReturn ? { weekReturn } : {}),
@@ -423,11 +452,12 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
 
   const totalWeekReturn = sumAcross((p) => p.weekReturn, weekDenomTotal);
 
-  const sinceInceptionTotal = portfolioSummaries.reduce((s, p) => s + p.sinceInception.amount, 0);
-  const totalSinceInception = {
-    amount: sinceInceptionTotal,
-    percent: totalPeakInvested > 0 ? (sinceInceptionTotal / totalPeakInvested) * 100 : 0,
-  };
+  const totalSinceInception = portfolioSummaries.some((p) => !p.sinceInception)
+    ? null
+    : (() => {
+        const amount = portfolioSummaries.reduce((s, p) => s + p.sinceInception!.amount, 0);
+        return { amount, percent: totalPeakInvested > 0 ? (amount / totalPeakInvested) * 100 : 0 };
+      })();
 
   // Total dividends across all portfolios (already computed in CAD during per-portfolio loop)
   let allPortfolioDividends = 0;
@@ -439,7 +469,7 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
   }
 
   // Money-weighted annualized return over every portfolio's flows.
-  const cagr = missingSymbols.length > 0 ? 0 : xirr(allFlows) ?? 0;
+  const cagr = missingSymbols.length > 0 ? null : xirr(allFlows);
 
   // Build breakdowns
   // Asset type breakdown

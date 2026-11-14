@@ -14,7 +14,8 @@ interface SearchResult {
 }
 
 interface AddSymbolFormProps {
-  watchlistId: number;
+  /** null when no watchlist is selected: adding is disabled. */
+  watchlistId: number | null;
   onSymbolAdded: () => void;
   compact?: boolean;
 }
@@ -28,24 +29,40 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  // Set when a suggestion fills the input, so that change doesn't search again
+  // and reopen the list under the user's next Enter.
+  const skipNextSearch = useRef(false);
+  // Only the latest search may update the list; slower earlier ones are dropped.
+  const searchRequest = useRef(0);
 
   // Debounced search
   useEffect(() => {
+    if (skipNextSearch.current) {
+      skipNextSearch.current = false;
+      return;
+    }
+    const requestId = ++searchRequest.current;
     if (symbol.length < 1) {
       setSuggestions([]);
+      setSelectedIndex(-1);
       return;
     }
 
     const timer = setTimeout(async () => {
       try {
         const response = await fetch(`/api/search?q=${encodeURIComponent(symbol)}`);
+        if (requestId !== searchRequest.current) return;
         if (response.ok) {
           const data = await response.json();
+          if (requestId !== searchRequest.current) return;
           setSuggestions(data);
+          setSelectedIndex(-1);
           setShowSuggestions(data.length > 0);
         }
       } catch {
+        if (requestId !== searchRequest.current) return;
         setSuggestions([]);
+        setSelectedIndex(-1);
       }
     }, 200);
 
@@ -71,7 +88,9 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!symbol.trim()) return;
+    if (!symbol.trim() || watchlistId === null) return;
+    // A search still in flight must not reopen the list after the add.
+    searchRequest.current++;
 
     setLoading(true);
     setError(null);
@@ -92,8 +111,11 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
         throw new Error(data.error?.[0]?.message || "Failed to add symbol");
       }
 
+      // Clearing the input is not a new search.
+      if (symbol !== "") skipNextSearch.current = true;
       setSymbol("");
       setSuggestions([]);
+      setSelectedIndex(-1);
       onSymbolAdded();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -103,9 +125,13 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
   };
 
   const handleSelectSuggestion = (suggestion: SearchResult) => {
+    // Invalidate any search in flight and skip the one this change triggers.
+    searchRequest.current++;
+    if (suggestion.symbol !== symbol) skipNextSearch.current = true;
     setSymbol(suggestion.symbol);
     setShowSuggestions(false);
     setSuggestions([]);
+    setSelectedIndex(-1);
     inputRef.current?.focus();
   };
 
@@ -118,7 +144,7 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1));
-    } else if (e.key === "Enter" && selectedIndex >= 0) {
+    } else if (e.key === "Enter" && selectedIndex >= 0 && selectedIndex < suggestions.length) {
       e.preventDefault();
       handleSelectSuggestion(suggestions[selectedIndex]);
     } else if (e.key === "Escape") {
@@ -144,7 +170,7 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
   const suggestionsList = showSuggestions && suggestions.length > 0 && (
     <div
       ref={suggestionsRef}
-      className="absolute z-50 w-full mt-2 bg-gray-900/95 border border-border rounded-md max-h-80 overflow-auto"
+      className="absolute z-50 w-full mt-2 bg-popover border border-border rounded-md max-h-80 overflow-auto"
     >
       {suggestions.map((suggestion, index) => (
         <div
@@ -198,7 +224,7 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
         <Button
           type="submit"
           size="sm"
-          disabled={loading}
+          disabled={loading || watchlistId === null}
           className="h-8"
         >
           {loading ? (
@@ -250,7 +276,7 @@ export function AddSymbolForm({ watchlistId, onSymbolAdded, compact = false }: A
           </div>
           <Button
             type="submit"
-            disabled={loading}
+            disabled={loading || watchlistId === null}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {loading ? (

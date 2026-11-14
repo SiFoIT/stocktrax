@@ -3,12 +3,13 @@ import { db, schema } from "@/lib/db";
 import { getNews, getNewsForSymbols } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
 import { CACHE_TTL } from "@/lib/config";
+import { parseNewsLimit } from "./limit";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const symbol = url.searchParams.get("symbol");
   const symbolsParam = url.searchParams.get("symbols");
-  const limit = parseInt(url.searchParams.get("limit") || "5", 10);
+  const limit = parseNewsLimit(url.searchParams.get("limit"));
 
   // Single symbol request
   if (symbol) {
@@ -30,8 +31,9 @@ export async function GET(request: NextRequest) {
     // Fetch fresh data
     const news = await getNews(upperSymbol, limit);
 
-    // Update cache
-    await db
+    // getNews returns [] when Yahoo fails; caching that would hide the news
+    // for the whole TTL, so only a non-empty result is cached.
+    if (news.length > 0) await db
       .insert(schema.stockCache)
       .values({
         symbol: cacheKey,
@@ -84,8 +86,8 @@ export async function GET(request: NextRequest) {
     // Trim to requested limit
     const trimmedNews = news.slice(0, limit);
 
-    // Update cache
-    await db
+    // An empty result may be a failed fetch: don't cache it.
+    if (trimmedNews.length > 0) await db
       .insert(schema.stockCache)
       .values({
         symbol: cacheKey,

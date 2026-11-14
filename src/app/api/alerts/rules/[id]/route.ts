@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/http/body";
 import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { alertMetrics, alertOperators, alertResetStrategies } from "@/lib/alerts/config";
 import { eq } from "drizzle-orm";
+import { shouldClearBaseline } from "./baseline";
 
 const updateSchema = z.object({
   symbol: z.string().min(1).optional(),
@@ -23,7 +25,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
 
-    const data = updateSchema.parse(await request.json());
+    const data = updateSchema.parse(await readJsonBody(request));
+    const existing = await db.query.alertRules.findFirst({ where: eq(schema.alertRules.id, id) });
+    if (!existing) {
+      return NextResponse.json({ error: "Alert rule not found" }, { status: 404 });
+    }
     const set: Record<string, unknown> = { updatedAt: new Date() };
 
     if (data.symbol) set.symbol = data.symbol.toUpperCase();
@@ -32,11 +38,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (data.threshold !== undefined) set.threshold = data.threshold;
     if (data.resetStrategy) set.resetStrategy = data.resetStrategy;
     if (data.anchorValue !== undefined) set.anchorValue = data.anchorValue;
-    // The baseline outranks the anchor when the rule is evaluated, so a new
-    // anchor (or a new reset strategy) must clear it or the edit is ignored.
-    // The evaluator then measures from the anchor and, for a baseline rule,
-    // re-baselines from there.
-    if (data.anchorValue !== undefined || data.resetStrategy !== undefined) {
+    // A changed anchor or reset strategy clears the baseline (it outranks the
+    // anchor); the evaluator then measures from the anchor and, for a
+    // baseline rule, re-baselines from there. Resent unchanged values don't.
+    if (shouldClearBaseline(existing, data)) {
       set.baselineValue = null;
     }
     if (data.cooldownMinutes !== undefined) set.cooldownMinutes = data.cooldownMinutes;

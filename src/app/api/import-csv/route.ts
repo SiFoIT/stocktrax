@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/http/body";
 import { db, schema } from "@/lib/db";
 import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -54,7 +55,7 @@ const importSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const validated = importSchema.parse(body);
 
     // Verify portfolio exists
@@ -112,6 +113,8 @@ export async function POST(request: NextRequest) {
 
     // Filter out rows already stored, counting identical rows so two equal
     // fills on one day both import the first time and neither the second.
+    // Rows arrive already merged across files by parseMultipleFiles, so the
+    // batch itself is never deduped against itself here.
     const { fresh: newStockTxns, duplicates: stockDuplicates } = splitDuplicates(
       validated.stockTransactions,
       existingStockKeys,

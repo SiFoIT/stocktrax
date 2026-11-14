@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, X } from "lucide-react";
+import { Search, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,6 +43,7 @@ export function ScreenEditor({
 }: ScreenEditorProps) {
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
+  const [listsLoaded, setListsLoaded] = useState(false);
   const [customPresets, setCustomPresets] = useState<CustomPresetDTO[]>([]);
   const [savingPreset, setSavingPreset] = useState(false);
   const [presetName, setPresetName] = useState("");
@@ -63,10 +64,12 @@ export function ScreenEditor({
           fetch("/api/watchlists"),
           fetch("/api/portfolios"),
         ]);
+        if (!wRes.ok || !pRes.ok) return;
         setWatchlists(await wRes.json());
         setPortfolios(await pRes.json());
+        setListsLoaded(true);
       } catch {
-        // silent
+        // silent: without the lists a missing source can't be told apart
       }
     };
     fetchData();
@@ -131,6 +134,17 @@ export function ScreenEditor({
     }
   };
 
+  // A source pointing at a list that no longer exists. Without its own option
+  // the select would silently show "All symbols" while the screen still
+  // targets the deleted list.
+  const [sourceKind, sourceId] = source.split(":");
+  const sourceMissing =
+    listsLoaded &&
+    source !== "all" &&
+    !(sourceKind === "watchlist" && watchlists.some((w) => String(w.id) === sourceId)) &&
+    !(sourceKind === "portfolio" && portfolios.some((p) => String(p.id) === sourceId));
+  const missingLabel = sourceKind === "portfolio" ? "Portfolio" : "Watchlist";
+
   return (
     <div className="space-y-4">
       {/* Source + Match row */}
@@ -143,6 +157,9 @@ export function ScreenEditor({
             className="h-9 rounded-lg border border-border bg-muted px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
           >
             <option value="all">All symbols</option>
+            {sourceMissing && (
+              <option value={source}>{missingLabel}: (deleted)</option>
+            )}
             {watchlists.map((w) => (
               <option key={`w-${w.id}`} value={`watchlist:${w.id}`}>
                 Watchlist: {w.name}
@@ -182,6 +199,13 @@ export function ScreenEditor({
           </div>
         </div>
       </div>
+
+      {sourceMissing && (
+        <p role="alert" className="flex items-center gap-2 text-sm text-foreground">
+          <TriangleAlert className="size-4 shrink-0 text-muted-foreground" />
+          The {missingLabel.toLowerCase()} this screen draws from was deleted. Pick another source.
+        </p>
+      )}
 
       {/* Preset templates */}
       <div className="flex items-center gap-2 flex-wrap">

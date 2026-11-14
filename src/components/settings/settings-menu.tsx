@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Check, Database, Info, Mail, Monitor, Moon, Settings, Sliders, Sun } from "lucide-react";
+import { Activity, Check, Database, Info, Mail, Monitor, Moon, Settings, Sliders, Sun } from "lucide-react";
 import { DEFAULT_THEME, useTheme, type ThemePreference } from "@/contexts/theme-context";
 import { GeneralSettingsModal } from "./general-settings-modal";
 import { DataSettingsModal } from "./data-settings-modal";
 import { DigestSettingsModal } from "./digest-settings-modal";
+import { StatusModal } from "@/components/status/status-modal";
 
 const THEME_OPTIONS = [
   { value: "light", label: "Light", Icon: Sun },
@@ -23,6 +24,9 @@ export function SettingsMenu() {
   const [showGeneralSettings, setShowGeneralSettings] = useState(false);
   const [showDataSettings, setShowDataSettings] = useState(false);
   const [showDigestSettings, setShowDigestSettings] = useState(false);
+  const [showStatus, setShowStatus] = useState(false);
+  // Whether the quick status check found an error, for the dot on the menu.
+  const [statusError, setStatusError] = useState(false);
   const { theme, hydrated, resolvedTheme, setTheme } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -35,6 +39,21 @@ export function SettingsMenu() {
     ? THEME_OPTIONS.find((o) => o.value === theme) ?? DEFAULT_OPTION
     : DEFAULT_OPTION;
   const ActiveThemeIcon = activeOption.Icon;
+
+  // The quick variant skips the portfolio summary, so it is a few SQLite reads.
+  useEffect(() => {
+    if (showStatus) return;
+    let cancelled = false;
+    fetch("/api/status?quick=1", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { overall?: string } | null) => {
+        if (!cancelled && body) setStatusError(body.overall === "error");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, showStatus]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -111,10 +130,13 @@ export function SettingsMenu() {
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex size-8 touch:size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          aria-label="Settings"
+          aria-label={statusError ? "Settings (status has errors)" : "Settings"}
+          className="relative flex size-8 touch:size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <Settings className="size-4" />
+          {statusError && (
+            <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-negative" aria-hidden />
+          )}
         </button>
 
         {isOpen && (
@@ -175,6 +197,25 @@ export function SettingsMenu() {
                 </div>
               </button>
 
+              {/* Status */}
+              <button
+                onClick={() => {
+                  setShowStatus(true);
+                  setIsOpen(false);
+                }}
+                className="w-full px-3 py-2.5 rounded-lg hover:bg-accent transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Activity className="size-4 text-muted-foreground" />
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-medium text-foreground">Status</p>
+                    <p className={statusError ? "text-xs text-negative" : "text-xs text-muted-foreground"}>
+                      {statusError ? "Something needs attention" : "Digest, data & backups"}
+                    </p>
+                  </div>
+                </div>
+              </button>
+
               {/* Divider */}
               <div className="my-2 border-t border-border" />
 
@@ -207,6 +248,9 @@ export function SettingsMenu() {
       {showDigestSettings && (
         <DigestSettingsModal onClose={() => setShowDigestSettings(false)} />
       )}
+
+      {/* Status Modal */}
+      {showStatus && <StatusModal onClose={() => setShowStatus(false)} />}
     </div>
   );
 }

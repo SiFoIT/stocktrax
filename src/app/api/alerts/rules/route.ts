@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/http/body";
 import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { alertMetrics, alertOperators, alertResetStrategies, alertScopes } from "@/lib/alerts/config";
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const json = await request.json();
+    const json = await readJsonBody(request);
     const data = createRuleSchema.parse(json);
 
     // A blank anchor means "from today's price", so record that price now.

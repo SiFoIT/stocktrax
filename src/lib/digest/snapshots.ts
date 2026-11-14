@@ -91,3 +91,11 @@ export async function getSnapshotTotals(onOrBefore: string): Promise<SnapshotTot
     costBasis: rows.reduce((sum, row) => sum + row.costBasis, 0),
   };
 }
+
+/** Whether any snapshot row exists for `date`. */
+export async function snapshotsExist(date: string): Promise<boolean> {
+  const row = await db.query.portfolioSnapshots.findFirst({
+    where: eq(schema.portfolioSnapshots.date, date),
+  });
+  return row != null;
+}

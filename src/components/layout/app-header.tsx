@@ -16,7 +16,8 @@ interface AppHeaderProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
   selectedWatchlistId: number | null;
-  onSelectWatchlist: (id: number) => void;
+  /** null when the selected watchlist was deleted and none is left. */
+  onSelectWatchlist: (id: number | null) => void;
   selectedPortfolioId: number | null;
   onSelectPortfolio: (id: number) => void;
   selectedScreenId: number | null;
@@ -28,6 +29,8 @@ interface AppHeaderProps {
    */
   screens?: ScreenDTO[];
   onScreensChange?: (next: ScreenDTO[]) => void;
+  /** Called after a portfolio is renamed or deleted, so the page can refetch. */
+  onPortfoliosChange?: () => void;
   onOpenAlerts?: () => void;
   alertCount?: number;
   hasTriggeredAlerts?: boolean;
@@ -49,6 +52,7 @@ export function AppHeader({
   onSelectScreen,
   screens: screensProp,
   onScreensChange,
+  onPortfoliosChange,
   onOpenAlerts,
   alertCount = 0,
   hasTriggeredAlerts = false,
@@ -69,7 +73,13 @@ export function AppHeader({
     else setOwnScreens(next);
   };
 
-  const [openDropdown, setOpenDropdown] = useState<Tab | null>(null);
+  const [openDropdown, setOpenDropdownState] = useState<Tab | null>(null);
+  // A failed rename/delete, shown in the dropdown it came from.
+  const [navError, setNavError] = useState<{ tab: Tab; message: string } | null>(null);
+  const setOpenDropdown = (tab: Tab | null) => {
+    setNavError(null);
+    setOpenDropdownState(tab);
+  };
   const navRef = useRef<HTMLElement>(null);
   const mobileNavRef = useRef<HTMLElement>(null);
 
@@ -136,6 +146,17 @@ export function AppHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  /** The server's error message for a failed response, or a fallback. */
+  const failureMessage = async (res: Response, fallback: string) => {
+    try {
+      const body = await res.json();
+      if (typeof body?.error === "string") return body.error;
+    } catch {
+      // Not JSON: use the fallback.
+    }
+    return fallback;
+  };
+
   // Watchlist handlers
   const handleCreateWatchlist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,16 +194,19 @@ export function AppHeader({
     if (!confirm("Are you sure you want to delete this watchlist?")) return;
 
     try {
-      await fetch(`/api/watchlists?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/watchlists?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setNavError({ tab: "watchlist", message: await failureMessage(res, "Could not delete the watchlist") });
+        return;
+      }
       setWatchlists((prev) => prev.filter((w) => w.id !== id));
       if (selectedWatchlistId === id) {
+        // The last list going leaves nothing selected rather than a dead id.
         const remaining = watchlists.filter((w) => w.id !== id);
-        if (remaining.length > 0) {
-          onSelectWatchlist(remaining[0].id);
-        }
+        onSelectWatchlist(remaining.length > 0 ? remaining[0].id : null);
       }
     } catch {
-      // silently handle fetch error
+      setNavError({ tab: "watchlist", message: "Could not delete the watchlist" });
     }
   };
 
@@ -190,14 +214,18 @@ export function AppHeader({
     if (!name.trim()) return;
 
     try {
-      await fetch(`/api/watchlists?id=${id}`, {
+      const res = await fetch(`/api/watchlists?id=${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
+      if (!res.ok) {
+        setNavError({ tab: "watchlist", message: await failureMessage(res, "Could not rename the watchlist") });
+        return;
+      }
       setWatchlists((prev) => prev.map((w) => (w.id === id ? { ...w, name } : w)));
     } catch {
-      // silently handle fetch error
+      setNavError({ tab: "watchlist", message: "Could not rename the watchlist" });
     }
   };
 
@@ -230,8 +258,13 @@ export function AppHeader({
     if (!confirm("Are you sure you want to delete this portfolio?")) return;
 
     try {
-      await fetch(`/api/portfolios?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/portfolios?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setNavError({ tab: "portfolios", message: await failureMessage(res, "Could not delete the portfolio") });
+        return;
+      }
       setPortfolios((prev) => prev.filter((p) => p.id !== id));
+      onPortfoliosChange?.();
       if (selectedPortfolioId === id) {
         const remaining = portfolios.filter((p) => p.id !== id);
         if (remaining.length > 0) {
@@ -243,7 +276,7 @@ export function AppHeader({
         window.location.href = "/?tab=portfolios";
       }
     } catch {
-      // silently handle fetch error
+      setNavError({ tab: "portfolios", message: "Could not delete the portfolio" });
     }
   };
 
@@ -251,14 +284,19 @@ export function AppHeader({
     if (!name.trim()) return;
 
     try {
-      await fetch(`/api/portfolios?id=${id}`, {
+      const res = await fetch(`/api/portfolios?id=${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
+      if (!res.ok) {
+        setNavError({ tab: "portfolios", message: await failureMessage(res, "Could not rename the portfolio") });
+        return;
+      }
       setPortfolios((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)));
+      onPortfoliosChange?.();
     } catch {
-      // silently handle fetch error
+      setNavError({ tab: "portfolios", message: "Could not rename the portfolio" });
     }
   };
 
@@ -297,7 +335,7 @@ export function AppHeader({
       // into an unrelated screen.
       if (selectedScreenId === id) onSelectScreen(null);
     } catch {
-      // silently handle fetch error
+      setNavError({ tab: "screens", message: "Could not delete the screen" });
     }
   };
 
@@ -309,7 +347,7 @@ export function AppHeader({
       await updateScreen(id, { name: trimmed });
       setScreens(screens.map((s) => (s.id === id ? { ...s, name: trimmed } : s)));
     } catch {
-      // silently handle fetch error
+      setNavError({ tab: "screens", message: "Could not rename the screen" });
     }
   };
 
@@ -372,6 +410,7 @@ export function AppHeader({
         onSelect={handleSelectWatchlistItem}
         onRename={handleRenameWatchlist}
         onDelete={handleDeleteWatchlist}
+        error={navError?.tab === "watchlist" ? navError.message : null}
       />
         );
       case "portfolios":
@@ -389,6 +428,7 @@ export function AppHeader({
         onSelect={handleSelectPortfolioItem}
         onRename={handleRenamePortfolio}
         onDelete={handleDeletePortfolio}
+        error={navError?.tab === "portfolios" ? navError.message : null}
         width="w-80"
       />
         );
@@ -407,6 +447,7 @@ export function AppHeader({
         onSelect={handleSelectScreenItem}
         onRename={handleRenameScreen}
         onDelete={handleDeleteScreen}
+        error={navError?.tab === "screens" ? navError.message : null}
       />
         );
     }

@@ -188,9 +188,9 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString();
-  };
+  // exportedAt is a real instant, not a calendar day: format it in local time
+  // (utils' formatDate reads its UTC calendar day, a day late west of UTC).
+  const formatInstant = (iso: string) => new Date(iso).toLocaleString();
 
   return (
     <div
@@ -421,7 +421,7 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
 
                   <div className="bg-muted rounded-lg p-3 space-y-2">
                     <p className="text-xs text-muted-foreground">
-                      Backup from: {formatDate(importData.exportedAt)}
+                      Backup from: {formatInstant(importData.exportedAt)}
                     </p>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="flex justify-between">

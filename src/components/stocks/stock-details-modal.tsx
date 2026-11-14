@@ -17,6 +17,12 @@ interface StockDetails {
   longName?: string;
   exchange?: string;
   currency?: string;
+  /**
+   * The currency Yahoo reports statement figures (revenue, EBITDA, cash,
+   * debt, net income) in, which can differ from the trading currency (e.g. a
+   * US listing of a company that files in another currency).
+   */
+  financialCurrency?: string;
   quoteType?: string;
   price?: number;
   change?: number;
@@ -310,6 +316,8 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
         }
       : { label: "Today", change: details?.change, changePercent: details?.changePercent };
   const headlineColor = getChangeColor(headline.changePercent);
+  // Statement figures are reported in the filing currency, not the listing's.
+  const statementCurrency = details?.financialCurrency ?? details?.currency;
   // Width and currency treatment for every price-like figure of this quote.
   const priceCtx = {
     symbol,
@@ -527,10 +535,10 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                 <Section
                   title="Financials"
                 >
-                  <Row label="Revenue" value={formatLargeAmount(details.revenue, details.currency)} />
-                  <Row label="Gross Profit" value={formatLargeAmount(details.grossProfit, details.currency)} />
-                  <Row label="EBITDA" value={formatLargeAmount(details.ebitda, details.currency)} />
-                  <Row label="Net Income" value={formatLargeAmount(details.netIncome, details.currency)} className={getChangeColor(details.netIncome)} />
+                  <Row label="Revenue" value={formatLargeAmount(details.revenue, statementCurrency)} />
+                  <Row label="Gross Profit" value={formatLargeAmount(details.grossProfit, statementCurrency)} />
+                  <Row label="EBITDA" value={formatLargeAmount(details.ebitda, statementCurrency)} />
+                  <Row label="Net Income" value={formatLargeAmount(details.netIncome, statementCurrency)} className={getChangeColor(details.netIncome)} />
                   <Row label="EPS (Trailing)" value={formatPerShare(details.eps, details.currency)} />
                   <Row label="EPS (Forward)" value={formatPerShare(details.forwardEps, details.currency)} />
                 </Section>
@@ -551,8 +559,8 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                 <Section
                   title="Balance Sheet"
                 >
-                  <Row label="Total Cash" value={formatLargeAmount(details.totalCash, details.currency)} className="text-positive" />
-                  <Row label="Total Debt" value={formatLargeAmount(details.totalDebt, details.currency)} className="text-negative" />
+                  <Row label="Total Cash" value={formatLargeAmount(details.totalCash, statementCurrency)} className="text-positive" />
+                  <Row label="Total Debt" value={formatLargeAmount(details.totalDebt, statementCurrency)} className="text-negative" />
                   <Row label="Debt/Equity" value={formatNumber(details.debtToEquity)} className={getRatioColor(details.debtToEquity, 0.5, 2, true)} />
                   <Row label="Current Ratio" value={formatNumber(details.currentRatio)} className={getRatioColor(details.currentRatio, 1, 2, false)} />
                   <Row label="Book Value" value={formatPerShare(details.bookValue, details.currency)} />

@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/http/body";
 import { z } from "zod";
 import {
+  clearSetting,
+  envSetting,
+  envSettingName,
   getDigestConfig,
   getSetting,
-  getSmtpConfig,
   parseRecipients,
+  resolveSetting,
   setSettings,
+  type SettingSource,
 } from "@/lib/settings";
+import { SMTP_FIELDS, smtpWrite, type SmtpField } from "./smtp-fields";
 import { getRecentSends } from "@/lib/digest/send";
 import { loadPortfolioCoverage } from "@/lib/import/coverage";
 import { isReminderEnabled } from "@/lib/digest/import-reminder";
@@ -22,6 +28,8 @@ const settingsSchema = z.object({
       user: z.string().trim().max(255),
       /** Omitted or empty means "keep the stored password". */
       pass: z.string().max(512).optional(),
+      /** Remove the stored password (an env SMTP_PASS still applies). */
+      clearPass: z.boolean().optional(),
       from: z.string().trim().max(255),
       to: z.string().trim().max(2000),
     })
@@ -62,12 +70,28 @@ function isValidTimezone(value: string): boolean {
 
 export async function GET() {
   try {
-    const [config, smtp, recent, coverage] = await Promise.all([
+    const fieldNames = Object.keys(SMTP_FIELDS) as SmtpField[];
+    const [config, fields, pass, recent, coverage] = await Promise.all([
       getDigestConfig(),
-      getSmtpConfig(),
+      Promise.all(
+        fieldNames.map((name) =>
+          resolveSetting<string | number | boolean>(SMTP_FIELDS[name].key, SMTP_FIELDS[name].fallback)
+        )
+      ),
+      resolveSetting("smtp.pass", ""),
       getRecentSends(1),
       loadPortfolioCoverage(),
     ]);
+    const smtp = Object.fromEntries(fieldNames.map((name, i) => [name, fields[i].value]));
+    // Per field: where the value comes from, and the env var behind it, so
+    // the modal can show env values as hints instead of saving them back.
+    const sources = Object.fromEntries(
+      fieldNames.map((name, i) => [name, fields[i].source])
+    ) as Record<SmtpField | "pass", SettingSource>;
+    sources.pass = pass.source;
+    const envNames = Object.fromEntries(
+      [...fieldNames, "pass"].map((name) => [name, envSettingName(`smtp.${name}`) ?? null])
+    );
 
     const [lastDaily, lastWeekly] = await Promise.all([
       getSetting<string | null>("digest.lastSent.daily", null),
@@ -76,14 +100,12 @@ export async function GET() {
 
     return NextResponse.json({
       smtp: {
-        host: smtp.host,
-        port: smtp.port,
-        secure: smtp.secure,
-        user: smtp.user,
+        ...smtp,
+        to: parseRecipients(String(smtp.to)).join(", "),
         // The password is write-only: only its presence is ever reported.
-        hasPassword: smtp.pass.length > 0,
-        from: smtp.from,
-        to: smtp.to.join(", "),
+        hasPassword: pass.value.length > 0,
+        sources,
+        envNames,
       },
       digest: {
         dailyEnabled: config.dailyEnabled,
@@ -111,18 +133,14 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const body = settingsSchema.parse(await request.json());
+    const body = settingsSchema.parse(await readJsonBody(request));
     const updates: Record<string, unknown> = {};
+    const clears: string[] = [];
 
     if (body.smtp) {
-      const { host, port, secure, user, pass, from, to } = body.smtp;
-      if (host !== undefined) updates["smtp.host"] = host;
-      if (port !== undefined) updates["smtp.port"] = port;
-      if (secure !== undefined) updates["smtp.secure"] = secure;
-      if (user !== undefined) updates["smtp.user"] = user;
-      if (from !== undefined) updates["smtp.from"] = from;
-      if (to !== undefined) {
-        const recipients = parseRecipients(to);
+      const { pass, clearPass, ...fields } = body.smtp;
+      if (fields.to !== undefined) {
+        const recipients = parseRecipients(fields.to);
         const invalid = recipients.filter((address) => !address.includes("@"));
         if (invalid.length > 0) {
           return NextResponse.json(
@@ -130,10 +148,25 @@ export async function PUT(request: NextRequest) {
             { status: 400 }
           );
         }
-        updates["smtp.to"] = recipients.join(", ");
+        fields.to = recipients.join(", ");
+      }
+      // The modal sends only the fields the user changed. A value equal to
+      // the env fallback is not stored, so later env changes still apply.
+      for (const name of Object.keys(SMTP_FIELDS) as SmtpField[]) {
+        const value = fields[name];
+        if (value === undefined) continue;
+        const { key, fallback } = SMTP_FIELDS[name];
+        let envValue = envSetting<string | number | boolean>(key, fallback);
+        if (name === "to" && typeof envValue === "string") {
+          envValue = parseRecipients(envValue).join(", ");
+        }
+        const write = smtpWrite(value, envValue);
+        if (write.action === "clear") clears.push(key);
+        else updates[key] = write.value;
       }
       // An empty password field means the user did not retype it.
       if (pass) updates["smtp.pass"] = pass;
+      else if (clearPass) clears.push("smtp.pass");
     }
 
     if (body.digest) {
@@ -162,6 +195,7 @@ export async function PUT(request: NextRequest) {
     }
 
     await setSettings(updates);
+    for (const key of clears) await clearSetting(key);
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) {

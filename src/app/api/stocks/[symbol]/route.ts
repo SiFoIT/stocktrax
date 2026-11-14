@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, schema } from "@/lib/db";
-import { getQuote, getTimeSeries, getHistoricalChanges, getStockDetails, getDividendInfo, getInsiderInfo, getInsiderDetails, getInstitutionalOwnership, TimeSeriesInterval } from "@/lib/api/yahoo-finance";
-import { eq } from "drizzle-orm";
-import { CACHE_TTL } from "@/lib/config";
+import {
+  getQuote,
+  getTimeSeries,
+  getHistoricalChanges,
+  getStockDetails,
+  getDividendInfo,
+  getInsiderInfo,
+  getInsiderDetails,
+  getInstitutionalOwnership,
+  TimeSeriesInterval,
+} from "@/lib/api/yahoo-finance";
 
 /**
- * The yahoo-finance helpers swallow errors and return `[]`, `{}` or an object
- * of empty lists (`{ transactions: [] }`), while a successful fetch always
- * yields bars or its full set of named fields (even if undefined). An empty
- * result is therefore treated as a failure and never cached.
+ * One symbol's data, assembled from the shared Yahoo cache in
+ * `src/lib/market-data/cache.ts`. Each part keeps its own lifetime there
+ * (quote: minutes; history: topped up hourly; fundamentals, dividends and
+ * insider data: half a day or more), so this route holds no cache of its own.
+ * `refresh=true` refetches the quote only: nothing else changes within a
+ * session, and re-downloading years of history per click is what made a
+ * manual refresh cost a hundred Yahoo calls.
  */
-function isEmptyResult(value: unknown[] | object): boolean {
-  if (Array.isArray(value)) return value.length === 0;
-  return Object.values(value).every((v) => Array.isArray(v) && v.length === 0);
-}
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ symbol: string }> }
@@ -23,7 +28,7 @@ export async function GET(
   const upperSymbol = symbol.toUpperCase();
   const url = new URL(request.url);
   const includeTimeSeries = url.searchParams.get("timeseries") === "true";
-  const skipCache = url.searchParams.get("refresh") === "true";
+  const fresh = url.searchParams.get("refresh") === "true";
   const period = (url.searchParams.get("period") || "1y") as "1d" | "5d" | "1mo" | "3mo" | "1y" | "2y" | "3y" | "5y" | "10y";
   const interval = (url.searchParams.get("interval") || "1d") as TimeSeriesInterval;
 
@@ -35,249 +40,33 @@ export async function GET(
   const includeInsiderDetails = url.searchParams.get("insiderDetails") === "true";
   const includeInstitutionalOwnership = url.searchParams.get("institutionalOwnership") === "true";
 
-  // Handle institutional ownership request separately
   if (includeInstitutionalOwnership) {
-    const instCacheKey = `${upperSymbol}_institutional_ownership`;
-
-    if (!skipCache) {
-      const cached = await db.query.stockCache.findFirst({
-        where: eq(schema.stockCache.symbol, instCacheKey),
-      });
-
-      if (cached) {
-        const age = Date.now() - cached.fetchedAt.getTime();
-        if (age < CACHE_TTL.insider) {
-          return NextResponse.json(JSON.parse(cached.data));
-        }
-      }
-    }
-
-    const instData = await getInstitutionalOwnership(upperSymbol);
-
-    if (!isEmptyResult(instData)) await db
-      .insert(schema.stockCache)
-      .values({
-        symbol: instCacheKey,
-        data: JSON.stringify(instData),
-        fetchedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: schema.stockCache.symbol,
-        set: {
-          data: JSON.stringify(instData),
-          fetchedAt: new Date(),
-        },
-      });
-
-    return NextResponse.json(instData);
+    return NextResponse.json(await getInstitutionalOwnership(upperSymbol));
   }
 
-  // Handle insider details request separately
   if (includeInsiderDetails) {
-    const insiderDetailsCacheKey = `${upperSymbol}_insider_details`;
-
-    if (!skipCache) {
-      const cached = await db.query.stockCache.findFirst({
-        where: eq(schema.stockCache.symbol, insiderDetailsCacheKey),
-      });
-
-      if (cached) {
-        const age = Date.now() - cached.fetchedAt.getTime();
-        if (age < CACHE_TTL.insider) {
-          return NextResponse.json(JSON.parse(cached.data));
-        }
-      }
-    }
-
-    const insiderDetailsData = await getInsiderDetails(upperSymbol);
-
-    if (!isEmptyResult(insiderDetailsData)) await db
-      .insert(schema.stockCache)
-      .values({
-        symbol: insiderDetailsCacheKey,
-        data: JSON.stringify(insiderDetailsData),
-        fetchedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: schema.stockCache.symbol,
-        set: {
-          data: JSON.stringify(insiderDetailsData),
-          fetchedAt: new Date(),
-        },
-      });
-
-    return NextResponse.json(insiderDetailsData);
+    return NextResponse.json(await getInsiderDetails(upperSymbol));
   }
 
-  // Handle details request separately (different data structure)
   if (includeDetails) {
-    const detailsCacheKey = `${upperSymbol}_details`;
-
-    if (!skipCache) {
-      const cached = await db.query.stockCache.findFirst({
-        where: eq(schema.stockCache.symbol, detailsCacheKey),
-      });
-
-      if (cached) {
-        const age = Date.now() - cached.fetchedAt.getTime();
-        if (age < CACHE_TTL.stockQuote) {
-          return NextResponse.json(JSON.parse(cached.data));
-        }
-      }
-    }
-
-    const details = await getStockDetails(upperSymbol);
+    const details = await getStockDetails(upperSymbol, { fresh });
     if (!details) {
-      return NextResponse.json(
-        { error: "Failed to fetch stock details" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to fetch stock details" }, { status: 502 });
     }
-
-    await db
-      .insert(schema.stockCache)
-      .values({
-        symbol: detailsCacheKey,
-        data: JSON.stringify(details),
-        fetchedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: schema.stockCache.symbol,
-        set: {
-          data: JSON.stringify(details),
-          fetchedAt: new Date(),
-        },
-      });
-
     return NextResponse.json(details);
   }
 
-  // Only sub-daily intervals are intraday. The longer TTL is for a daily or
-  // weekly chart; every other response is a quote that watchlists, holdings
-  // and alerts read, so it gets the short TTL rather than the `interval`
-  // default of "1d" giving a plain quote an hour.
-  const isIntraday = interval !== "1d" && interval !== "1wk";
-  const isDailyChart = includeTimeSeries && !isIntraday;
+  const [quote, timeSeries, historicalChanges, dividendInfo, insiderInfo] = await Promise.all([
+    getQuote(upperSymbol, includeRange, { fresh }),
+    includeTimeSeries ? getTimeSeries(upperSymbol, period, interval) : undefined,
+    includeChanges ? getHistoricalChanges(upperSymbol) : undefined,
+    includeDividends ? getDividendInfo(upperSymbol) : undefined,
+    includeInsider ? getInsiderInfo(upperSymbol) : undefined,
+  ]);
 
-  // Encode every flag that changes the response shape into the cache key so a
-  // request never receives a cached payload that is missing requested fields
-  // (or, for time series, holds a different period/interval).
-  const keyParts = [upperSymbol];
-  if (includeTimeSeries) keyParts.push(`ts:${period}:${interval}`);
-  if (includeChanges) keyParts.push("ch");
-  if (includeDividends) keyParts.push("dv");
-  if (includeInsider) keyParts.push("in");
-  if (includeRange) keyParts.push("rg");
-  const cacheKey = keyParts.join("_");
-  const cacheTTL = isDailyChart ? CACHE_TTL.stockQuote : CACHE_TTL.stockIntraday;
-
-  // Check cache (skip if refresh requested)
-  if (!skipCache) {
-    const cached = await db.query.stockCache.findFirst({
-      where: eq(schema.stockCache.symbol, cacheKey),
-    });
-
-    if (cached) {
-      const age = Date.now() - cached.fetchedAt.getTime();
-      if (age < cacheTTL) {
-        return NextResponse.json(JSON.parse(cached.data));
-      }
-    }
-  }
-
-  // Fetch fresh data
-  const quote = await getQuote(upperSymbol, includeRange);
   if (!quote) {
-    return NextResponse.json(
-      { error: "Failed to fetch stock data" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch stock data" }, { status: 502 });
   }
 
-  let timeSeries: Awaited<ReturnType<typeof getTimeSeries>> = [];
-  if (includeTimeSeries) {
-    timeSeries = await getTimeSeries(upperSymbol, period, interval);
-  }
-
-  let historicalChanges: Awaited<ReturnType<typeof getHistoricalChanges>> = {};
-  if (includeChanges) {
-    historicalChanges = await getHistoricalChanges(upperSymbol);
-  }
-
-  let dividendInfo: Awaited<ReturnType<typeof getDividendInfo>> = {};
-  if (includeDividends) {
-    dividendInfo = await getDividendInfo(upperSymbol);
-  }
-
-  let insiderInfo: Awaited<ReturnType<typeof getInsiderInfo>> = {};
-  if (includeInsider) {
-    // Check insider-specific cache first (6hr TTL)
-    const insiderCacheKey = `${upperSymbol}_insider`;
-    let insiderCached = false;
-
-    if (!skipCache) {
-      const cached = await db.query.stockCache.findFirst({
-        where: eq(schema.stockCache.symbol, insiderCacheKey),
-      });
-      if (cached) {
-        const age = Date.now() - cached.fetchedAt.getTime();
-        if (age < CACHE_TTL.insider) {
-          insiderInfo = JSON.parse(cached.data);
-          insiderCached = true;
-        }
-      }
-    }
-
-    if (!insiderCached) {
-      insiderInfo = await getInsiderInfo(upperSymbol);
-      if (!isEmptyResult(insiderInfo)) await db
-        .insert(schema.stockCache)
-        .values({
-          symbol: insiderCacheKey,
-          data: JSON.stringify(insiderInfo),
-          fetchedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: schema.stockCache.symbol,
-          set: {
-            data: JSON.stringify(insiderInfo),
-            fetchedAt: new Date(),
-          },
-        });
-    }
-  }
-
-  const data = {
-    quote,
-    timeSeries: includeTimeSeries ? timeSeries : undefined,
-    historicalChanges: includeChanges ? historicalChanges : undefined,
-    dividendInfo: includeDividends ? dividendInfo : undefined,
-    insiderInfo: includeInsider ? insiderInfo : undefined,
-  };
-
-  // A part that came back empty was a failed fetch: serve it, but do not hold
-  // it for the TTL, so the next request retries.
-  const failedPart =
-    (includeTimeSeries && isEmptyResult(timeSeries)) ||
-    (includeChanges && isEmptyResult(historicalChanges)) ||
-    (includeDividends && isEmptyResult(dividendInfo)) ||
-    (includeInsider && isEmptyResult(insiderInfo));
-
-  // Update cache
-  if (!failedPart) await db
-    .insert(schema.stockCache)
-    .values({
-      symbol: cacheKey,
-      data: JSON.stringify(data),
-      fetchedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: schema.stockCache.symbol,
-      set: {
-        data: JSON.stringify(data),
-        fetchedAt: new Date(),
-      },
-    });
-
-  return NextResponse.json(data);
+  return NextResponse.json({ quote, timeSeries, historicalChanges, dividendInfo, insiderInfo });
 }

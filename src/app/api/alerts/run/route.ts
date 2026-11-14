@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/http/body";
 import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
@@ -37,7 +38,7 @@ const payloadSchema = z.discriminatedUnion("scope", [
 
 export async function POST(request: NextRequest) {
   try {
-    const body = payloadSchema.parse(await request.json());
+    const body = payloadSchema.parse(await readJsonBody(request));
     const rules = await db.query.alertRules.findMany({
       where: eq(schema.alertRules.scope, body.scope),
     });

@@ -5,7 +5,7 @@
  * exchange's own timezone, never on raw instants: Yahoo stamps a daily bar at
  * the session open, so comparing instants silently picks the wrong session.
  */
-import { isTradingDay } from "@/lib/markets/calendar";
+import { isTradingDay, isTsxTradingDay } from "@/lib/markets/calendar";
 import { addDays } from "@/lib/digest/time";
 
 /** One daily bar, keyed by the exchange-local trading day. */
@@ -42,10 +42,20 @@ export function splitFactorAfter(splits: Split[], day: string): number {
   return factor;
 }
 
-/** Most recent NYSE session on or before `day`. */
+/**
+ * A day either exchange trades. The portfolio is mostly TSX-listed with some
+ * US holdings, so a US-only holiday (Thanksgiving) is still a session for
+ * most positions, and a Canadian-only one (Canada Day) for the rest. A
+ * symbol closed that day simply carries its previous close.
+ */
+export function isMarketDay(day: string): boolean {
+  return isTradingDay(day) || isTsxTradingDay(day);
+}
+
+/** Most recent session (either exchange) on or before `day`. */
 export function latestSessionOnOrBefore(day: string): string {
   let d = day;
-  for (let i = 0; i < 15 && !isTradingDay(d); i++) d = addDays(d, -1);
+  for (let i = 0; i < 15 && !isMarketDay(d); i++) d = addDays(d, -1);
   return d;
 }
 
@@ -55,7 +65,7 @@ export function sessionsBefore(day: string, n: number): string {
   let left = n;
   while (left > 0) {
     d = addDays(d, -1);
-    if (isTradingDay(d)) left--;
+    if (isMarketDay(d)) left--;
   }
   return d;
 }

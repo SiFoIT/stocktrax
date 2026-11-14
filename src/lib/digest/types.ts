@@ -114,7 +114,8 @@ export interface DigestAllTime {
   percent: number;
   /** "Mar 2021" — the month of the earliest transaction. */
   sinceLabel: string;
-  cagr: number;
+  /** Money-weighted annualized return; null when it can't be computed. */
+  cagr: number | null;
   years: number;
 }
 

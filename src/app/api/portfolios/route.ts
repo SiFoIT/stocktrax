@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/http/body";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -18,7 +19,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const validated = createPortfolioSchema.parse(body);
 
     const [portfolio] = await db
@@ -55,7 +56,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const validated = updatePortfolioSchema.parse(body);
 
     const [updated] = await db
@@ -63,6 +64,9 @@ export async function PATCH(request: NextRequest) {
       .set({ name: validated.name })
       .where(eq(schema.portfolios.id, parseInt(id)))
       .returning();
+    if (!updated) {
+      return NextResponse.json({ error: "Portfolio not found" }, { status: 404 });
+    }
 
     await invalidatePortfolioSummary();
 

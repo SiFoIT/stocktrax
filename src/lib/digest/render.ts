@@ -471,7 +471,7 @@ function renderWeeklyHtml(data: WeeklyDigestData, options: RenderOptions): strin
       amount
     )};">${gain}</span> since ${escapeHtml(
       sinceLabel
-    )} &nbsp;·&nbsp; ${percent(cagr).replace("+", "")} a year annualized</td></tr>`;
+    )}${cagr == null ? "" : ` &nbsp;·&nbsp; ${percent(cagr).replace("+", "")} a year annualized`}</td></tr>`;
   }
 
   const portfolio = portfolioLine(data, "Portfolio · this week", options, allTimeRow);
@@ -751,7 +751,9 @@ function renderWeeklyText(data: WeeklyDigestData, options: RenderOptions): strin
       ? `${signedMoney(data.allTime.amount)} (${percent(data.allTime.percent)})`
       : percent(data.allTime.percent);
     lines.push(
-      `  All time ${gain} since ${data.allTime.sinceLabel} · ${percent(data.allTime.cagr).replace("+", "")} a year annualized`,
+      `  All time ${gain} since ${data.allTime.sinceLabel}${
+        data.allTime.cagr == null ? "" : ` · ${percent(data.allTime.cagr).replace("+", "")} a year annualized`
+      }`,
       ""
     );
   }

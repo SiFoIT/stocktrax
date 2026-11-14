@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/http/body";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -50,7 +51,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const validated = createScreenSchema.parse(body);
 
     const [screen] = await db
@@ -80,7 +81,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const validated = updateScreenSchema.parse(body);
 
     const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -89,11 +90,19 @@ export async function PATCH(request: NextRequest) {
     if (validated.rules !== undefined) updates.rules = JSON.stringify(validated.rules);
     if (validated.match !== undefined) updates.match = validated.match;
 
+    const screenId = Number(id);
+    if (!Number.isInteger(screenId)) {
+      return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    }
+
     const [updated] = await db
       .update(schema.screens)
       .set(updates)
-      .where(eq(schema.screens.id, parseInt(id)))
+      .where(eq(schema.screens.id, screenId))
       .returning();
+    if (!updated) {
+      return NextResponse.json({ error: "Screen not found" }, { status: 404 });
+    }
 
     return NextResponse.json(formatScreen(updated));
   } catch (error) {

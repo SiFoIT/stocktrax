@@ -48,3 +48,6 @@ next-env.d.ts
 # claude code
 .claude/*
 !.claude/launch.json
+
+# Scheduled and manual backups hold the full portfolio data
+/data/backups/

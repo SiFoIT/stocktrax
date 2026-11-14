@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/http/body";
 import { getMarketSections, setMarketSections } from "@/lib/settings";
 import { marketSectionsSchema } from "@/lib/markets/symbols";
 import { CATALOG, SECTION_CAP } from "@/lib/markets/catalog";
@@ -18,7 +19,7 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const parsed = marketSectionsSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(

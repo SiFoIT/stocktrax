@@ -1,4 +1,5 @@
 import { StockTimeSeries } from "@/types";
+import { addMonths } from "@/lib/returns";
 
 /** Longer than any intraday pause, shorter than an overnight break. */
 const SESSION_GAP_MS = 90 * 60 * 1000;
@@ -105,11 +106,15 @@ function extremes(points: Point[]): Pick<SparklineWindow, "low" | "high"> {
   return { low, high };
 }
 
-/** Where a window covering the last `months` calendar months starts. */
+/**
+ * Where a window covering the last `months` calendar months starts. The day
+ * clamps to the target month's last day, so Mar 30 minus one month is Feb 28
+ * (not Mar 2, which setUTCMonth would overflow to). Time of day is kept.
+ */
 export function monthsBefore(now: Date, months: number): number {
-  const start = new Date(now.getTime());
-  start.setUTCMonth(start.getUTCMonth() - months);
-  return start.getTime();
+  const day = now.toISOString().slice(0, 10);
+  const timeOfDay = now.getTime() - Date.parse(`${day}T00:00:00Z`);
+  return Date.parse(`${addMonths(day, -months)}T00:00:00Z`) + timeOfDay;
 }
 
 /**

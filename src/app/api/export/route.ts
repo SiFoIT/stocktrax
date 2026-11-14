@@ -1,24 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import {
-  portfolios,
-  holdings,
-  transactions,
-  cashTransactions,
-  watchlists,
-  watchlistItems,
-  portfolioSnapshots,
-  alertRules,
-  alerts,
-  screens,
-  screenPresets,
-  settings as settingsTable,
-} from "@/lib/db/schema";
-import {
-  BACKUP_VERSION,
-  BackupData,
-  EXCLUDED_SETTING_KEYS,
-} from "@/lib/backup/settings-registry";
+import { BackupData } from "@/lib/backup/settings-registry";
+import { backupFilename, buildBackup } from "@/lib/backup/build";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 
@@ -28,72 +10,20 @@ export async function GET(request: NextRequest) {
     const destination = url.searchParams.get("destination");
     const settingsParam = url.searchParams.get("settings");
 
-    // Query all user data tables
-    const [
-      portfoliosData,
-      holdingsData,
-      transactionsData,
-      cashTransactionsData,
-      watchlistsData,
-      watchlistItemsData,
-      snapshotsData,
-      alertRulesData,
-      alertsData,
-      screensData,
-      screenPresetsData,
-      serverSettingsData,
-    ] = await Promise.all([
-      db.select().from(portfolios),
-      db.select().from(holdings),
-      db.select().from(transactions),
-      db.select().from(cashTransactions),
-      db.select().from(watchlists),
-      db.select().from(watchlistItems),
-      db.select().from(portfolioSnapshots),
-      db.select().from(alertRules),
-      db.select().from(alerts),
-      db.select().from(screens),
-      db.select().from(screenPresets),
-      db.select().from(settingsTable),
-    ]);
-
     // Parse settings from query param (passed from client)
-    let settings: BackupData["settings"] = {
-      theme: null,
-      defaultTab: null,
-      chartPreferences: {},
-    };
+    let clientSettings: BackupData["settings"] | undefined;
     if (settingsParam) {
       try {
-        settings = JSON.parse(settingsParam);
+        clientSettings = JSON.parse(settingsParam);
       } catch {
         // Use defaults if parsing fails
       }
     }
 
-    const backup: BackupData = {
-      version: BACKUP_VERSION,
-      exportedAt: new Date().toISOString(),
-      data: {
-        portfolios: portfoliosData,
-        holdings: holdingsData,
-        transactions: transactionsData,
-        cashTransactions: cashTransactionsData,
-        watchlists: watchlistsData,
-        watchlistItems: watchlistItemsData,
-        portfolioSnapshots: snapshotsData,
-        alertRules: alertRulesData,
-        alerts: alertsData,
-        screens: screensData,
-        screenPresets: screenPresetsData,
-      },
-      settings,
-      serverSettings: serverSettingsData
-        .filter((row) => !EXCLUDED_SETTING_KEYS.includes(row.key as (typeof EXCLUDED_SETTING_KEYS)[number]))
-        .map((row) => ({ key: row.key, value: row.value })),
-    };
-
+    const now = new Date();
+    const backup = await buildBackup({ clientSettings, now });
     const jsonContent = JSON.stringify(backup, null, 2);
+    const filename = backupFilename(now);
 
     // Handle iCloud destination
     if (destination === "icloud") {
@@ -115,8 +45,6 @@ export async function GET(request: NextRequest) {
         mkdirSync(icloudPath, { recursive: true });
       }
 
-      const date = new Date().toISOString().split("T")[0];
-      const filename = `stocktrax-backup-${date}.json`;
       const filepath = join(icloudPath, filename);
 
       writeFileSync(filepath, jsonContent, "utf-8");
@@ -129,9 +57,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Default: return as downloadable file
-    const date = new Date().toISOString().split("T")[0];
-    const filename = `stocktrax-backup-${date}.json`;
-
     return new NextResponse(jsonContent, {
       headers: {
         "Content-Type": "application/json",

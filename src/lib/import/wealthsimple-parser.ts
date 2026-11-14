@@ -51,6 +51,12 @@ export interface WealthSimpleParseResult {
    * skipped rows still counts as imported.
    */
   coveredThrough: string | null;
+  /**
+   * Rows dropped by parseMultipleFiles because another file of the same
+   * upload already carried them (overlapping monthly and YTD exports, or the
+   * same file picked twice). Absent for a single-file parse.
+   */
+  crossFileDuplicates?: number;
 }
 
 // WS types we intentionally skip
@@ -480,15 +486,24 @@ export function parseMultipleFiles(
     coveredThrough: null,
   };
 
+  const stockMerge = createCrossFileMerge<ParsedStockTransaction>((t) =>
+    `${stockTxnDedupKey(t.date, t.symbol, t.type, t.shares, t.price)}|${t.currency}`
+  );
+  const cashMerge = createCrossFileMerge<ParsedCashTransaction>((t) =>
+    cashTxnDedupKey(t.date, t.type, t.amount, t.currency)
+  );
+
   for (const file of files) {
     const result = parseWealthSimpleCsv(file.content, file.name);
-    merged.stockTransactions.push(...result.stockTransactions);
-    merged.cashTransactions.push(...result.cashTransactions);
+    merged.stockTransactions.push(...stockMerge.add(result.stockTransactions));
+    merged.cashTransactions.push(...cashMerge.add(result.cashTransactions));
     merged.skipped.push(...result.skipped);
     merged.unrecognized.push(...result.unrecognized);
     merged.errors.push(...result.errors);
     merged.coveredThrough = laterDate(merged.coveredThrough, result.coveredThrough);
   }
+
+  merged.crossFileDuplicates = stockMerge.dropped() + cashMerge.dropped();
 
   // Sort by date ascending
   merged.stockTransactions.sort(
@@ -499,6 +514,42 @@ export function parseMultipleFiles(
   );
 
   return merged;
+}
+
+/**
+ * Merge rows from several files of one upload as a multiset maximum.
+ *
+ * Within one file identical rows are separate trades and are all kept. Across
+ * files a row is the same transaction seen twice (a monthly export plus a YTD
+ * export, or one file picked twice), so for each key the merged batch holds as
+ * many rows as the file with the most of them: 2 in file A and 2 in file B
+ * gives 2, while 1 in A and 3 in B gives 3.
+ *
+ * `add` takes one file's rows and returns the ones not already covered by the
+ * files added before it.
+ */
+export function createCrossFileMerge<T>(keyOf: (row: T) => string) {
+  const kept = new Map<string, number>();
+  let dropped = 0;
+  return {
+    add(rows: T[]): T[] {
+      const seenInFile = new Map<string, number>();
+      const fresh: T[] = [];
+      for (const row of rows) {
+        const key = keyOf(row);
+        const nth = (seenInFile.get(key) ?? 0) + 1;
+        seenInFile.set(key, nth);
+        if (nth > (kept.get(key) ?? 0)) {
+          kept.set(key, nth);
+          fresh.push(row);
+        } else {
+          dropped++;
+        }
+      }
+      return fresh;
+    },
+    dropped: () => dropped,
+  };
 }
 
 /**

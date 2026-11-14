@@ -68,7 +68,30 @@ function coerceEnv<T>(raw: string, fallback: T): T {
   return raw as T;
 }
 
-export async function getSetting<T>(key: string, fallback: T): Promise<T> {
+/** Where a setting's effective value came from. */
+export type SettingSource = "db" | "env" | "default";
+
+/**
+ * The env fallback for `key`, coerced to the default's type, or undefined
+ * when the key has no env var or it is unset/empty.
+ */
+export function envSetting<T>(key: string, fallback: T): T | undefined {
+  const envName = ENV_FALLBACK[key];
+  const envValue = envName ? process.env[envName] : undefined;
+  if (envValue === undefined || envValue === "") return undefined;
+  return coerceEnv(envValue, fallback);
+}
+
+/** The env var name behind `key`, if it has one. */
+export function envSettingName(key: string): string | undefined {
+  return ENV_FALLBACK[key];
+}
+
+/** A setting's effective value and whether it came from the DB, env or default. */
+export async function resolveSetting<T>(
+  key: string,
+  fallback: T
+): Promise<{ value: T; source: SettingSource }> {
   const row = await db.query.settings.findFirst({
     where: eq(schema.settings.key, key),
   });
@@ -77,19 +100,27 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
     try {
       const parsed = JSON.parse(row.value) as T;
       // An empty stored string means "not configured", so fall through to env.
-      if (parsed !== "" && parsed !== null && parsed !== undefined) return parsed;
+      if (parsed !== "" && parsed !== null && parsed !== undefined) {
+        return { value: parsed, source: "db" };
+      }
     } catch {
       // Corrupt row: fall through to env, then the default.
     }
   }
 
-  const envName = ENV_FALLBACK[key];
-  const envValue = envName ? process.env[envName] : undefined;
-  if (envValue !== undefined && envValue !== "") {
-    return coerceEnv(envValue, fallback);
-  }
+  const env = envSetting(key, fallback);
+  if (env !== undefined) return { value: env, source: "env" };
 
-  return fallback;
+  return { value: fallback, source: "default" };
+}
+
+export async function getSetting<T>(key: string, fallback: T): Promise<T> {
+  return (await resolveSetting(key, fallback)).value;
+}
+
+/** Remove a stored setting so it falls back to env, then the default. */
+export async function clearSetting(key: string): Promise<void> {
+  await db.delete(schema.settings).where(eq(schema.settings.key, key));
 }
 
 export async function setSetting(key: string, value: unknown): Promise<void> {

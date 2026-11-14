@@ -5,6 +5,7 @@ import { ChevronDown, Filter, SearchX } from "lucide-react";
 import { METRICS, formatMetricValue, metricHeading, type ScreenRule } from "@/lib/screener/metrics";
 import type { ScreenResult } from "@/lib/screener/api";
 import { cn, getChangeColor } from "@/lib/utils";
+import { compareMissingLast } from "./sort";
 
 interface ScreenResultsProps {
   results: ScreenResult[] | null;
@@ -51,9 +52,7 @@ export function ScreenResults({ results, rules, totalScanned, matchCount }: Scre
     else if (sortKey === "changePercent") { aVal = a.changePercent; bVal = b.changePercent; }
     else { aVal = a.metricValues[sortKey]; bVal = b.metricValues[sortKey]; }
 
-    const aNum = aVal ?? -Infinity;
-    const bNum = bVal ?? -Infinity;
-    return sortDir === "asc" ? aNum - bNum : bNum - aNum;
+    return compareMissingLast(aVal, bVal, sortDir);
   });
 
   const renderSortHeader = (label: string, sortKeyName: string) => (

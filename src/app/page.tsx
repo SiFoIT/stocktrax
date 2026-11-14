@@ -157,10 +157,17 @@ export default function Dashboard() {
     setWatchlistHistory(data);
   }, []);
 
+  // Bumped by every fetch (and by deselecting), so a slow response for a list
+  // the user has already switched away from is dropped instead of shown.
+  const watchlistRequest = useRef(0);
+
   const fetchWatchlistItems = useCallback(async (watchlistId: number, refresh = false) => {
+    const requestId = ++watchlistRequest.current;
+    const isCurrent = () => requestId === watchlistRequest.current;
     setWatchlistLoading(true);
     try {
       const response = await fetch(`/api/watchlist?watchlistId=${watchlistId}`);
+      if (!response.ok) throw new Error("Failed to load watchlist");
       const items: WatchlistItem[] = await response.json();
 
       // Fetch quotes, historical changes, dividend info, and price ranges for each item
@@ -217,16 +224,18 @@ export default function Dashboard() {
         })
       );
 
+      if (!isCurrent()) return;
       setWatchlistItems(itemsWithQuotes);
       setWatchlistUpdatedAt(new Date());
       const triggered = await triggerWatchlistAlerts(itemsWithQuotes);
+      if (!isCurrent()) return;
       setWatchlistAlerts(triggered);
       if (triggered.length > 0) {
         refreshAlertHistory();
       }
     } catch {
     } finally {
-      setWatchlistLoading(false);
+      if (isCurrent()) setWatchlistLoading(false);
     }
   }, [refreshAlertHistory]);
 
@@ -257,6 +266,14 @@ export default function Dashboard() {
   useEffect(() => {
     if (selectedWatchlistId) {
       fetchWatchlistItems(selectedWatchlistId);
+    } else {
+      // No list selected (e.g. the last one was deleted): drop the old
+      // list's rows and invalidate any fetch still in flight for it.
+      watchlistRequest.current++;
+      setWatchlistItems([]);
+      setWatchlistAlerts([]);
+      setWatchlistNews([]);
+      setWatchlistLoading(false);
     }
   }, [selectedWatchlistId, fetchWatchlistItems]);
 
@@ -302,31 +319,34 @@ export default function Dashboard() {
     }
   }, [selectedScreenId, screens]);
 
+  const newsRequest = useRef(0);
   const fetchWatchlistNews = useCallback(async () => {
+    const requestId = ++newsRequest.current;
     if (watchlistItems.length === 0) {
       setWatchlistNews([]);
+      setNewsLoading(false);
       return;
     }
 
     setNewsLoading(true);
     try {
       const symbols = watchlistItems.map((item) => item.symbol).join(",");
-      const response = await fetch(`/api/news?symbols=${symbols}&limit=20`);
-      if (response.ok) {
-        const data = await response.json();
-        setWatchlistNews(data);
-      }
+      const response = await fetch(`/api/news?symbols=${encodeURIComponent(symbols)}&limit=20`);
+      const data = response.ok ? await response.json() : [];
+      if (requestId === newsRequest.current) setWatchlistNews(data);
     } catch {
+      if (requestId === newsRequest.current) setWatchlistNews([]);
     } finally {
-      setNewsLoading(false);
+      if (requestId === newsRequest.current) setNewsLoading(false);
     }
   }, [watchlistItems]);
 
+  // Runs for an empty list too, so switching to one clears the old articles.
   useEffect(() => {
-    if (watchlistView === "news" && watchlistItems.length > 0) {
+    if (watchlistView === "news") {
       fetchWatchlistNews();
     }
-  }, [watchlistView, watchlistItems.length, fetchWatchlistNews]);
+  }, [watchlistView, fetchWatchlistNews]);
 
   const handleRemoveSymbol = async (id: number) => {
     try {
@@ -414,6 +434,9 @@ export default function Dashboard() {
         onSelectScreen={setSelectedScreenId}
         screens={screens}
         onScreensChange={setScreens}
+        onPortfoliosChange={() => {
+          if (activeTab === "portfolios") fetchDashboardData();
+        }}
         onOpenAlerts={() => openAlertsPanel()}
         alertCount={watchlistAlerts.length}
         hasTriggeredAlerts={watchlistAlerts.length > 0}

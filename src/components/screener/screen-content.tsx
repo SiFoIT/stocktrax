@@ -48,6 +48,12 @@ export function ScreenContent({
   const [totalScanned, setTotalScanned] = useState(0);
   const [matchCount, setMatchCount] = useState(0);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  // The rules the shown results were run with: the columns follow them, not
+  // the editor, which may have moved on since.
+  const [ranRules, setRanRules] = useState<ScreenRule[]>([]);
+  const [runError, setRunError] = useState<string | null>(null);
+  const rulesRef = useRef(rules);
+  rulesRef.current = rules;
 
   // Autosave. Edits are merged into one pending update per screen and sent
   // after a short pause, so typing "-4.5" is one request rather than four.
@@ -56,6 +62,9 @@ export function ScreenContent({
   const pendingRef = useRef<{ screenId: number; updates: ScreenUpdates } | null>(null);
   const failedRef = useRef<{ screenId: number; updates: ScreenUpdates } | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The save currently on the wire, so a run (or the next save) can wait for
+  // it. Resolves true when it stored the update.
+  const inFlightRef = useRef<Promise<boolean> | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Refs so flushSave stays stable: the page passes a fresh callback each
   // render, and the status should only reflect the screen being viewed.
@@ -66,30 +75,55 @@ export function ScreenContent({
   // The screen id whose open-and-run has already been honoured.
   const autoRanScreenIdRef = useRef<number | null>(null);
 
-  const flushSave = useCallback(async () => {
+  /**
+   * Send the pending update, after any save already in flight, and resolve
+   * true once everything for the viewed screen is stored: false when a save
+   * failed and is still unsaved.
+   */
+  const flushSave = useCallback(async (): Promise<boolean> => {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
-    const pending = pendingRef.current;
-    if (!pending) return;
+    const previous = inFlightRef.current;
+    const queued = pendingRef.current;
+    if (!queued) {
+      if (previous) await previous;
+      return failedRef.current?.screenId !== viewedScreenIdRef.current;
+    }
     pendingRef.current = null;
+    // Fold an earlier failed update for the same screen in, so a later edit
+    // doesn't leave the failed fields behind.
+    const failed = failedRef.current?.screenId === queued.screenId ? failedRef.current : null;
+    const pending = failed
+      ? { screenId: queued.screenId, updates: { ...failed.updates, ...queued.updates } }
+      : queued;
     const viewing = () => viewedScreenIdRef.current === pending.screenId;
     if (viewing()) setSaveStatus("saving");
-    try {
-      const updated = await updateScreen(pending.screenId, pending.updates);
-      failedRef.current = null;
-      onScreenUpdatedRef.current(updated);
-      if (!viewing()) return;
-      setSaveStatus("saved");
-      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-      savedTimerRef.current = setTimeout(() => {
-        setSaveStatus((current) => (current === "saved" ? "idle" : current));
-      }, 2000);
-    } catch {
-      failedRef.current = pending;
-      if (viewing()) setSaveStatus("error");
-    }
+    const save = (async () => {
+      // Keep saves in order: an older one landing last would win.
+      if (previous) await previous;
+      try {
+        const updated = await updateScreen(pending.screenId, pending.updates);
+        failedRef.current = null;
+        onScreenUpdatedRef.current(updated);
+        if (!viewing()) return true;
+        setSaveStatus("saved");
+        if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+        savedTimerRef.current = setTimeout(() => {
+          setSaveStatus((current) => (current === "saved" ? "idle" : current));
+        }, 2000);
+        return true;
+      } catch {
+        failedRef.current = pending;
+        if (viewing()) setSaveStatus("error");
+        return false;
+      }
+    })();
+    inFlightRef.current = save;
+    const ok = await save;
+    if (inFlightRef.current === save) inFlightRef.current = null;
+    return ok;
   }, []);
 
   const queueSave = (updates: ScreenUpdates) => {
@@ -105,6 +139,7 @@ export function ScreenContent({
     const failed = failedRef.current;
     if (!failed) return;
     pendingRef.current = failed;
+    failedRef.current = null;
     flushSave();
   };
 
@@ -119,13 +154,16 @@ export function ScreenContent({
     setResults(null);
     setTotalScanned(0);
     setMatchCount(0);
+    setRanRules([]);
+    setRunError(null);
 
     // Opened from the index's Run button: run straight away. The ref keeps
     // StrictMode's double effect from running the screen twice.
     if (runOnOpen && autoRanScreenIdRef.current !== screen.id) {
       autoRanScreenIdRef.current = screen.id;
       onRunConsumed?.();
-      void handleRun();
+      // State above hasn't applied yet, so name this screen's rules.
+      void handleRun(screen.rules);
     }
   }, [screen.id, runOnOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -157,22 +195,35 @@ export function ScreenContent({
     queueSave({ match: newMatch });
   };
 
-  const handleRun = async () => {
+  const handleRun = async (rulesToRun?: ScreenRule[]) => {
+    const screenId = screen.id;
     setRunning(true);
+    setRunError(null);
     try {
-      // Run what is on screen, not what the server last saved
-      await flushSave();
-      const response = await runScreen(screen.id);
-      setResults(response.results);
-      setTotalScanned(response.totalScanned);
-      setMatchCount(response.matchCount);
-      onScreenRan?.(screen.id, {
+      // Run what is on screen, not what the server last saved: wait for the
+      // pending save and any already in flight, and refuse to run stale rules.
+      const saved = await flushSave();
+      if (!saved) {
+        setRunError("Your latest changes could not be saved, so the screen was not run. Retry the save first.");
+        return;
+      }
+      const ran = rulesToRun ?? rulesRef.current;
+      const response = await runScreen(screenId);
+      onScreenRan?.(screenId, {
         lastRunAt: response.lastRunAt,
         lastMatchCount: response.matchCount,
         lastTotalScanned: response.totalScanned,
       });
-    } catch {
-      // silent
+      // The user may have opened another screen meanwhile.
+      if (viewedScreenIdRef.current !== screenId) return;
+      setResults(response.results);
+      setRanRules(ran);
+      setTotalScanned(response.totalScanned);
+      setMatchCount(response.matchCount);
+    } catch (error) {
+      if (viewedScreenIdRef.current === screenId) {
+        setRunError(error instanceof Error ? error.message : "Failed to run screen");
+      }
     } finally {
       setRunning(false);
     }
@@ -216,7 +267,7 @@ export function ScreenContent({
             onSourceChange={handleSourceChange}
             onRulesChange={handleRulesChange}
             onMatchChange={handleMatchChange}
-            onRun={handleRun}
+            onRun={() => handleRun()}
             saveIndicator={<SaveIndicator status={saveStatus} onRetry={retrySave} />}
             running={running}
           />
@@ -227,9 +278,15 @@ export function ScreenContent({
       <Panel>
         <PanelHeader title="Results" />
         <PanelBody className="p-4">
+          {runError && (
+            <p role="alert" className="mb-3 flex items-center gap-2 text-sm text-negative">
+              <AlertTriangle className="size-4 shrink-0" />
+              {runError}
+            </p>
+          )}
           <ScreenResults
             results={results}
-            rules={rules}
+            rules={ranRules}
             totalScanned={totalScanned}
             matchCount={matchCount}
           />

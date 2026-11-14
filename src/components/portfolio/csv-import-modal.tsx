@@ -84,9 +84,10 @@ export function CsvImportModal({
       const result = parseMultipleFiles(fileList);
       setParseResult(result);
 
-      // Dedup stock transactions against the stored ones. Identical rows in
-      // the file are separate trades, so they are only matched against rows
-      // already stored, never against each other.
+      // parseMultipleFiles has already merged overlapping files (a row in two
+      // files is one transaction). Dedup what's left against the stored rows.
+      // Identical rows within a file are separate trades, so they are only
+      // matched against rows already stored, never against each other.
       const { fresh: newStock, duplicates: dupes } = splitDuplicates(
         result.stockTransactions,
         existingKeys(),
@@ -98,7 +99,7 @@ export function CsvImportModal({
 
       setDedupedStock(newStock);
       setDedupedCash(newCash);
-      setDuplicateCount(dupes);
+      setDuplicateCount(dupes + (result.crossFileDuplicates ?? 0));
 
       // Build ACB entries from transferred positions. Split and distribution
       // shares stay at $0, so they never get an entry or an ACB.
@@ -211,8 +212,10 @@ export function CsvImportModal({
           ],
         });
       } else {
-        const data = await response.json();
-        setImportResult(data);
+        const data: ImportResult = await response.json();
+        // The server only sees rows that survived the client-side dedup, so
+        // add those skipped here to its count.
+        setImportResult({ ...data, duplicatesSkipped: data.duplicatesSkipped + duplicateCount });
       }
     } catch (e) {
       setImportResult({

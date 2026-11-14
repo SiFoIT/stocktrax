@@ -11,9 +11,41 @@ interface SmtpForm {
   port: number;
   secure: boolean;
   user: string;
-  hasPassword: boolean;
   from: string;
   to: string;
+}
+
+type SmtpField = keyof SmtpForm;
+type SettingSource = "db" | "env" | "default";
+
+interface SmtpResponse extends SmtpForm {
+  hasPassword: boolean;
+  /** Where each value comes from: a value from env is shown, never saved back. */
+  sources: Record<SmtpField | "pass", SettingSource>;
+  envNames: Record<SmtpField | "pass", string | null>;
+}
+
+const SMTP_FIELDS: SmtpField[] = ["host", "port", "secure", "user", "from", "to"];
+const TEXT_FIELDS = new Set<SmtpField>(["host", "user", "from", "to"]);
+
+/**
+ * The editable form for a loaded config. A text field set by env starts
+ * empty, with the env value as its placeholder, so typing overrides it and
+ * leaving it alone keeps following env.
+ */
+function toForm(smtp: SmtpResponse): SmtpForm {
+  const form: SmtpForm = {
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+    user: smtp.user,
+    from: smtp.from,
+    to: smtp.to,
+  };
+  for (const field of TEXT_FIELDS) {
+    if (smtp.sources[field] === "env") (form as unknown as Record<string, string>)[field] = "";
+  }
+  return form;
 }
 
 interface DigestForm {
@@ -48,7 +80,7 @@ interface ImportReminderForm {
 }
 
 interface DigestSettingsResponse {
-  smtp: SmtpForm;
+  smtp: SmtpResponse;
   digest: DigestForm;
   importReminder: ImportReminderForm;
   lastLog: LastLog | null;
@@ -124,6 +156,9 @@ function Toggle({
 
 export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
   const [smtp, setSmtp] = useState<SmtpForm | null>(null);
+  // As loaded: only fields that differ from it are sent on save.
+  const [loadedSmtp, setLoadedSmtp] = useState<SmtpResponse | null>(null);
+  const [clearPassword, setClearPassword] = useState(false);
   const [digest, setDigest] = useState<DigestForm | null>(null);
   const [lastLog, setLastLog] = useState<LastLog | null>(null);
   const [reminder, setReminder] = useState<ImportReminderForm | null>(null);
@@ -140,7 +175,9 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/settings/digest");
       if (!res.ok) throw new Error("Could not load settings");
       const data: DigestSettingsResponse = await res.json();
-      setSmtp(data.smtp);
+      setSmtp(toForm(data.smtp));
+      setLoadedSmtp(data.smtp);
+      setClearPassword(false);
       setDigest(data.digest);
       setReminder(data.importReminder);
       setReminderChanges({});
@@ -168,7 +205,16 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
   }, []);
 
   const save = async (): Promise<boolean> => {
-    if (!smtp || !digest) return false;
+    if (!smtp || !digest || !loadedSmtp) return false;
+    // Only what the user changed: resending env-merged values would copy the
+    // env config into the DB, where later env changes could not reach it.
+    const initial = toForm(loadedSmtp);
+    const changed: Partial<SmtpForm> = {};
+    for (const field of SMTP_FIELDS) {
+      if (smtp[field] !== initial[field]) {
+        (changed as Record<string, unknown>)[field] = smtp[field];
+      }
+    }
     setBusy("save");
     setFeedback(null);
     try {
@@ -177,14 +223,10 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           smtp: {
-            host: smtp.host,
-            port: smtp.port,
-            secure: smtp.secure,
-            user: smtp.user,
+            ...changed,
             // Left blank means "keep the stored password".
             pass: password || undefined,
-            from: smtp.from,
-            to: smtp.to,
+            clearPass: (!password && clearPassword) || undefined,
           },
           digest: {
             ...digest,
@@ -198,7 +240,8 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Could not save settings");
       setPassword("");
-      setSmtp({ ...smtp, hasPassword: smtp.hasPassword || password.length > 0 });
+      // Reload so the form reflects what is now stored and what env supplies.
+      await load();
       setFeedback({ tone: "positive", message: "Settings saved." });
       return true;
     } catch (error) {
@@ -241,7 +284,7 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   const body = () => {
-    if (loading || !smtp || !digest) {
+    if (loading || !smtp || !digest || !loadedSmtp) {
       return (
         <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
@@ -249,6 +292,18 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
         </div>
       );
     }
+
+    const fromEnv = (field: SmtpField | "pass") => loadedSmtp.sources[field] === "env";
+    // An env value is shown as the placeholder; typing overrides it.
+    const placeholder = (field: SmtpField, example: string) =>
+      fromEnv(field) ? String(loadedSmtp[field]) : example;
+    const envHint = (field: SmtpField | "pass") =>
+      fromEnv(field) ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          From {loadedSmtp.envNames[field] ?? "the environment"}
+          {TEXT_FIELDS.has(field as SmtpField) ? "; type to override." : "."}
+        </p>
+      ) : null;
 
     return (
       <div className="space-y-4">
@@ -268,9 +323,10 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
                   id="smtp-host"
                   className={FIELD}
                   value={smtp.host}
-                  placeholder="smtp.gmail.com"
+                  placeholder={placeholder("host", "smtp.gmail.com")}
                   onChange={(e) => setSmtp({ ...smtp, host: e.target.value })}
                 />
+                {envHint("host")}
               </div>
               <div>
                 <label className={LABEL} htmlFor="smtp-port">Port</label>
@@ -281,6 +337,7 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
                   value={smtp.port}
                   onChange={(e) => setSmtp({ ...smtp, port: Number(e.target.value) })}
                 />
+                {envHint("port")}
               </div>
             </div>
 
@@ -288,7 +345,11 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
               checked={smtp.secure}
               onChange={(secure) => setSmtp({ ...smtp, secure })}
               label="Implicit TLS"
-              hint="On for port 465. Port 587 upgrades with STARTTLS on its own."
+              hint={
+                fromEnv("secure")
+                  ? `On for port 465. Port 587 upgrades with STARTTLS on its own. From ${loadedSmtp.envNames.secure}.`
+                  : "On for port 465. Port 587 upgrades with STARTTLS on its own."
+              }
             />
 
             <div className="grid grid-cols-2 gap-3">
@@ -298,9 +359,10 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
                   id="smtp-user"
                   className={FIELD}
                   value={smtp.user}
-                  placeholder="you@gmail.com"
+                  placeholder={placeholder("user", "you@gmail.com")}
                   onChange={(e) => setSmtp({ ...smtp, user: e.target.value })}
                 />
+                {envHint("user")}
               </div>
               <div>
                 <label className={LABEL} htmlFor="smtp-pass">App password</label>
@@ -309,9 +371,25 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
                   className={FIELD}
                   type="password"
                   value={password}
-                  placeholder={smtp.hasPassword ? "Saved" : "16 characters"}
+                  placeholder={
+                    clearPassword
+                      ? "Cleared on save"
+                      : loadedSmtp.hasPassword
+                        ? "Saved"
+                        : "16 characters"
+                  }
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                {envHint("pass")}
+                {loadedSmtp.sources.pass === "db" && !password && (
+                  <button
+                    type="button"
+                    className="mt-1 text-xs text-primary hover:underline"
+                    onClick={() => setClearPassword((current) => !current)}
+                  >
+                    {clearPassword ? "Keep saved password" : "Clear saved password"}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -321,9 +399,10 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
                 id="smtp-from"
                 className={FIELD}
                 value={smtp.from}
-                placeholder="StockTrax <you@gmail.com>"
+                placeholder={placeholder("from", "StockTrax <you@gmail.com>")}
                 onChange={(e) => setSmtp({ ...smtp, from: e.target.value })}
               />
+              {envHint("from")}
             </div>
 
             <div>
@@ -332,9 +411,10 @@ export function DigestSettingsModal({ onClose }: { onClose: () => void }) {
                 id="smtp-to"
                 className={FIELD}
                 value={smtp.to}
-                placeholder="you@example.com, someone@example.com"
+                placeholder={placeholder("to", "you@example.com, someone@example.com")}
                 onChange={(e) => setSmtp({ ...smtp, to: e.target.value })}
               />
+              {envHint("to")}
               <p className="mt-1 text-xs text-muted-foreground">
                 Separate multiple recipients with commas.
               </p>

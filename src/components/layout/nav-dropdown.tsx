@@ -23,6 +23,8 @@ interface NavDropdownProps {
   onRename: (id: number, name: string) => void;
   onDelete: (id: number) => void;
   width?: string;
+  /** A failed rename/delete, shown under the create form. */
+  error?: string | null;
   /** "above" opens upward as a full-width sheet, for the phone bottom bar. */
   placement?: "below" | "above";
 }
@@ -44,6 +46,7 @@ export function NavDropdown({
   onRename,
   onDelete,
   width = "w-72",
+  error = null,
   placement = "below",
 }: NavDropdownProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -70,6 +73,11 @@ export function NavDropdown({
             Add
           </Button>
         </form>
+        {error && (
+          <p role="alert" className="mt-2 px-1 text-xs text-negative">
+            {error}
+          </p>
+        )}
       </div>
       <div className="max-h-64 overflow-auto py-1">
         {items.length === 0 ? (

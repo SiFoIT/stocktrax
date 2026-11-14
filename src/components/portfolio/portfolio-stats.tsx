@@ -6,6 +6,8 @@ import { PortfolioDashboardData, BreakdownItem } from "@/types";
 import { formatCurrency, formatPercent, getChangeColor, parseCalendarDate } from "@/lib/utils";
 import { StatCard } from "@/components/ui/stat-card";
 import { Panel } from "@/components/ui/panel";
+import { PerformancePanel } from "@/components/portfolio/performance-panel";
+import { AlertTriangle } from "lucide-react";
 
 // Chart series read the --chart-* tokens so light and dark stay in step.
 const COLORS = [
@@ -68,6 +70,8 @@ function renderBarLabel(totalMarketValue: number) {
 
 interface PortfolioStatsProps {
   data: PortfolioDashboardData | null;
+  /** Scope of the performance chart; omit for all portfolios. */
+  portfolioId?: number;
   loading: boolean;
   dividendsCadTotal?: number;
   showTotalValue?: boolean;
@@ -173,7 +177,7 @@ function TopHoldingsChart({ data, totalMarketValue }: { data: BreakdownItem[]; t
   );
 }
 
-export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValue = true, showTotalReturn = true, showDividends = false }: PortfolioStatsProps) {
+export function PortfolioStats({ data, portfolioId, loading, dividendsCadTotal, showTotalValue = true, showTotalReturn = true, showDividends = false }: PortfolioStatsProps) {
   const [now] = useState(() => Date.now());
 
   const cardCount = 3 + (showTotalValue ? 1 : 0) + (showTotalReturn ? 1 : 0) + (showDividends ? 1 : 0);
@@ -204,7 +208,7 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
   // All-time return is the server's since-inception figure everywhere: value,
   // sale proceeds and dividends against all money put in.
   const { sinceInception } = totals;
-  const gainColor = getChangeColor(sinceInception.amount);
+  const gainColor = sinceInception ? getChangeColor(sinceInception.amount) : "text-muted-foreground";
 
   // Inception is the earliest transaction's calendar day (stored as a UTC instant).
   const earliestDate = parseCalendarDate(totals.earliestTransactionDate);
@@ -224,9 +228,9 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
         {showTotalReturn && (
           <StatCard
             label="Total Return"
-            value={formatCurrency(sinceInception.amount, "CAD")}
+            value={sinceInception ? formatCurrency(sinceInception.amount, "CAD") : "—"}
             valueClass={gainColor}
-            sub={`${formatPercent(sinceInception.percent)} since inception`}
+            sub={sinceInception ? `${formatPercent(sinceInception.percent)} since inception` : "Unavailable: a quote is missing"}
             subClass={gainColor}
           />
         )}
@@ -239,9 +243,9 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
         )}
         <StatCard
           label="Annualized Return"
-          value={formatPercent(totals.cagr)}
-          sub={cagrSubValue}
-          valueClass={getChangeColor(totals.cagr)}
+          value={totals.cagr == null ? "—" : formatPercent(totals.cagr)}
+          sub={totals.cagr == null ? "Unavailable" : cagrSubValue}
+          valueClass={totals.cagr == null ? "text-muted-foreground" : getChangeColor(totals.cagr)}
         />
         <StatCard
           label="Market Value"
@@ -252,6 +256,18 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
           value={formatCurrency(totals.costBasis, "CAD")}
         />
       </div>
+
+      {/* Incomplete data is said out loud, never shown as a number. */}
+      {data.missing && (data.missing.symbols.length > 0 || data.missing.exchangeRate) && (
+        <p className="flex items-start gap-1.5 text-xs text-muted-foreground" role="status">
+          <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
+          <span>
+            {data.missing.symbols.length > 0 &&
+              `${data.missing.symbols.length === 1 ? "1 quote" : `${data.missing.symbols.length} quotes`} unavailable (${data.missing.symbols.join(", ")}): left out of value, and returns that depend on ${data.missing.symbols.length === 1 ? "it" : "them"} show "—". `}
+            {data.missing.exchangeRate && "USD/CAD rate is the last known one, not live."}
+          </span>
+        </p>
+      )}
 
       {/* Period returns row */}
       {totals.periodReturns && (
@@ -280,6 +296,8 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
           })}
         </div>
       )}
+
+      <PerformancePanel portfolioId={portfolioId} />
 
       {/* Charts grid */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">

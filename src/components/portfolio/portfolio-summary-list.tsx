@@ -16,7 +16,14 @@ interface PortfolioSummaryListProps {
   loading: boolean;
 }
 
-function ReturnCell({ amount, percent, currency = "CAD" }: { amount: number; percent: number; currency?: string }) {
+function ReturnCell({ amount, percent, currency = "CAD" }: { amount?: number; percent?: number; currency?: string }) {
+  if (amount == null || percent == null) {
+    return (
+      <span className="font-mono text-[12.5px] text-muted-foreground" title="Unavailable: a quote is missing">
+        —
+      </span>
+    );
+  }
   return (
     <div className="flex flex-col items-end gap-0.5">
       <span className={`font-mono text-[12.5px] ${getChangeColor(amount)}`}>
@@ -196,8 +203,8 @@ export function PortfolioSummaryList({ data, loading }: PortfolioSummaryListProp
                 })}
                 <td className="px-4 py-4 text-right">
                   <ReturnCell
-                    amount={portfolio.sinceInception.amount}
-                    percent={portfolio.sinceInception.percent}
+                    amount={portfolio.sinceInception?.amount}
+                    percent={portfolio.sinceInception?.percent}
                   />
                 </td>
               </tr>
@@ -229,8 +236,8 @@ export function PortfolioSummaryList({ data, loading }: PortfolioSummaryListProp
                 <td className="px-3.5 py-3"></td>
                 <td className="px-4 py-4 text-right">
                   <ReturnCell
-                    amount={data.totals.sinceInception.amount}
-                    percent={data.totals.sinceInception.percent}
+                    amount={data.totals.sinceInception?.amount}
+                    percent={data.totals.sinceInception?.percent}
                   />
                 </td>
               </tr>

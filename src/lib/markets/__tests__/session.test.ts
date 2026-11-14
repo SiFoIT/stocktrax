@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sparklineWindow } from "@/lib/markets/session";
+import { monthsBefore, sparklineWindow } from "@/lib/markets/session";
 import type { StockTimeSeries } from "@/types";
 
 function bar(date: string, close: number): StockTimeSeries {
@@ -31,5 +31,24 @@ describe("sparklineWindow by months", () => {
 
   it("keeps the whole fetch when neither sessions nor months is set", () => {
     expect(sparklineWindow(series).closes).toEqual([90, 100, 104, 110]);
+  });
+});
+
+describe("monthsBefore", () => {
+  it("clamps to the last day of a shorter month", () => {
+    const now = new Date("2026-03-30T15:30:00Z");
+    expect(new Date(monthsBefore(now, 1)).toISOString()).toBe("2026-02-28T15:30:00.000Z");
+    expect(new Date(monthsBefore(new Date("2026-05-31T00:00:00Z"), 3)).toISOString()).toBe(
+      "2026-02-28T00:00:00.000Z"
+    );
+  });
+
+  it("steps whole months otherwise, across years", () => {
+    expect(new Date(monthsBefore(new Date("2026-01-15T12:00:00Z"), 12)).toISOString()).toBe(
+      "2025-01-15T12:00:00.000Z"
+    );
+    expect(new Date(monthsBefore(new Date("2026-02-10T08:00:00Z"), 3)).toISOString()).toBe(
+      "2025-11-10T08:00:00.000Z"
+    );
   });
 });

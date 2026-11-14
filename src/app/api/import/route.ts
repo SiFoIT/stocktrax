@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/http/body";
 import { db } from "@/lib/db";
 import { invalidatePortfolioSummary } from "@/lib/portfolio-summary";
 import {
@@ -173,7 +174,7 @@ function parseOptionalDate(value: string | Date | number | null | undefined): Da
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await readJsonBody(request);
 
     // Validate the backup structure
     const parsed = backupSchema.safeParse(body);

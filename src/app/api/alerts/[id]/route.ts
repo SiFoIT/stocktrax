@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/http/body";
 import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
@@ -15,7 +16,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
 
-    const data = updateSchema.parse(await request.json());
+    const data = updateSchema.parse(await readJsonBody(request));
     const set: Record<string, unknown> = {};
     if (data.acknowledged) {
       set.acknowledgedAt = new Date();

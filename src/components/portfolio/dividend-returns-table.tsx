@@ -12,6 +12,8 @@ import {
 import { StockIcon } from "@/components/ui/stock-icon";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { InfoTip } from "@/components/ui/info-tip";
+import { useParams } from "next/navigation";
+import { DividendCalendar } from "@/components/portfolio/dividend-calendar";
 import { HoldingWithQuote, TransactionWithSymbol } from "@/types";
 import { formatCurrency, parseCalendarDate, toCAD } from "@/lib/utils";
 
@@ -31,6 +33,8 @@ interface DividendReturnsTableProps {
   transactions: TransactionWithSymbol[];
   usdCadRate?: number;
   storageKey?: string;
+  /** Scopes the income calendar; defaults to the /portfolio/[id] route param. */
+  portfolioId?: number;
 }
 
 function SortIcon({ direction }: { direction: SortDirection | null }) {
@@ -113,7 +117,10 @@ export function DividendReturnsTable({
   holdings,
   transactions,
   usdCadRate = 1,
+  portfolioId,
 }: DividendReturnsTableProps) {
+  const params = useParams<{ id?: string }>();
+  const calendarPortfolioId = portfolioId ?? params?.id;
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [detailsSymbol, setDetailsSymbol] = useState<string | null>(null);
@@ -405,6 +412,9 @@ export function DividendReturnsTable({
           </p>
         </div>
       </div>
+
+      {/* ─── Income calendar: past 12 months received, next 12 expected ─── */}
+      <DividendCalendar portfolioId={calendarPortfolioId} />
 
       {/* ─── Bar Chart ─── */}
       <div className="rounded-lg bg-card border border-border p-6">

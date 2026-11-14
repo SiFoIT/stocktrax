@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/http/body";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -24,7 +25,9 @@ async function resolveSymbols(source: string): Promise<string[]> {
 
   if (source === "all" || source.startsWith("portfolio:")) {
     // Get symbols from holdings
-    const holdings = await db.query.holdings.findMany();
+    // Only positions still held: a sold holding keeps its row (and its
+    // transactions) but isn't something the user owns any more.
+    const holdings = (await db.query.holdings.findMany()).filter((h) => h.shares > 0.0001);
     if (source === "all") {
       holdings.forEach((h) => symbols.add(h.symbol));
     } else {
@@ -51,10 +54,15 @@ async function resolveSymbols(source: string): Promise<string[]> {
   return Array.from(symbols);
 }
 
+/**
+ * Fetch for every symbol. Batches of 10 keep the first, uncached run gentle
+ * on Yahoo; the shared cache batches the quotes underneath and serves
+ * fundamentals and history from earlier runs.
+ */
 async function fetchBatch<T>(
   items: string[],
   fn: (item: string) => Promise<T>,
-  batchSize = 5
+  batchSize = 10
 ): Promise<Map<string, T>> {
   const results = new Map<string, T>();
   for (let i = 0; i < items.length; i += batchSize) {
@@ -105,7 +113,7 @@ async function recordRun(
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const parsed = runSchema.parse(body);
 
     let source: string;
@@ -146,7 +154,7 @@ export async function POST(request: NextRequest) {
     const needsHistorical = rules.some((r) => PERFORMANCE_METRICS.has(r.metric));
 
     // Fetch stock details for all symbols
-    const detailsMap = await fetchBatch(symbols, getStockDetails);
+    const detailsMap = await fetchBatch(symbols, (symbol) => getStockDetails(symbol));
 
     // Fetch historical changes if needed
     let changesMap = new Map<string, Awaited<ReturnType<typeof getHistoricalChanges>>>();

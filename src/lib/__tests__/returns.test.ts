@@ -33,10 +33,16 @@ describe("sessions", () => {
   it("5D from a Wednesday is the previous Wednesday", () => {
     expect(periodBaselineDay("2026-11-11", "5D")).toBe("2026-11-04");
   });
-  it("skips market holidays", () => {
-    // Thanksgiving 2026-11-26 is closed.
-    expect(sessionsBefore("2026-11-30", 2)).toBe("2026-11-25");
-    expect(latestSessionOnOrBefore("2026-11-26")).toBe("2026-11-25");
+  it("skips days both exchanges are closed", () => {
+    // Christmas 2026-12-25 closes both NYSE and TSX.
+    expect(latestSessionOnOrBefore("2026-12-25")).toBe("2026-12-24");
+    expect(sessionsBefore("2026-12-28", 1)).toBe("2026-12-24");
+  });
+
+  it("counts a US-only holiday as a session (TSX trades)", () => {
+    // US Thanksgiving 2026-11-26: NYSE closed, TSX open.
+    expect(latestSessionOnOrBefore("2026-11-26")).toBe("2026-11-26");
+    expect(sessionsBefore("2026-11-30", 2)).toBe("2026-11-26");
   });
 });
 

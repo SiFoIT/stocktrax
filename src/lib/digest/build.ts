@@ -492,7 +492,7 @@ export async function buildWeeklyDigest(
   const earliest = new Date(totals.earliestTransactionDate);
   const years = (now.getTime() - earliest.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
   const allTime =
-    summary.portfolios.length > 0 && !summary.missing
+    summary.portfolios.length > 0 && totals.sinceInception
       ? {
           amount: totals.sinceInception.amount,
           percent: totals.sinceInception.percent,

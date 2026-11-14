@@ -1,8 +1,46 @@
 import YahooFinance from "yahoo-finance2";
 import { addMonths, closeOnOrBeforeDay, type DailyBar, type Split } from "@/lib/returns";
+import { cached, createBatcher, type CacheOptions } from "@/lib/market-data/cache";
+import { recordYahooCall } from "@/lib/market-data/stats";
+import { addDays } from "@/lib/digest/time";
 import { StockQuote, StockTimeSeries, NewsArticle, ExtendedHoursData, MarketState, InsiderTransaction, InsiderDetails, InstitutionalOwnership, InstitutionalHolder } from "@/types";
 
 const yahooFinance = new YahooFinance();
+
+/**
+ * Yahoo's answer for a symbol that has no fundamentals at all (an index, some
+ * ETFs and FX pairs). It is a real answer, not an outage: it is cached as an
+ * empty result rather than counted as an error and retried every minute.
+ */
+const NO_DATA = /no fundamentals data found/i;
+
+/** Run one Yahoo request and count it (and any failure) for the status page. */
+async function track<T>(kind: string, symbol: string, request: Promise<T>): Promise<T> {
+  try {
+    const result = await request;
+    recordYahooCall(kind, true, symbol);
+    return result;
+  } catch (error) {
+    if (error instanceof Error && NO_DATA.test(error.message)) {
+      recordYahooCall(kind, true, symbol);
+      return {} as T;
+    }
+    recordYahooCall(kind, false, symbol, error);
+    throw error;
+  }
+}
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+/** Quotes: fresh enough for 15-minute-delayed data, and every caller shares them. */
+const QUOTE_TTL = 2 * MINUTE;
+/** A quote older than this is not served in place of a failed fetch. */
+const QUOTE_MAX_STALE = 30 * MINUTE;
+/** Daily history is topped up with the last few sessions at most this often. */
+const HISTORY_TTL = HOUR;
+/** Fundamentals, dividend and profile data change daily at most. */
+const SUMMARY_TTL = 12 * HOUR;
+const INSIDER_TTL = 24 * HOUR;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractExtendedHours(quote: any): ExtendedHoursData | undefined {
@@ -46,62 +84,47 @@ export interface HistoricalChanges {
 }
 
 export async function getHistoricalChanges(symbol: string): Promise<HistoricalChanges> {
-  try {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setFullYear(startDate.getFullYear() - 5);
-    startDate.setDate(startDate.getDate() - 7); // Extra buffer for weekends/holidays
+  const history = await getDailyHistory(symbol, fiveYearsAgo());
+  if (!history) return {};
+  return historicalChangesFrom(history.bars);
+}
 
-    const result = await yahooFinance.chart(symbol, {
-      period1: startDate,
-      period2: endDate,
-      interval: "1d",
-    });
+/** 5D/1M/3M/1Y/5Y change from daily bars, ending at the latest bar. */
+export function historicalChangesFrom(bars: DailyBar[]): HistoricalChanges {
+  if (bars.length === 0) return {};
+  const currentPrice = bars[bars.length - 1].close;
+  // Anchor on the latest session's date, not the current instant: the
+  // baseline must not move with the hour this happens to be computed.
+  const latestDay = bars[bars.length - 1].day;
+  const priceMonthsAgo = (months: number): number | undefined =>
+    closeOnOrBeforeDay(bars, addMonths(latestDay, -months)) ?? undefined;
 
-    if (!result || !result.quotes || result.quotes.length === 0) {
-      return {};
-    }
+  // 5D means 5 *trading* days, so index back 5 bars in the daily series
+  // rather than 5 calendar days (which is only ~3 trading days).
+  const price5D = bars.length > 5 ? bars[bars.length - 1 - 5].close : undefined;
 
-    const quotes = result.quotes.filter((q) => q.date && q.close !== null);
-    if (quotes.length === 0) return {};
+  const calcChange = (oldPrice: number | undefined): number | undefined => {
+    if (oldPrice === undefined || oldPrice === 0) return undefined;
+    return ((currentPrice - oldPrice) / oldPrice) * 100;
+  };
 
-    const currentPrice = quotes[quotes.length - 1].close!;
-    const offset = result.meta?.gmtoffset ?? 0;
-    const bars = quotes.map((q) => ({ day: barDay(q.date, offset), close: q.close! }));
-    // Anchor on the latest session's date, not the current instant: the
-    // baseline must not move with the hour this happens to be computed.
-    const latestDay = bars[bars.length - 1].day;
-    const priceMonthsAgo = (months: number): number | undefined =>
-      closeOnOrBeforeDay(bars, addMonths(latestDay, -months)) ?? undefined;
+  // A 5Y change needs the series to actually reach five years back.
+  const reaches = (months: number) => bars[0].day <= addMonths(latestDay, -months);
 
-    // 5D means 5 *trading* days, so index back 5 bars in the daily series
-    // rather than 5 calendar days (which is only ~3 trading days).
-    const price5D = quotes.length > 5 ? quotes[quotes.length - 1 - 5].close ?? undefined : undefined;
-    const price1M = priceMonthsAgo(1);
-    const price3M = priceMonthsAgo(3);
-    const price1Y = priceMonthsAgo(12);
-    const price5Y = priceMonthsAgo(60);
-
-    const calcChange = (oldPrice: number | undefined): number | undefined => {
-      if (oldPrice === undefined || oldPrice === 0) return undefined;
-      return ((currentPrice - oldPrice) / oldPrice) * 100;
-    };
-
-    return {
-      change5D: calcChange(price5D),
-      change1M: calcChange(price1M),
-      change3M: calcChange(price3M),
-      change1Y: calcChange(price1Y),
-      change5Y: calcChange(price5Y),
-    };
-  } catch {
-    return {};
-  }
+  return {
+    change5D: calcChange(price5D),
+    change1M: calcChange(priceMonthsAgo(1)),
+    change3M: calcChange(priceMonthsAgo(3)),
+    change1Y: reaches(12) ? calcChange(priceMonthsAgo(12)) : undefined,
+    change5Y: reaches(60) ? calcChange(priceMonthsAgo(60)) : undefined,
+  };
 }
 
 export interface StockDetails {
   // Basic info
   symbol: string;
+  /** Currency of the financial statements (revenue, EBITDA, cash, debt). */
+  financialCurrency?: string;
   shortName?: string;
   longName?: string;
   exchange?: string;
@@ -192,20 +215,26 @@ export interface StockDetails {
   extendedHours?: ExtendedHoursData;
 }
 
-export async function getStockDetails(symbol: string): Promise<StockDetails | null> {
+const DETAIL_MODULES = [
+  "price",
+  "summaryDetail",
+  "defaultKeyStatistics",
+  "financialData",
+  "calendarEvents",
+  "summaryProfile",
+] as const;
+
+type DetailSummary = Awaited<ReturnType<typeof fetchDetailSummary>>;
+
+function fetchDetailSummary(symbol: string) {
+  return track("summary", symbol, yahooFinance.quoteSummary(symbol, { modules: [...DETAIL_MODULES] }));
+}
+
+export async function getStockDetails(symbol: string, options: CacheOptions = {}): Promise<StockDetails | null> {
   try {
     const [quote, summary] = await Promise.all([
-      yahooFinance.quote(symbol),
-      yahooFinance.quoteSummary(symbol, {
-        modules: [
-          "price",
-          "summaryDetail",
-          "defaultKeyStatistics",
-          "financialData",
-          "calendarEvents",
-          "summaryProfile",
-        ],
-      }),
+      getRawQuote(symbol, options),
+      cached<DetailSummary>(`y:sum:${symbol}`, SUMMARY_TTL, () => fetchDetailSummary(symbol)),
     ]);
 
     if (!quote) return null;
@@ -255,7 +284,8 @@ export async function getStockDetails(symbol: string): Promise<StockDetails | nu
       trailingPE: detail?.trailingPE,
       forwardPE: keyStats?.forwardPE,
       priceToBook: keyStats?.priceToBook,
-      priceToSales: (keyStats as { priceToSalesTrailing12Months?: number } | undefined)?.priceToSalesTrailing12Months,
+      // Yahoo reports P/S in summaryDetail, not defaultKeyStatistics.
+      priceToSales: detail?.priceToSalesTrailing12Months,
 
       // Dividends
       ...dividendFields(detail),
@@ -357,10 +387,17 @@ export interface DividendInfo {
 }
 
 export async function getDividendInfo(symbol: string): Promise<DividendInfo> {
+  const info = await cached<DividendInfo>(`y:div:${symbol}`, SUMMARY_TTL, () => fetchDividendInfo(symbol));
+  return info ?? {};
+}
+
+async function fetchDividendInfo(symbol: string): Promise<DividendInfo | null> {
   try {
-    const summary = await yahooFinance.quoteSummary(symbol, {
-      modules: ["summaryDetail", "calendarEvents", "summaryProfile"],
-    });
+    const summary = await track(
+      "summary",
+      symbol,
+      yahooFinance.quoteSummary(symbol, { modules: ["summaryDetail", "calendarEvents", "summaryProfile"] })
+    );
 
     const detail = summary?.summaryDetail;
     const calendar = summary?.calendarEvents;
@@ -380,7 +417,7 @@ export async function getDividendInfo(symbol: string): Promise<DividendInfo> {
       sector: profile?.sector,
     };
   } catch {
-    return {};
+    return null;
   }
 }
 
@@ -394,9 +431,43 @@ export interface QuoteWithRange extends StockQuote {
   currency?: string;
 }
 
-export async function getQuote(symbol: string, includeRange = false): Promise<StockQuote | QuoteWithRange | null> {
+type RawQuote = Awaited<ReturnType<typeof yahooFinance.quote>> & Record<string, unknown>;
+
+/** Every getQuote made within a few ms becomes one array request to Yahoo. */
+const batchQuote = createBatcher<RawQuote>(async (symbols) => {
+  const results = (await track(
+    "quote",
+    symbols.join(","),
+    yahooFinance.quote(symbols, { return: "array" }, { validateResult: false })
+  )) as unknown as RawQuote[];
+  const bySymbol = new Map<string, RawQuote>();
+  for (const q of results ?? []) {
+    if (q?.symbol) bySymbol.set(String(q.symbol).toUpperCase(), q);
+  }
+  return bySymbol;
+});
+
+async function getRawQuote(symbol: string, options: CacheOptions = {}): Promise<RawQuote | null> {
+  const upper = symbol.toUpperCase();
+  return cached<RawQuote>(
+    `y:q:${upper}`,
+    QUOTE_TTL,
+    async () => {
+      const q = await batchQuote(upper);
+      return q && q.regularMarketPrice != null ? q : null;
+    },
+    { maxStaleMs: QUOTE_MAX_STALE, ...options }
+  );
+}
+
+export async function getQuote(
+  symbol: string,
+  includeRange = false,
+  options: CacheOptions = {}
+): Promise<StockQuote | QuoteWithRange | null> {
   try {
-    const quote = await yahooFinance.quote(symbol);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const quote: any = await getRawQuote(symbol, options);
 
     if (!quote || quote.regularMarketPrice === undefined) {
       return null;
@@ -449,22 +520,27 @@ export function barDay(date: Date, gmtOffsetSeconds: number): string {
 export interface DailyHistory {
   bars: DailyBar[];
   splits: Split[];
+  /** Cash dividends per share, on their ex-dividend day. */
+  dividends: { day: string; amount: number }[];
 }
 
-/**
- * Daily closes from `from` to now, keyed by exchange-local trading day, plus
- * the splits in that window. Closes are split-adjusted into today's share
- * units (see `splitFactorAfter`). Returns null on failure, never an empty
- * history, so a caller cannot mistake an outage for "no price".
- */
-export async function getDailyHistory(symbol: string, from: string): Promise<DailyHistory | null> {
+interface StoredHistory extends DailyHistory {
+  /** The earliest day this series was requested from. */
+  from: string;
+}
+
+/** At least this much history is fetched, so one series serves every caller. */
+function fiveYearsAgo(): string {
+  return addDays(addMonths(new Date().toISOString().slice(0, 10), -60), -10);
+}
+
+async function fetchHistory(symbol: string, from: string): Promise<DailyHistory | null> {
   try {
-    const chart = await yahooFinance.chart(symbol, {
-      period1: from,
-      period2: new Date(),
-      interval: "1d",
-      events: "split",
-    });
+    const chart = await track(
+      "chart",
+      symbol,
+      yahooFinance.chart(symbol, { period1: from, period2: new Date(), interval: "1d", events: "div|split" })
+    );
     const offset = chart?.meta?.gmtoffset ?? 0;
     const bars: DailyBar[] = (chart?.quotes ?? [])
       .filter((q) => q.date && q.close != null && Number.isFinite(q.close) && q.close > 0)
@@ -473,18 +549,94 @@ export async function getDailyHistory(symbol: string, from: string): Promise<Dai
     const splits: Split[] = (chart?.events?.splits ?? [])
       .filter((s) => s.numerator > 0 && s.denominator > 0)
       .map((s) => ({ day: barDay(new Date(s.date), offset), ratio: s.numerator / s.denominator }));
-    return { bars, splits };
+    const dividends = (chart?.events?.dividends ?? [])
+      .filter((d) => d.amount > 0)
+      .map((d) => ({ day: barDay(new Date(d.date), offset), amount: d.amount }));
+    return { bars, splits, dividends };
   } catch {
     return null;
   }
 }
 
+/** Merge a recent fetch onto a stored series, replacing the overlapping days. */
+export function mergeHistory(stored: DailyHistory, recent: DailyHistory): DailyHistory {
+  const firstNew = recent.bars[0]?.day ?? "9999-12-31";
+  const byDay = <T extends { day: string }>(older: T[], newer: T[]) => {
+    const seen = new Set(newer.map((x) => `${x.day}`));
+    return [...older.filter((x) => x.day < firstNew && !seen.has(x.day)), ...newer].sort((a, b) =>
+      a.day < b.day ? -1 : a.day > b.day ? 1 : 0
+    );
+  };
+  return {
+    bars: byDay(stored.bars, recent.bars),
+    splits: byDay(stored.splits, recent.splits),
+    dividends: byDay(stored.dividends, recent.dividends),
+  };
+}
+
+/**
+ * Daily closes from `from` to now, keyed by exchange-local trading day, plus
+ * the splits and dividends in that window. Closes are split-adjusted into
+ * today's share units (see `splitFactorAfter`). Returns null on failure,
+ * never an empty history, so a caller cannot mistake an outage for "no price".
+ *
+ * One series per symbol is kept (at least five years) and topped up with the
+ * last couple of weeks at most hourly, rather than re-downloading years of
+ * bars for every caller. A new split rewrites Yahoo's adjusted history, so it
+ * triggers a full refetch.
+ */
+export async function getDailyHistory(symbol: string, from: string): Promise<DailyHistory | null> {
+  const upper = symbol.toUpperCase();
+  const floor = from < fiveYearsAgo() ? from : fiveYearsAgo();
+  const stored = await cached<StoredHistory>(`y:h:${upper}`, HISTORY_TTL, async (previous) => {
+    const prev = previous?.value;
+    if (prev && prev.from <= floor && prev.bars.length > 0) {
+      const lastDay = prev.bars[prev.bars.length - 1].day;
+      const recent = await fetchHistory(upper, addDays(lastDay, -14));
+      if (!recent) return null;
+      const knownSplits = new Set(prev.splits.map((s) => s.day));
+      if (!recent.splits.some((s) => !knownSplits.has(s.day))) {
+        return { from: prev.from, ...mergeHistory(prev, recent) };
+      }
+    }
+    const full = await fetchHistory(upper, floor);
+    return full ? { from: floor, ...full } : null;
+  });
+  // A cached series that doesn't reach back far enough (an older, shorter
+  // request) is refetched on its next expiry; until then it serves what it has.
+  if (!stored) return null;
+  return {
+    bars: stored.bars.filter((b) => b.day >= from),
+    splits: stored.splits,
+    dividends: stored.dividends ?? [],
+  };
+}
+
 export type TimeSeriesInterval = "5m" | "15m" | "30m" | "1h" | "1d" | "1wk";
+
+type TimeSeriesPeriod = "1d" | "5d" | "1mo" | "3mo" | "1y" | "2y" | "3y" | "5y" | "10y";
 
 export async function getTimeSeries(
   symbol: string,
-  period: "1d" | "5d" | "1mo" | "3mo" | "1y" | "2y" | "3y" | "5y" | "10y" = "3mo",
+  period: TimeSeriesPeriod = "3mo",
   interval: TimeSeriesInterval = "1d"
+): Promise<StockTimeSeries[]> {
+  const intraday = interval !== "1d" && interval !== "1wk";
+  const series = await cached<StockTimeSeries[]>(
+    `y:ts:${symbol.toUpperCase()}:${period}:${interval}`,
+    intraday ? 5 * MINUTE : HOUR,
+    async () => {
+      const rows = await fetchTimeSeries(symbol, period, interval);
+      return rows.length > 0 ? rows : null;
+    }
+  );
+  return series ?? [];
+}
+
+async function fetchTimeSeries(
+  symbol: string,
+  period: TimeSeriesPeriod,
+  interval: TimeSeriesInterval
 ): Promise<StockTimeSeries[]> {
   try {
     const endDate = new Date();
@@ -520,11 +672,11 @@ export async function getTimeSeries(
         break;
     }
 
-    const result = await yahooFinance.chart(symbol, {
-      period1: startDate,
-      period2: endDate,
-      interval: interval,
-    });
+    const result = await track(
+      "chart",
+      symbol,
+      yahooFinance.chart(symbol, { period1: startDate, period2: endDate, interval })
+    );
 
     if (!result || !result.quotes) {
       return [];
@@ -558,11 +710,27 @@ export interface InsiderInfo {
   lastInsiderDate?: string;
 }
 
+type InsiderSummary = Awaited<ReturnType<typeof fetchInsiderSummary>>;
+
+function fetchInsiderSummary(symbol: string) {
+  return track(
+    "summary",
+    symbol,
+    yahooFinance.quoteSummary(symbol, {
+      modules: ["netSharePurchaseActivity", "majorHoldersBreakdown", "insiderTransactions"],
+    })
+  );
+}
+
+/** One cached insider summary serves both the table row and the details view. */
+function getInsiderSummary(symbol: string): Promise<InsiderSummary | null> {
+  return cached<InsiderSummary>(`y:ins:${symbol.toUpperCase()}`, INSIDER_TTL, () => fetchInsiderSummary(symbol));
+}
+
 export async function getInsiderInfo(symbol: string): Promise<InsiderInfo> {
   try {
-    const summary = await yahooFinance.quoteSummary(symbol, {
-      modules: ["netSharePurchaseActivity", "majorHoldersBreakdown", "insiderTransactions"],
-    });
+    const summary = await getInsiderSummary(symbol);
+    if (!summary) return {};
 
     const netActivity = summary?.netSharePurchaseActivity;
     const holders = summary?.majorHoldersBreakdown;
@@ -593,9 +761,8 @@ export async function getInsiderInfo(symbol: string): Promise<InsiderInfo> {
 
 export async function getInsiderDetails(symbol: string): Promise<InsiderDetails> {
   try {
-    const summary = await yahooFinance.quoteSummary(symbol, {
-      modules: ["netSharePurchaseActivity", "majorHoldersBreakdown", "insiderTransactions"],
-    });
+    const summary = await getInsiderSummary(symbol);
+    if (!summary) return { transactions: [] };
 
     const netActivity = summary?.netSharePurchaseActivity;
     const holders = summary?.majorHoldersBreakdown;
@@ -638,9 +805,16 @@ export async function getInsiderDetails(symbol: string): Promise<InsiderDetails>
 
 export async function getInstitutionalOwnership(symbol: string): Promise<InstitutionalOwnership> {
   try {
-    const summary = await yahooFinance.quoteSummary(symbol, {
-      modules: ["institutionOwnership", "fundOwnership", "majorHoldersBreakdown"],
-    });
+    const summary = await cached(`y:inst:${symbol.toUpperCase()}`, INSIDER_TTL, () =>
+      track(
+        "summary",
+        symbol,
+        yahooFinance.quoteSummary(symbol, {
+          modules: ["institutionOwnership", "fundOwnership", "majorHoldersBreakdown"],
+        })
+      )
+    );
+    if (!summary) return { institutionHolders: [], fundHolders: [] };
 
     const holders = summary?.majorHoldersBreakdown;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -697,10 +871,11 @@ export async function getNews(symbol: string, limit = 5): Promise<NewsArticle[]>
     const upperSymbol = symbol.toUpperCase();
 
     // Use search API which provides news with thumbnails
-    const result = (await yahooFinance.search(symbol, {
-      newsCount: limit * 3,
-      quotesCount: 0,
-    }, { validateResult: false })) as unknown as { news?: SearchNewsItem[] };
+    const result = (await track(
+      "search",
+      symbol,
+      yahooFinance.search(symbol, { newsCount: limit * 3, quotesCount: 0 }, { validateResult: false })
+    )) as unknown as { news?: SearchNewsItem[] };
 
     if (!result || !result.news || result.news.length === 0) {
       return [];

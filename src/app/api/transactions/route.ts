@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/http/body";
+import { invalidatePortfolioSummary } from "@/lib/portfolio-summary";
 import { db, schema } from "@/lib/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -99,9 +101,9 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(enriched);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const validated = createTransactionSchema.parse(body);
 
     // Find or create holding for this symbol in the portfolio
@@ -193,7 +195,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+async function handlePATCH(request: NextRequest) {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
 
@@ -202,7 +204,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const validated = updateTransactionSchema.parse(body);
 
     // Get existing transaction
@@ -258,7 +260,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+async function handleDELETE(request: NextRequest) {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   const portfolioId = url.searchParams.get("portfolioId");
@@ -299,8 +301,8 @@ export async function DELETE(request: NextRequest) {
   // Batch delete by JSON body with ids[]
   if (!id) {
     try {
-      const body = await request.json();
-      const ids: number[] = body.ids;
+      const body = await readJsonBody(request);
+      const ids = (body as { ids?: unknown } | null)?.ids as number[];
 
       if (!Array.isArray(ids) || ids.length === 0) {
         return NextResponse.json(
@@ -361,4 +363,22 @@ export async function DELETE(request: NextRequest) {
   const updatedHolding = await recomputeHolding(existing.holdingId);
 
   return NextResponse.json({ success: true, holding: updatedHolding });
+}
+
+// Every successful write changes figures on the dashboard summary, so its
+// cache is dropped; the next read rebuilds it from the shared Yahoo cache.
+export async function POST(request: NextRequest) {
+  const response = await handlePOST(request);
+  if (response.ok) await invalidatePortfolioSummary();
+  return response;
+}
+export async function PATCH(request: NextRequest) {
+  const response = await handlePATCH(request);
+  if (response.ok) await invalidatePortfolioSummary();
+  return response;
+}
+export async function DELETE(request: NextRequest) {
+  const response = await handleDELETE(request);
+  if (response.ok) await invalidatePortfolioSummary();
+  return response;
 }

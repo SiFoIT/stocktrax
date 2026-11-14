@@ -878,6 +878,7 @@ export default function PortfolioPage() {
                 <div className="p-4">
                   <PortfolioStats
                     data={dashboardData}
+                    portfolioId={portfolioId}
                     loading={summaryLoading && !dashboardData}
                     dividendsCadTotal={dividendsCadTotal}
                     showTotalValue={false}
@@ -924,6 +925,7 @@ export default function PortfolioPage() {
                   </div>
                 ) : (
                   <DividendReturnsTable
+                    portfolioId={portfolioId}
                     holdings={activeHoldings}
                     transactions={transactionsData}
                     usdCadRate={rate}
