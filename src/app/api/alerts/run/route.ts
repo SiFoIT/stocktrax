@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
         if (update.isMuted !== undefined) set.isMuted = update.isMuted;
         if (update.cooldownUntil !== undefined) set.cooldownUntil = update.cooldownUntil;
         if (update.baselineValue !== undefined) set.baselineValue = update.baselineValue;
+        if (update.anchorValue !== undefined) set.anchorValue = update.anchorValue;
         if (update.lastTriggeredAt !== undefined) set.lastTriggeredAt = update.lastTriggeredAt;
         await db
           .update(schema.alertRules)

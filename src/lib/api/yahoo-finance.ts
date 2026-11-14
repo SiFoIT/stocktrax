@@ -1,4 +1,5 @@
 import YahooFinance from "yahoo-finance2";
+import { addMonths, closeOnOrBeforeDay, type DailyBar, type Split } from "@/lib/returns";
 import { StockQuote, StockTimeSeries, NewsArticle, ExtendedHoursData, MarketState, InsiderTransaction, InsiderDetails, InstitutionalOwnership, InstitutionalHolder } from "@/types";
 
 const yahooFinance = new YahooFinance();
@@ -65,28 +66,21 @@ export async function getHistoricalChanges(symbol: string): Promise<HistoricalCh
     if (quotes.length === 0) return {};
 
     const currentPrice = quotes[quotes.length - 1].close!;
-    const now = new Date();
-
-    const findPriceAtDaysAgo = (daysAgo: number): number | undefined => {
-      const targetDate = new Date(now);
-      targetDate.setDate(targetDate.getDate() - daysAgo);
-
-      // Find the closest quote on or before target date
-      for (let i = quotes.length - 1; i >= 0; i--) {
-        if (quotes[i].date <= targetDate) {
-          return quotes[i].close!;
-        }
-      }
-      return undefined;
-    };
+    const offset = result.meta?.gmtoffset ?? 0;
+    const bars = quotes.map((q) => ({ day: barDay(q.date, offset), close: q.close! }));
+    // Anchor on the latest session's date, not the current instant: the
+    // baseline must not move with the hour this happens to be computed.
+    const latestDay = bars[bars.length - 1].day;
+    const priceMonthsAgo = (months: number): number | undefined =>
+      closeOnOrBeforeDay(bars, addMonths(latestDay, -months)) ?? undefined;
 
     // 5D means 5 *trading* days, so index back 5 bars in the daily series
     // rather than 5 calendar days (which is only ~3 trading days).
     const price5D = quotes.length > 5 ? quotes[quotes.length - 1 - 5].close ?? undefined : undefined;
-    const price1M = findPriceAtDaysAgo(30);
-    const price3M = findPriceAtDaysAgo(90);
-    const price1Y = findPriceAtDaysAgo(365);
-    const price5Y = findPriceAtDaysAgo(1825);
+    const price1M = priceMonthsAgo(1);
+    const price3M = priceMonthsAgo(3);
+    const price1Y = priceMonthsAgo(12);
+    const price5Y = priceMonthsAgo(60);
 
     const calcChange = (oldPrice: number | undefined): number | undefined => {
       if (oldPrice === undefined || oldPrice === 0) return undefined;
@@ -264,8 +258,7 @@ export async function getStockDetails(symbol: string): Promise<StockDetails | nu
       priceToSales: (keyStats as { priceToSalesTrailing12Months?: number } | undefined)?.priceToSalesTrailing12Months,
 
       // Dividends
-      dividendRate: detail?.dividendRate,
-      dividendYield: detail?.dividendYield,
+      ...dividendFields(detail),
       exDividendDate: detail?.exDividendDate
         ? new Date(detail.exDividendDate).toISOString().split("T")[0]
         : undefined,
@@ -327,6 +320,31 @@ export async function getStockDetails(symbol: string): Promise<StockDetails | nu
   }
 }
 
+/**
+ * Forward dividend rate and yield. Stocks report `dividendRate` and
+ * `dividendYield`; ETFs and funds report only `yield` (trailing distribution
+ * yield, a fraction), so derive the rate from it and the last close rather
+ * than letting every ETF's income read as zero.
+ */
+export function dividendFields(detail: {
+  dividendRate?: number;
+  dividendYield?: number;
+  yield?: number;
+  previousClose?: number;
+} | undefined): { dividendRate?: number; dividendYield?: number } {
+  if (!detail) return {};
+  if (detail.dividendRate != null || detail.dividendYield != null) {
+    return { dividendRate: detail.dividendRate, dividendYield: detail.dividendYield };
+  }
+  if (detail.yield != null && detail.yield > 0) {
+    return {
+      dividendYield: detail.yield,
+      dividendRate: detail.previousClose ? detail.yield * detail.previousClose : undefined,
+    };
+  }
+  return {};
+}
+
 export interface DividendInfo {
   dividendRate?: number;
   dividendYield?: number;
@@ -349,8 +367,7 @@ export async function getDividendInfo(symbol: string): Promise<DividendInfo> {
     const profile = summary?.summaryProfile;
 
     return {
-      dividendRate: detail?.dividendRate,
-      dividendYield: detail?.dividendYield,
+      ...dividendFields(detail),
       exDividendDate: detail?.exDividendDate
         ? new Date(detail.exDividendDate).toISOString().split("T")[0]
         : undefined,
@@ -419,78 +436,44 @@ export async function getQuote(symbol: string, includeRange = false): Promise<St
   }
 }
 
-export async function getHistoricalPricesMultiDate(
-  symbol: string,
-  targetDates: Date[]
-): Promise<Map<number, number>> {
-  const result = new Map<number, number>();
-  try {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setFullYear(startDate.getFullYear() - 1);
-    startDate.setDate(startDate.getDate() - 10); // buffer for weekends/holidays
-
-    const chart = await yahooFinance.chart(symbol, {
-      period1: startDate,
-      period2: endDate,
-      interval: "1d",
-    });
-
-    if (!chart || !chart.quotes || chart.quotes.length === 0) return result;
-
-    const quotes = chart.quotes.filter((q) => q.date && q.close !== null);
-    if (quotes.length === 0) return result;
-
-    for (const target of targetDates) {
-      // Find closest quote on or before target date
-      let closest: (typeof quotes)[number] | null = null;
-      for (let i = quotes.length - 1; i >= 0; i--) {
-        if (quotes[i].date <= target) {
-          closest = quotes[i];
-          break;
-        }
-      }
-      if (closest && closest.close != null) {
-        result.set(target.getTime(), closest.close);
-      }
-    }
-
-    return result;
-  } catch {
-    return result;
-  }
+/**
+ * The exchange-local trading day of a daily bar. Yahoo stamps a daily bar at
+ * the session open as a UTC instant (14:30Z for New York and Toronto, 23:00Z
+ * the previous day for Sydney), so the instant's UTC date is not always the
+ * session's date; shifting by the exchange's UTC offset first always is.
+ */
+export function barDay(date: Date, gmtOffsetSeconds: number): string {
+  return new Date(date.getTime() + gmtOffsetSeconds * 1000).toISOString().slice(0, 10);
 }
 
-export async function getHistoricalPrice(symbol: string, targetDate: Date): Promise<number | null> {
+export interface DailyHistory {
+  bars: DailyBar[];
+  splits: Split[];
+}
+
+/**
+ * Daily closes from `from` to now, keyed by exchange-local trading day, plus
+ * the splits in that window. Closes are split-adjusted into today's share
+ * units (see `splitFactorAfter`). Returns null on failure, never an empty
+ * history, so a caller cannot mistake an outage for "no price".
+ */
+export async function getDailyHistory(symbol: string, from: string): Promise<DailyHistory | null> {
   try {
-    // Fetch a window around the target date to find nearest trading day
-    const startDate = new Date(targetDate);
-    startDate.setDate(startDate.getDate() - 10); // buffer for weekends/holidays
-    const endDate = new Date(targetDate);
-    endDate.setDate(endDate.getDate() + 5);
-
-    const result = await yahooFinance.chart(symbol, {
-      period1: startDate,
-      period2: endDate,
+    const chart = await yahooFinance.chart(symbol, {
+      period1: from,
+      period2: new Date(),
       interval: "1d",
+      events: "split",
     });
-
-    if (!result || !result.quotes || result.quotes.length === 0) {
-      return null;
-    }
-
-    const quotes = result.quotes.filter((q) => q.date && q.close !== null);
-    if (quotes.length === 0) return null;
-
-    // Find closest quote on or before target date
-    let closest = quotes[0];
-    for (const q of quotes) {
-      if (q.date <= targetDate) {
-        closest = q;
-      }
-    }
-
-    return closest.close ?? null;
+    const offset = chart?.meta?.gmtoffset ?? 0;
+    const bars: DailyBar[] = (chart?.quotes ?? [])
+      .filter((q) => q.date && q.close != null && Number.isFinite(q.close) && q.close > 0)
+      .map((q) => ({ day: barDay(q.date, offset), close: q.close as number }));
+    if (bars.length === 0) return null;
+    const splits: Split[] = (chart?.events?.splits ?? [])
+      .filter((s) => s.numerator > 0 && s.denominator > 0)
+      .map((s) => ({ day: barDay(new Date(s.date), offset), ratio: s.numerator / s.denominator }));
+    return { bars, splits };
   } catch {
     return null;
   }
@@ -643,7 +626,7 @@ export async function getInsiderDetails(symbol: string): Promise<InsiderDetails>
       buyInfoShares: netActivity?.buyInfoShares,
       sellInfoCount: netActivity?.sellInfoCount,
       sellInfoShares: netActivity?.sellInfoShares,
-      netInfoShares: netActivity?.netInfoCount,
+      netInfoShares: netActivity?.netInfoShares,
       totalInsiderShares: netActivity?.totalInsiderShares,
       period: netActivity?.period,
       transactions,

@@ -142,10 +142,12 @@ export function MarketOverview({
   // the alert.
   useEffect(() => {
     if (!marketData) return;
+    // A row whose quote failed carries price 0 (and `unavailable` from the
+    // route); evaluating it would fire "price at or below" rules on nothing.
     const allItems = [
       ...CATEGORIES.flatMap((c) => marketData[c] ?? []),
       ...(marketData.hidden ?? []),
-    ];
+    ].filter((item) => Number.isFinite(item.price) && item.price > 0);
     if (allItems.length === 0) return;
     triggerMarketAlerts(allItems).then((triggered) => {
       setMarketAlerts(triggered);
@@ -218,11 +220,12 @@ export function MarketOverview({
   }, [marketData]);
 
   const flatSymbols = useMemo(() => {
+    // The side list repeats what the cards show: the selected range's change.
     return flatMarketData.map((d) => ({
       symbol: d.symbol,
-      changePercent: d.changePercent,
+      changePercent: d.unavailable ? undefined : range ? d.rangeChangePercent : d.changePercent,
     }));
-  }, [flatMarketData]);
+  }, [flatMarketData, range]);
 
   const symbolIndexMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -420,6 +423,7 @@ export function MarketOverview({
         symbols={flatSymbols}
         initialIndex={chartIndex}
         storageKey="market_overview"
+        changeLabel={range ?? DEFAULT_MARKET_RANGE}
         getTimeframeChanges={(symbol) => {
           const item = flatMarketData.find((d) => d.symbol === symbol);
           if (!item) return undefined;

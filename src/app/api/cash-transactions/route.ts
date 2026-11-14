@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { normalizeTradeDate, resolveEditedTradeDate } from "@/lib/import/trade-date";
 
 const updateCashTransactionSchema = z.object({
   type: z
@@ -11,7 +12,14 @@ const updateCashTransactionSchema = z.object({
   amount: z.number().optional(),
   date: z
     .string()
-    .transform((s) => new Date(s))
+    .transform((s, ctx) => {
+      const date = normalizeTradeDate(s);
+      if (!date) {
+        ctx.addIssue({ code: "custom", message: `Invalid date: ${s}` });
+        return z.NEVER;
+      }
+      return date;
+    })
     .optional(),
 });
 
@@ -77,7 +85,10 @@ export async function PATCH(request: NextRequest) {
     if (validated.type !== undefined) updateSet.type = validated.type;
     if (validated.description !== undefined) updateSet.description = validated.description;
     if (validated.amount !== undefined) updateSet.amount = validated.amount;
-    if (validated.date !== undefined) updateSet.date = validated.date;
+    if (validated.date !== undefined) {
+      // Same calendar day keeps the stored timestamp (and so its order).
+      updateSet.date = resolveEditedTradeDate(new Date(existing.date), validated.date);
+    }
 
     const [updated] = await db
       .update(schema.cashTransactions)

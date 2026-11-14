@@ -156,6 +156,11 @@ export interface MarketData {
   rangeChangePercent: number;
   /** Covers the same window as `rangeChange`, and ends at `price`. */
   sparklineData: number[];
+  /**
+   * True when Yahoo returned no usable quote. `price` and the changes are
+   * then placeholders (0) and must be shown as a dash, never as numbers.
+   */
+  unavailable?: boolean;
   /** Low and high of the same window, widened to include the live price. */
   rangeLow?: number;
   rangeHigh?: number;
@@ -225,8 +230,21 @@ export interface PortfolioSummary {
   todayReturnPercent: number;
   percentOfTotal: number;
   yearlyReturns: Record<string, { amount: number; percent: number }>;
+  /**
+   * Total return since the first transaction: market value + sale proceeds +
+   * dividends − money put in. Percent is over the money put in (buys and
+   * transfers in), so it stays meaningful after large sells.
+   */
   sinceInception: { amount: number; percent: number };
+  /** Money-weighted annualized return (XIRR) over the portfolio's cash flows, in percent. */
+  cagr: number;
   periodReturns?: Record<string, { amount: number; percent: number }>;
+  /**
+   * Return since the close of the Friday before the latest completed Mon–Fri
+   * week (the weekly digest's baseline), net of trades. Absent when a price
+   * needed for it is missing.
+   */
+  weekReturn?: { amount: number; percent: number };
 }
 
 export interface BreakdownItem {
@@ -243,11 +261,18 @@ export interface PortfolioDashboardData {
     gainLossPercent: number;
     todayReturn: number;
     todayReturnPercent: number;
+    /** Sum of the portfolios' sinceInception: the Total row of the Inception column. */
+    sinceInception: { amount: number; percent: number };
+    /** Money-weighted annualized return (XIRR) across every portfolio, in percent. */
     cagr: number;
     earliestTransactionDate: string;
     totalDividends?: number;
     totalCash?: number;
     periodReturns?: Record<string, { amount: number; percent: number }>;
+    /** Sum across portfolios, present only when every portfolio has that year. */
+    yearlyReturns?: Record<string, { amount: number; percent: number }>;
+    /** Sum of the portfolios' weekReturn, present only when every portfolio has one. */
+    weekReturn?: { amount: number; percent: number };
   };
   breakdowns: {
     assetType: BreakdownItem[];
@@ -255,6 +280,12 @@ export interface PortfolioDashboardData {
     currency: BreakdownItem[];
     topHoldings: BreakdownItem[];
   };
+  /**
+   * Present when the figures are incomplete: these symbols had no quote (they
+   * are left out of value and their portfolio's returns are omitted), or the
+   * exchange rate is the last known one rather than live.
+   */
+  missing?: { symbols: string[]; exchangeRate: boolean };
 }
 
 export type AlertScope = "watchlist" | "holding" | "market";

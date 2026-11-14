@@ -15,6 +15,20 @@ const MOVER_LIMIT = 3;
 const NEAR_RANGE_PCT = 3;
 /** Tolerance for calling a price a new 52-week high or low. */
 const EXTREME_TOLERANCE = 0.001;
+/**
+ * A symbol whose whole 52-week range is narrower than this is cash-like (a
+ * high-interest savings or T-bill ETF such as CASH.TO or HISU-U.TO): it creeps
+ * up by its accrued interest and resets at each distribution, so it is "at a
+ * 52-week high" most weeks without that meaning anything. Real equities and
+ * bond funds swing far more than 2% in a year.
+ */
+const CASH_LIKE_RANGE_PCT = 2;
+
+/** True when a 52-week range is too narrow for highs and lows to be news. */
+export function isCashLike(high?: number, low?: number): boolean {
+  if (!high || !low || low <= 0) return false;
+  return ((high - low) / low) * 100 < CASH_LIKE_RANGE_PCT;
+}
 
 /** One symbol's position, merged across every portfolio that holds it. */
 export interface MergedPosition {
@@ -23,6 +37,7 @@ export interface MergedPosition {
   shares: number;
   /** In the symbol's own currency, as shown in the tables. */
   price: number;
+  currency?: string;
   change: number;
   changePercent: number;
   /** Multiplier from the symbol's currency to CAD. */
@@ -50,6 +65,7 @@ export function selectMovers(
     symbol: p.symbol,
     name: p.name,
     price: p.price,
+    currency: p.currency,
     changePercent: p.changePercent,
   });
 
@@ -83,8 +99,8 @@ export function selectWatchlistRows(
 ): DigestWatchlistRow[] {
   if (thresholdPct <= 0) return [];
   return rows
-    .filter((row) => Math.abs(row.changePercent) >= thresholdPct)
-    .sort((a, b) => b.changePercent - a.changePercent);
+    .filter((row) => row.changePercent != null && Math.abs(row.changePercent) >= thresholdPct)
+    .sort((a, b) => (b.changePercent ?? 0) - (a.changePercent ?? 0));
 }
 
 /** Best and worst performers of the week, best-first and worst-first. */
@@ -109,6 +125,7 @@ export function rangeNote(
   low?: number,
   withinPct = NEAR_RANGE_PCT
 ): string {
+  if (isCashLike(high, low)) return "";
   if (high && price >= high * (1 - withinPct / 100)) return "near high";
   if (low && price <= low * (1 + withinPct / 100)) return "near low";
   return "";
@@ -120,7 +137,32 @@ export function extremeNote(
   high?: number,
   low?: number
 ): "high" | "low" | null {
+  if (isCashLike(high, low)) return null;
   if (high && price >= high * (1 - EXTREME_TOLERANCE)) return "high";
   if (low && price <= low * (1 + EXTREME_TOLERANCE)) return "low";
+  return null;
+}
+
+/**
+ * Whether the week just ended set a new 52-week closing high or low: the
+ * week's best (worst) close beats every close in the year before the week
+ * began. Unlike comparing today's price with Yahoo's 52-week high, this does
+ * not fire for a price that merely drifted back to a high set months ago, and
+ * cash-like symbols are skipped outright.
+ */
+export function weeklyExtreme(
+  bars: { day: string; close: number }[],
+  baseline: string,
+  weekEnd: string,
+  yearStart: string
+): "high" | "low" | null {
+  const prior = bars.filter((b) => b.day > yearStart && b.day <= baseline).map((b) => b.close);
+  const week = bars.filter((b) => b.day > baseline && b.day <= weekEnd).map((b) => b.close);
+  // Need most of a year of history before calling anything a 52-week extreme.
+  if (week.length === 0 || prior.length < 200) return null;
+  const all = [...prior, ...week];
+  if (isCashLike(Math.max(...all), Math.min(...all))) return null;
+  if (Math.max(...week) > Math.max(...prior)) return "high";
+  if (Math.min(...week) < Math.min(...prior)) return "low";
   return null;
 }

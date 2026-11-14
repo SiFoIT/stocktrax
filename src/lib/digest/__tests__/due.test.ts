@@ -157,3 +157,15 @@ describe("timezone handling", () => {
     expect(zonedDateStr(instant, "UTC")).toBe("2026-09-09");
   });
 });
+
+describe("Toronto trading days", () => {
+  it("still sends on a US-only holiday when the TSX is open", () => {
+    // US Thanksgiving 2026-11-26: NYSE closed, TSX open.
+    expect(due({ today: "2026-11-26" }).daily).toBe(true);
+  });
+
+  it("sends on a Canadian-only holiday when NYSE is open", () => {
+    // Canada Day 2026-07-01 is a Wednesday.
+    expect(due({ today: "2026-07-01" }).daily).toBe(true);
+  });
+});

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { ExternalLink, Info, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NewsArticle, ExtendedHoursData, InsiderDetails, InstitutionalOwnership } from "@/types";
-import { formatVolume, formatPercentRatio, formatRelativeTime } from "@/lib/utils";
+import { formatVolume, formatPercent, formatPercentRatio, formatRelativeTime, getChangeColor } from "@/lib/utils";
+import { formatLargeAmount, formatPerShare, formatQuoteChange, formatQuotePrice } from "@/components/stocks/details-format";
 import { ExtendedHoursLabel } from "@/components/ui/extended-hours-label";
 import { InfoTip } from "@/components/ui/info-tip";
 import { PriceRangeBar } from "@/components/ui/price-range-bar";
@@ -106,24 +107,6 @@ function formatNumber(value: number | undefined, decimals = 2): string {
   });
 }
 
-function formatCurrency(value: number | undefined, currency = "USD"): string {
-  if (value === undefined || value === null) return "-";
-  return value.toLocaleString(undefined, {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatLargeNumber(value: number | undefined): string {
-  if (value === undefined || value === null) return "-";
-  if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
-  if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
-  if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
-  if (value >= 1e3) return `$${(value / 1e3).toFixed(2)}K`;
-  return `$${value.toFixed(2)}`;
-}
 
 
 function formatTradeTime(isoString: string | undefined): string {
@@ -138,15 +121,10 @@ function formatTradeTime(isoString: string | undefined): string {
 }
 
 
-function formatPercentRaw(value: number | undefined): string {
+/** A signed change in percent; undefined reads as a dash. */
+function formatSignedPercent(value: number | undefined): string {
   if (value === undefined || value === null) return "-";
-  const sign = value >= 0 ? "+" : "";
-  return `${sign}${value.toFixed(2)}%`;
-}
-
-function getChangeColor(value: number | undefined): string {
-  if (value === undefined || value === null) return "text-muted-foreground";
-  return value >= 0 ? "text-positive" : "text-negative";
+  return formatPercent(value);
 }
 
 function getRecommendationColor(key: string | undefined): string {
@@ -331,7 +309,14 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
           changePercent: range.changePercent,
         }
       : { label: "Today", change: details?.change, changePercent: details?.changePercent };
-  const isPositive = (headline.changePercent ?? 0) >= 0;
+  const headlineColor = getChangeColor(headline.changePercent);
+  // Width and currency treatment for every price-like figure of this quote.
+  const priceCtx = {
+    symbol,
+    currency: details?.currency,
+    quoteType: details?.quoteType,
+    price: details?.price,
+  };
 
   /* Low and high for that same window, falling back to the day's own range. */
   const secondBar =
@@ -348,7 +333,7 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`relative overflow-hidden ${isPositive ? "" : ""}`}>
+        <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtOS45NDEgMC0xOCA4LjA1OS0xOCAxOHM4LjA1OSAxOCAxOCAxOGM5Ljk0MSAwIDE4LTguMDU5IDE4LTE4cy04LjA1OS0xOC0xOC0xOHptMCAzMmMtNy43MzIgMC0xNC02LjI2OC0xNC0xNHM2LjI2OC0xNCAxNC0xNHMxNCA2LjI2OCAxNCAxNC02LjI2OCAxNC0xNCAxNHoiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjAyIi8+PC9nPjwvc3ZnPg==')] opacity-30" />
           <div className="relative flex items-start justify-between p-6">
             <div>
@@ -401,16 +386,15 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
               <div className="flex items-end gap-6">
                 <div>
                   <span className="text-3xl font-semibold tracking-tight text-foreground">
-                    {formatCurrency(details.price, details.currency)}
+                    {formatQuotePrice(details.price, priceCtx)}
                   </span>
                 </div>
                 <div className="flex items-baseline gap-2 pb-1.5">
-                  <span className={`text-lg font-semibold ${isPositive ? "text-positive" : "text-negative"}`}>
-                    {headline.change !== undefined && headline.change >= 0 ? "+" : ""}
-                    {formatNumber(headline.change)}
+                  <span className={`text-lg font-semibold ${headlineColor}`}>
+                    {formatQuoteChange(headline.change, priceCtx)}
                   </span>
-                  <span className={`text-lg font-semibold ${isPositive ? "text-positive" : "text-negative"}`}>
-                    {formatPercentRaw(headline.changePercent)}
+                  <span className={`text-lg font-semibold ${headlineColor}`}>
+                    {formatSignedPercent(headline.changePercent)}
                   </span>
                   {/* Badged, not plain text, so the window reads as a live selection. */}
                   <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-xs font-semibold text-foreground">
@@ -457,7 +441,7 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatCard
                   label="Market Cap"
-                  value={formatLargeNumber(details.marketCap)}
+                  value={formatLargeAmount(details.marketCap, details.currency)}
                 />
                 <StatCard
                   label="P/E Ratio"
@@ -482,7 +466,7 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                     current={details.price}
                     high={details.fiftyTwoWeekHigh}
                     label="52-Week Range"
-                    format={(value) => formatCurrency(value, details.currency)}
+                    format={(value) => formatQuotePrice(value, priceCtx)}
                   />
                   {/*
                     The second bar follows the caller's window too, so it reads
@@ -496,7 +480,7 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                       current={details.price}
                       high={secondBar.high}
                       label={secondBar.label}
-                      format={(value) => formatCurrency(value, details.currency)}
+                      format={(value) => formatQuotePrice(value, priceCtx)}
                     />
                   )}
                 </div>
@@ -507,10 +491,10 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                 <Section
                   title="Trading"
                 >
-                  <Row label="Open" value={formatCurrency(details.open, details.currency)} />
-                  <Row label="Previous Close" value={formatCurrency(details.previousClose, details.currency)} />
-                  <Row label="Day High" value={formatCurrency(details.dayHigh, details.currency)} className="text-positive" />
-                  <Row label="Day Low" value={formatCurrency(details.dayLow, details.currency)} className="text-negative" />
+                  <Row label="Open" value={formatQuotePrice(details.open, priceCtx)} />
+                  <Row label="Previous Close" value={formatQuotePrice(details.previousClose, priceCtx)} />
+                  <Row label="Day High" value={formatQuotePrice(details.dayHigh, priceCtx)} className="text-positive" />
+                  <Row label="Day Low" value={formatQuotePrice(details.dayLow, priceCtx)} className="text-negative" />
                   <Row label="Volume" value={formatVolume(details.volume, 2)} />
                   <Row label="Avg Volume" value={formatVolume(details.avgVolume, 2)} />
                 </Section>
@@ -519,8 +503,8 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                 <Section
                   title="Valuation"
                 >
-                  <Row label="Market Cap" value={formatLargeNumber(details.marketCap)} />
-                  <Row label="Enterprise Value" value={formatLargeNumber(details.enterpriseValue)} />
+                  <Row label="Market Cap" value={formatLargeAmount(details.marketCap, details.currency)} />
+                  <Row label="Enterprise Value" value={formatLargeAmount(details.enterpriseValue, details.currency)} />
                   <Row label="P/E (Trailing)" value={formatNumber(details.trailingPE)} className={getRatioColor(details.trailingPE, 10, 30, true)} />
                   <Row label="P/E (Forward)" value={formatNumber(details.forwardPE)} className={getRatioColor(details.forwardPE, 10, 25, true)} />
                   <Row label="Price/Book" value={formatNumber(details.priceToBook)} />
@@ -532,7 +516,7 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                 <Section
                   title="Dividends"
                 >
-                  <Row label="Dividend Rate" value={formatCurrency(details.dividendRate, details.currency)} />
+                  <Row label="Dividend Rate" value={formatPerShare(details.dividendRate, details.currency)} />
                   <Row label="Dividend Yield" value={formatPercentRatio(details.dividendYield)} className={details.dividendYield && details.dividendYield > 0.02 ? "text-positive" : ""} />
                   <Row label="Ex-Dividend Date" value={details.exDividendDate || "-"} />
                   <Row label="Payout Ratio" value={formatPercentRatio(details.payoutRatio)} className={getRatioColor(details.payoutRatio, 0.3, 0.8, true)} />
@@ -543,12 +527,12 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                 <Section
                   title="Financials"
                 >
-                  <Row label="Revenue" value={formatLargeNumber(details.revenue)} />
-                  <Row label="Gross Profit" value={formatLargeNumber(details.grossProfit)} />
-                  <Row label="EBITDA" value={formatLargeNumber(details.ebitda)} />
-                  <Row label="Net Income" value={formatLargeNumber(details.netIncome)} className={getChangeColor(details.netIncome)} />
-                  <Row label="EPS (Trailing)" value={formatCurrency(details.eps, details.currency)} />
-                  <Row label="EPS (Forward)" value={formatCurrency(details.forwardEps, details.currency)} />
+                  <Row label="Revenue" value={formatLargeAmount(details.revenue, details.currency)} />
+                  <Row label="Gross Profit" value={formatLargeAmount(details.grossProfit, details.currency)} />
+                  <Row label="EBITDA" value={formatLargeAmount(details.ebitda, details.currency)} />
+                  <Row label="Net Income" value={formatLargeAmount(details.netIncome, details.currency)} className={getChangeColor(details.netIncome)} />
+                  <Row label="EPS (Trailing)" value={formatPerShare(details.eps, details.currency)} />
+                  <Row label="EPS (Forward)" value={formatPerShare(details.forwardEps, details.currency)} />
                 </Section>
                 )}
 
@@ -567,11 +551,11 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                 <Section
                   title="Balance Sheet"
                 >
-                  <Row label="Total Cash" value={formatLargeNumber(details.totalCash)} className="text-positive" />
-                  <Row label="Total Debt" value={formatLargeNumber(details.totalDebt)} className="text-negative" />
+                  <Row label="Total Cash" value={formatLargeAmount(details.totalCash, details.currency)} className="text-positive" />
+                  <Row label="Total Debt" value={formatLargeAmount(details.totalDebt, details.currency)} className="text-negative" />
                   <Row label="Debt/Equity" value={formatNumber(details.debtToEquity)} className={getRatioColor(details.debtToEquity, 0.5, 2, true)} />
                   <Row label="Current Ratio" value={formatNumber(details.currentRatio)} className={getRatioColor(details.currentRatio, 1, 2, false)} />
-                  <Row label="Book Value" value={formatCurrency(details.bookValue, details.currency)} />
+                  <Row label="Book Value" value={formatPerShare(details.bookValue, details.currency)} />
                 </Section>
                 )}
 
@@ -602,12 +586,23 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                       <Row label="Insider Ownership" value={insiderDetails.insidersPercentHeld !== undefined ? `${(insiderDetails.insidersPercentHeld * 100).toFixed(2)}%` : "-"} tooltip="Percentage of outstanding shares held by company insiders." />
                       <Row label="Buys (6mo)" value={insiderDetails.buyInfoCount !== undefined ? `${insiderDetails.buyInfoCount} txn · ${formatVolume(insiderDetails.buyInfoShares, 0)} shares` : "-"} className={insiderDetails.buyInfoCount ? "text-positive" : undefined} tooltip="Insider buy transactions and total shares purchased in the last 6 months." />
                       <Row label="Sells (6mo)" value={insiderDetails.sellInfoCount !== undefined ? `${insiderDetails.sellInfoCount} txn · ${formatVolume(insiderDetails.sellInfoShares, 0)} shares` : "-"} className={insiderDetails.sellInfoCount ? "text-negative" : undefined} tooltip="Insider sell transactions and total shares sold in the last 6 months." />
-                      <Row
-                        label="Net Shares"
-                        value={insiderDetails.netInfoShares !== undefined ? insiderDetails.netInfoShares.toLocaleString() : "-"}
-                        className={insiderDetails.netInfoShares !== undefined ? (insiderDetails.netInfoShares > 0 ? "text-positive" : insiderDetails.netInfoShares < 0 ? "text-negative" : undefined) : undefined}
-                        tooltip="Net insider transaction count in the last 6 months (buys minus sells). This is a transaction count, not a share count."
-                      />
+                      {(() => {
+                        // netInfoShares is Yahoo's netInfoCount (a transaction count), so
+                        // the share figure comes from the buy and sell share totals.
+                        const { buyInfoShares, sellInfoShares } = insiderDetails;
+                        const net =
+                          buyInfoShares !== undefined && sellInfoShares !== undefined
+                            ? buyInfoShares - sellInfoShares
+                            : undefined;
+                        return (
+                          <Row
+                            label="Net Shares (6mo)"
+                            value={net !== undefined ? `${net > 0 ? "+" : ""}${net.toLocaleString()}` : "-"}
+                            className={net !== undefined && net !== 0 ? getChangeColor(net) : undefined}
+                            tooltip="Shares bought minus shares sold by insiders in the last 6 months."
+                          />
+                        );
+                      })()}
                       <Row label="Total Insider Shares" value={formatVolume(insiderDetails.totalInsiderShares, 0)} tooltip="Total number of shares held by all company insiders." />
                     </>
                   ) : (
@@ -637,9 +632,9 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                 <Section
                   title="Analyst Ratings"
                 >
-                  <Row label="Target High" value={formatCurrency(details.targetHighPrice, details.currency)} className="text-positive" />
-                  <Row label="Target Mean" value={formatCurrency(details.targetMeanPrice, details.currency)} className="text-primary" />
-                  <Row label="Target Low" value={formatCurrency(details.targetLowPrice, details.currency)} className="text-negative" />
+                  <Row label="Target High" value={formatQuotePrice(details.targetHighPrice, priceCtx)} className="text-positive" />
+                  <Row label="Target Mean" value={formatQuotePrice(details.targetMeanPrice, priceCtx)} className="text-primary" />
+                  <Row label="Target Low" value={formatQuotePrice(details.targetLowPrice, priceCtx)} className="text-negative" />
                   <div className="flex justify-between items-center py-1">
                     <span className="text-sm text-muted-foreground">Recommendation</span>
                     {details.recommendationKey && (
@@ -656,11 +651,11 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                 <Section
                   title="52-Week Performance"
                 >
-                  <Row label="52-Week High" value={formatCurrency(details.fiftyTwoWeekHigh, details.currency)} className="text-positive" />
-                  <Row label="52-Week Low" value={formatCurrency(details.fiftyTwoWeekLow, details.currency)} className="text-negative" />
-                  <Row label="52-Week Change" value={formatPercentRaw(details.fiftyTwoWeekChange ? details.fiftyTwoWeekChange * 100 : undefined)} className={getChangeColor(details.fiftyTwoWeekChange)} />
-                  <Row label="50-Day Avg" value={formatCurrency(details.fiftyDayAverage, details.currency)} />
-                  <Row label="200-Day Avg" value={formatCurrency(details.twoHundredDayAverage, details.currency)} />
+                  <Row label="52-Week High" value={formatQuotePrice(details.fiftyTwoWeekHigh, priceCtx)} className="text-positive" />
+                  <Row label="52-Week Low" value={formatQuotePrice(details.fiftyTwoWeekLow, priceCtx)} className="text-negative" />
+                  <Row label="52-Week Change" value={formatSignedPercent(details.fiftyTwoWeekChange ? details.fiftyTwoWeekChange * 100 : undefined)} className={getChangeColor(details.fiftyTwoWeekChange)} />
+                  <Row label="50-Day Avg" value={formatQuotePrice(details.fiftyDayAverage, priceCtx)} />
+                  <Row label="200-Day Avg" value={formatQuotePrice(details.twoHundredDayAverage, priceCtx)} />
                 </Section>
               </div>
 
@@ -747,7 +742,7 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                             <td className="py-2 px-2 text-muted-foreground whitespace-nowrap">{holder.reportDate || "-"}</td>
                             <td className="py-2 px-2 text-right font-mono text-muted-foreground">{(holder.pctHeld * 100).toFixed(2)}%</td>
                             <td className="py-2 px-2 text-right font-mono text-muted-foreground">{holder.position.toLocaleString()}</td>
-                            <td className="py-2 px-2 text-right font-mono text-muted-foreground">{formatLargeNumber(holder.value)}</td>
+                            <td className="py-2 px-2 text-right font-mono text-muted-foreground">{formatLargeAmount(holder.value, details.currency)}</td>
                             <td className={`py-2 px-2 text-right font-mono ${holder.pctChange > 0 ? "text-positive" : holder.pctChange < 0 ? "text-negative" : "text-muted-foreground"}`}>
                               {holder.pctChange > 0 ? "+" : ""}{(holder.pctChange * 100).toFixed(2)}%
                             </td>
@@ -789,7 +784,7 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                             <td className="py-2 px-2 text-muted-foreground whitespace-nowrap">{holder.reportDate || "-"}</td>
                             <td className="py-2 px-2 text-right font-mono text-muted-foreground">{(holder.pctHeld * 100).toFixed(2)}%</td>
                             <td className="py-2 px-2 text-right font-mono text-muted-foreground">{holder.position.toLocaleString()}</td>
-                            <td className="py-2 px-2 text-right font-mono text-muted-foreground">{formatLargeNumber(holder.value)}</td>
+                            <td className="py-2 px-2 text-right font-mono text-muted-foreground">{formatLargeAmount(holder.value, details.currency)}</td>
                             <td className={`py-2 px-2 text-right font-mono ${holder.pctChange > 0 ? "text-positive" : holder.pctChange < 0 ? "text-negative" : "text-muted-foreground"}`}>
                               {holder.pctChange > 0 ? "+" : ""}{(holder.pctChange * 100).toFixed(2)}%
                             </td>

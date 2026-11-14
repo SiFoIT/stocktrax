@@ -1,17 +1,19 @@
+import { parseCalendarDate } from "@/lib/utils";
+
 export function formatPercentRaw(value: number | undefined): string {
   if (value === undefined) return "-";
   return `${value.toFixed(2)}%`;
 }
 
-export function getDaysToExDiv(exDividendDate: string | undefined): number | undefined {
+/**
+ * Calendar days from today to the ex-dividend date (YYYY-MM-DD), 0 on the day.
+ * Both ends are local calendar days; rounding absorbs a DST hour.
+ */
+export function getDaysToExDiv(exDividendDate: string | undefined, now: Date = new Date()): number | undefined {
   if (!exDividendDate) return undefined;
-  const exDate = new Date(exDividendDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  exDate.setHours(0, 0, 0, 0);
-  const diffTime = exDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
+  const exDate = parseCalendarDate(exDividendDate);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((exDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 export function formatDaysToExDiv(days: number | undefined): string {

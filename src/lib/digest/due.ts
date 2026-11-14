@@ -1,5 +1,5 @@
 import type { DigestConfig } from "@/lib/settings";
-import { isTradingDay } from "@/lib/markets/calendar";
+import { isTradingDay, isTsxTradingDay } from "@/lib/markets/calendar";
 import { weekdayOf } from "@/lib/digest/time";
 
 /**
@@ -61,7 +61,9 @@ export interface DueDecision {
 export function decideDue(input: DueInput): DueDecision {
   const { today, nowTime, localToday, localTime, config, lastDaily, lastWeekly } = input;
 
-  const tradingDay = isTradingDay(today);
+  // Either exchange open is a market day: holdings in Toronto move on a US-only
+  // holiday and US holdings move on a Canadian one.
+  const tradingDay = isTradingDay(today) || isTsxTradingDay(today);
   const pastDailyTime = nowTime >= DAILY_TIME;
 
   // Snapshots are the weekly's baseline, so they are written even when the

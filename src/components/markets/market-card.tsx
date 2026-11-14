@@ -22,7 +22,7 @@ interface MarketCardProps {
 
 export function MarketCard({ data, onClick, onChartClick, alertState, onAlertClick }: MarketCardProps) {
   const isPositive = data.rangeChange >= 0;
-  const changeColor = isPositive ? "text-positive" : "text-negative";
+  const changeColor = data.unavailable ? "text-muted-foreground" : getChangeColor(data.rangeChange);
 
   return (
     <div
@@ -82,14 +82,14 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
       */}
       <div className="flex flex-wrap items-baseline justify-between gap-x-2">
         <span className="text-lg font-semibold tracking-tight text-foreground">
-          {formatMarketPrice(data.price, data.symbol)}
+          {data.unavailable ? "—" : formatMarketPrice(data.price, data.symbol)}
         </span>
         <span className={`ml-auto text-lg font-semibold tracking-tight ${changeColor}`}>
-          {formatPercent(data.rangeChangePercent)}
+          {data.unavailable ? "—" : formatPercent(data.rangeChangePercent)}
         </span>
       </div>
       {/* Where the price sits inside the selected range's low and high. */}
-      {data.rangeLow !== undefined && data.rangeHigh !== undefined && (
+      {!data.unavailable && data.rangeLow !== undefined && data.rangeHigh !== undefined && (
         <div className="mt-2.5">
           <PriceRangeBar
             low={data.rangeLow}

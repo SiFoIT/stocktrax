@@ -17,6 +17,7 @@ import {
 } from "lightweight-charts";
 import { StockTimeSeries } from "@/types";
 import { toEasternTime, formatVolume } from "@/lib/utils";
+import { formatEtShiftedTime, sessionWindowStart } from "./chart-time";
 
 type TimeRange = "1D" | "5D" | "3M" | "1Y" | "5Y";
 type ChartType = "line" | "candle";
@@ -37,9 +38,11 @@ interface PriceChartProps {
 }
 
 // Map time range to API parameters - fetch extra data for zoom/scroll flexibility
+// Intraday ranges show the last N sessions found in the data (as the Markets
+// panel does), so 5D is five trading days midweek and over a weekend alike.
 const rangeConfig: Record<TimeRange, { period: string; interval: string; showDays: number }> = {
-  "1D": { period: "5d", interval: "5m", showDays: 1 },      // Fetch 5 days, show 1 day
-  "5D": { period: "1mo", interval: "15m", showDays: 5 },    // Fetch 1 month, show 5 days
+  "1D": { period: "5d", interval: "5m", showDays: 1 },      // Fetch 5 days, show 1 session
+  "5D": { period: "1mo", interval: "15m", showDays: 5 },    // Fetch 1 month, show 5 sessions
   "3M": { period: "2y", interval: "1d", showDays: 90 },     // Fetch 2 years, show 3 months
   "1Y": { period: "3y", interval: "1d", showDays: 365 },    // Fetch 3 years, show 1 year
   "5Y": { period: "10y", interval: "1wk", showDays: 1825 }, // Fetch 10 years, show 5 years
@@ -94,20 +97,12 @@ function formatPercent(value: number | undefined): string {
 }
 
 function getChangeColor(value: number | undefined): string {
-  if (value === undefined) return "text-muted-foreground";
-  return value >= 0 ? "text-positive" : "text-negative";
+  if (value === undefined || !Number.isFinite(value) || value === 0) return "text-muted-foreground";
+  return value > 0 ? "text-positive" : "text-negative";
 }
 
 function formatLegendTime(time: Time, isIntraday: boolean): string {
-  if (isIntraday && typeof time === "number") {
-    const date = new Date(time * 1000);
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  }
+  if (isIntraday && typeof time === "number") return formatEtShiftedTime(time);
   return time as string;
 }
 
@@ -504,9 +499,10 @@ export function PriceChart({ symbol, height = 300, storageKey, timeframeChanges 
       const showDaysMs = config.showDays * 24 * 60 * 60 * 1000;
 
       if (isIntraday) {
-        // For intraday, use the actual data timestamps
+        // For intraday, count back that many sessions present in the data
         const toTime = lastDataPoint.time as number;
-        const fromTime = toTime - (config.showDays * 24 * 60 * 60);
+        const fromTime =
+          sessionWindowStart(finalData.map((d) => d.time as number), config.showDays) ?? toTime;
         chart.timeScale().setVisibleRange({
           from: fromTime as Time,
           to: toTime as Time,

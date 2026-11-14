@@ -4,6 +4,17 @@ import { getQuote, getTimeSeries, getHistoricalChanges, getStockDetails, getDivi
 import { eq } from "drizzle-orm";
 import { CACHE_TTL } from "@/lib/config";
 
+/**
+ * The yahoo-finance helpers swallow errors and return `[]`, `{}` or an object
+ * of empty lists (`{ transactions: [] }`), while a successful fetch always
+ * yields bars or its full set of named fields (even if undefined). An empty
+ * result is therefore treated as a failure and never cached.
+ */
+function isEmptyResult(value: unknown[] | object): boolean {
+  if (Array.isArray(value)) return value.length === 0;
+  return Object.values(value).every((v) => Array.isArray(v) && v.length === 0);
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ symbol: string }> }
@@ -43,7 +54,7 @@ export async function GET(
 
     const instData = await getInstitutionalOwnership(upperSymbol);
 
-    await db
+    if (!isEmptyResult(instData)) await db
       .insert(schema.stockCache)
       .values({
         symbol: instCacheKey,
@@ -80,7 +91,7 @@ export async function GET(
 
     const insiderDetailsData = await getInsiderDetails(upperSymbol);
 
-    await db
+    if (!isEmptyResult(insiderDetailsData)) await db
       .insert(schema.stockCache)
       .values({
         symbol: insiderDetailsCacheKey,
@@ -141,8 +152,12 @@ export async function GET(
     return NextResponse.json(details);
   }
 
-  // Only sub-daily intervals are intraday; daily and weekly use the longer TTL.
+  // Only sub-daily intervals are intraday. The longer TTL is for a daily or
+  // weekly chart; every other response is a quote that watchlists, holdings
+  // and alerts read, so it gets the short TTL rather than the `interval`
+  // default of "1d" giving a plain quote an hour.
   const isIntraday = interval !== "1d" && interval !== "1wk";
+  const isDailyChart = includeTimeSeries && !isIntraday;
 
   // Encode every flag that changes the response shape into the cache key so a
   // request never receives a cached payload that is missing requested fields
@@ -154,7 +169,7 @@ export async function GET(
   if (includeInsider) keyParts.push("in");
   if (includeRange) keyParts.push("rg");
   const cacheKey = keyParts.join("_");
-  const cacheTTL = isIntraday ? CACHE_TTL.stockIntraday : CACHE_TTL.stockQuote;
+  const cacheTTL = isDailyChart ? CACHE_TTL.stockQuote : CACHE_TTL.stockIntraday;
 
   // Check cache (skip if refresh requested)
   if (!skipCache) {
@@ -215,7 +230,7 @@ export async function GET(
 
     if (!insiderCached) {
       insiderInfo = await getInsiderInfo(upperSymbol);
-      await db
+      if (!isEmptyResult(insiderInfo)) await db
         .insert(schema.stockCache)
         .values({
           symbol: insiderCacheKey,
@@ -240,8 +255,16 @@ export async function GET(
     insiderInfo: includeInsider ? insiderInfo : undefined,
   };
 
+  // A part that came back empty was a failed fetch: serve it, but do not hold
+  // it for the TTL, so the next request retries.
+  const failedPart =
+    (includeTimeSeries && isEmptyResult(timeSeries)) ||
+    (includeChanges && isEmptyResult(historicalChanges)) ||
+    (includeDividends && isEmptyResult(dividendInfo)) ||
+    (includeInsider && isEmptyResult(insiderInfo));
+
   // Update cache
-  await db
+  if (!failedPart) await db
     .insert(schema.stockCache)
     .values({
       symbol: cacheKey,

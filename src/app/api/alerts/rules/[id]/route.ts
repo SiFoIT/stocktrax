@@ -32,6 +32,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (data.threshold !== undefined) set.threshold = data.threshold;
     if (data.resetStrategy) set.resetStrategy = data.resetStrategy;
     if (data.anchorValue !== undefined) set.anchorValue = data.anchorValue;
+    // The baseline outranks the anchor when the rule is evaluated, so a new
+    // anchor (or a new reset strategy) must clear it or the edit is ignored.
+    // The evaluator then measures from the anchor and, for a baseline rule,
+    // re-baselines from there.
+    if (data.anchorValue !== undefined || data.resetStrategy !== undefined) {
+      set.baselineValue = null;
+    }
     if (data.cooldownMinutes !== undefined) set.cooldownMinutes = data.cooldownMinutes;
 
     if (data.action === "reset") {

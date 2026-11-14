@@ -34,20 +34,27 @@ interface RangeConfig {
    * rather than the whole fetch, so "5D" means five sessions on a Monday too.
    */
   sessions?: number;
+  /**
+   * When set, the window is the last N calendar months. The fetch reaches
+   * further back so the close before the window is in the series, and the
+   * change is measured from it the way 5D is measured from the prior close.
+   */
+  months?: number;
 }
 
 /**
  * Intraday ranges use the session finder, so they fetch a wider window than
- * they show and let the gaps in the data decide where sessions fall. Daily and
- * weekly ranges take the whole fetch as-is.
+ * they show and let the gaps in the data decide where sessions fall. Longer
+ * ranges fetch the next period up and cut the window by calendar months, for
+ * the same reason: the bar before the window is what the change starts from.
  */
 export const RANGE_CONFIG: Record<MarketRange, RangeConfig> = {
   // 5d rather than 1d: a 1d window returns nothing over a weekend or holiday,
   // when the tile still has to show the last session.
   "1D": { period: "5d", interval: "5m", sessions: 1 },
   "5D": { period: "1mo", interval: "30m", sessions: 5 },
-  "1M": { period: "1mo", interval: "1h" },
-  "3M": { period: "3mo", interval: "1d" },
-  "1Y": { period: "1y", interval: "1d" },
-  "5Y": { period: "5y", interval: "1wk" },
+  "1M": { period: "3mo", interval: "1h", months: 1 },
+  "3M": { period: "1y", interval: "1d", months: 3 },
+  "1Y": { period: "2y", interval: "1d", months: 12 },
+  "5Y": { period: "10y", interval: "1wk", months: 60 },
 };

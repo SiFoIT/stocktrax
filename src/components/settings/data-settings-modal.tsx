@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBodyScrollLock } from "@/lib/hooks/use-body-scroll-lock";
+import { localDateString } from "@/lib/utils";
 import {
   collectSettings,
   restoreSettings,
@@ -72,7 +73,7 @@ export function DataSettingsModal({ onClose }: DataSettingsModalProps) {
         response.headers
           .get("content-disposition")
           ?.match(/filename="(.+)"/)?.[1] ||
-        `stocktrax-backup-${new Date().toISOString().split("T")[0]}.json`;
+        `stocktrax-backup-${localDateString()}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -25,6 +25,7 @@ import {
   NewsArticle,
   TransactionWithSymbol,
   PortfolioDashboardData,
+  PortfolioSummary,
   BreakdownItem,
   AlertRuleDTO,
   AlertHistoryEntry,
@@ -33,7 +34,7 @@ import {
   StockTransactionRow,
   CashTransactionRow,
 } from "@/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatPercent, getChangeColor, toCAD } from "@/lib/utils";
 import { useRelativeTime } from "@/lib/hooks/use-relative-time";
 import { AlertsPanel } from "@/components/alerts/alerts-panel";
 import {
@@ -76,8 +77,10 @@ export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [holdings, setHoldings] = useState<HoldingWithQuote[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState<PortfolioDashboardData | null>(null);
-  const [dashboardLoading, setDashboardLoading] = useState(false);
+  // This portfolio's row of the server summary: the one source of since-inception
+  // return and CAGR, shared with the dashboard.
+  const [portfolioSummary, setPortfolioSummary] = useState<PortfolioSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [holdingsView, setHoldingsView] = useState<HoldingsView>("holdings");
   const [holdingsUpdatedAt, setHoldingsUpdatedAt] = useState<Date | null>(null);
   const [portfolioNews, setPortfolioNews] = useState<NewsArticle[]>([]);
@@ -111,7 +114,6 @@ export default function PortfolioPage() {
   }, []);
 
   const fetchHoldings = useCallback(async (refresh = false) => {
-    setDashboardData(null); // invalidate performance cache
     try {
       const response = await fetch(`/api/holdings?portfolioId=${portfolioId}`);
       const holdingsData: Holding[] = await response.json();
@@ -254,8 +256,6 @@ export default function PortfolioPage() {
       if (response.ok) {
         const data = await response.json();
         setUsdCadRate(data.rate);
-        // Converts the USD half of the cached Cash slice; same invalidation applies.
-        setDashboardData(null);
       }
     } catch {
     }
@@ -267,11 +267,6 @@ export default function PortfolioPage() {
       if (response.ok) {
         const data = await response.json();
         setCashBalance(data);
-        // The overview breakdown caches a Cash slice built from this balance, and
-        // only fetchHoldings cleared that cache. Editing or deleting a cash-only
-        // transaction refreshes the balance without touching holdings, so the
-        // cache has to be invalidated here too.
-        setDashboardData(null);
       }
     } catch {
     }
@@ -310,86 +305,30 @@ export default function PortfolioPage() {
     }
   }, [holdingsView, fetchTransactions]);
 
+  // Refetch the summary whenever holdings or cash change: a transaction edit
+  // moves since-inception return and CAGR as well as value. Wait out a full
+  // load so its four fetches cost one summary request, not three.
   useEffect(() => {
-    const currentActiveHoldings = holdings.filter(h => h.shares > 0.0001);
-    if (holdingsView !== "overview" || currentActiveHoldings.length === 0) return;
-    if (dashboardData) return; // already fetched
-
-    const buildPerformanceData = async () => {
-      setDashboardLoading(true);
+    if (loading) return;
+    let cancelled = false;
+    const fetchSummary = async () => {
+      setSummaryLoading(true);
       try {
         const res = await fetch("/api/portfolios/summary");
         const summaryData: PortfolioDashboardData = await res.json();
-        const portfolioSummary = summaryData.portfolios.find(p => p.id === portfolioId);
-        if (!portfolioSummary) {
-          setDashboardLoading(false);
-          return;
+        if (!cancelled) {
+          setPortfolioSummary(summaryData.portfolios.find((p) => p.id === portfolioId) ?? null);
         }
-
-        // Compute CAGR for this portfolio
-        const startDate = new Date(portfolioSummary.createdAt);
-        const yearsSinceStart = (Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-        const cagr = portfolioSummary.costBasis > 0 && yearsSinceStart > 0
-          ? (Math.pow(portfolioSummary.marketValue / portfolioSummary.costBasis, 1 / yearsSinceStart) - 1) * 100
-          : 0;
-
-        // Build breakdowns from holdings data
-        const assetTypeMap = new Map<string, number>();
-        const sectorMap = new Map<string, number>();
-        const currencyMap = new Map<string, number>();
-
-        for (const h of currentActiveHoldings) {
-          const mv = h.marketValue || 0;
-          const type = h.quoteType === "ETF" ? "ETFs" : "Stocks";
-          assetTypeMap.set(type, (assetTypeMap.get(type) ?? 0) + mv);
-          const sector = h.sector || "Unknown";
-          sectorMap.set(sector, (sectorMap.get(sector) ?? 0) + mv);
-          currencyMap.set(h.currency, (currencyMap.get(h.currency) ?? 0) + mv);
-        }
-
-        // Include cash balance in asset type breakdown
-        const cashTotal = cashBalance.cad + cashBalance.usd * (usdCadRate || 1);
-        if (cashTotal > 0) {
-          assetTypeMap.set("Cash", cashTotal);
-        }
-
-        const toSorted = (map: Map<string, number>): BreakdownItem[] =>
-          [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-
-        const topHoldings: BreakdownItem[] = [...currentActiveHoldings]
-          .sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0))
-          .map(h => ({ name: h.symbol, value: h.marketValue || 0 }));
-
-        const data: PortfolioDashboardData = {
-          portfolios: [portfolioSummary],
-          totals: {
-            marketValue: portfolioSummary.marketValue,
-            costBasis: portfolioSummary.costBasis,
-            gainLoss: portfolioSummary.gainLoss,
-            gainLossPercent: portfolioSummary.gainLossPercent,
-            todayReturn: portfolioSummary.todayReturn,
-            todayReturnPercent: portfolioSummary.todayReturnPercent,
-            cagr,
-            earliestTransactionDate: portfolioSummary.createdAt,
-            periodReturns: portfolioSummary.periodReturns,
-          },
-          breakdowns: {
-            assetType: toSorted(assetTypeMap),
-            sector: toSorted(sectorMap),
-            currency: toSorted(currencyMap),
-            topHoldings,
-          },
-        };
-
-        setDashboardData(data);
       } catch {
       } finally {
-        setDashboardLoading(false);
+        if (!cancelled) setSummaryLoading(false);
       }
     };
-
-    buildPerformanceData();
-  }, [holdingsView, holdings, dashboardData, portfolioId, cashBalance.cad, cashBalance.usd, usdCadRate]);
+    fetchSummary();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, holdings, cashBalance, portfolioId]);
 
   const handleDeleteHolding = async (id: number) => {
     if (!confirm("Are you sure you want to delete this holding and all its transactions?")) return;
@@ -505,8 +444,15 @@ export default function PortfolioPage() {
   };
 
   const activeHoldings = holdings.filter(h => h.shares > 0.0001);
-  const cadHoldings = activeHoldings.filter(h => h.currency === "CAD");
-  const usdHoldings = activeHoldings.filter(h => h.currency !== "CAD");
+  // A holding whose quote failed has no value to set against its cost; leave it
+  // out of both, as the server summary does, rather than count it as a total loss.
+  const pricedHoldings = useMemo(
+    () => holdings.filter(h => h.shares > 0.0001 && h.marketValue !== undefined),
+    [holdings]
+  );
+  const unpricedCount = activeHoldings.length - pricedHoldings.length;
+  const cadHoldings = pricedHoldings.filter(h => h.currency === "CAD");
+  const usdHoldings = pricedHoldings.filter(h => h.currency !== "CAD");
 
   const cadValue = cadHoldings.reduce((sum, h) => sum + (h.marketValue || 0), 0);
   const cadCost = cadHoldings.reduce((sum, h) => sum + h.shares * h.avgCost, 0);
@@ -522,9 +468,9 @@ export default function PortfolioPage() {
   const totalValue = holdingsValue + cashCadTotal;
   const dividendsCadTotal = cashBalance.totalDividends.cad + cashBalance.totalDividends.usd * rate;
   const unrealizedGainLoss = holdingsValue - totalCost;
-  const totalGainLoss = unrealizedGainLoss + dividendsCadTotal;
-  const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
   const unrealizedPercent = totalCost > 0 ? (unrealizedGainLoss / totalCost) * 100 : 0;
+  // All-time return has one definition app-wide: the server's since-inception figure.
+  const sinceInception = portfolioSummary?.sinceInception;
 
   // Today's change
   const todayChangeCAD = cadHoldings.reduce((s, h) => s + (h.change || 0) * h.shares, 0);
@@ -532,6 +478,56 @@ export default function PortfolioPage() {
   const todayChangeCadTotal = todayChangeCAD + todayChangeUSD * rate;
   const todayChangeBase = holdingsValue - todayChangeCadTotal;
   const todayChangePercent = todayChangeBase > 0 ? (todayChangeCadTotal / todayChangeBase) * 100 : 0;
+
+  // Overview tab: the server summary for totals, CAGR and period returns, plus
+  // breakdowns built here from the priced holdings, every value in CAD.
+  const dashboardData = useMemo<PortfolioDashboardData | null>(() => {
+    if (!portfolioSummary) return null;
+
+    const assetTypeMap = new Map<string, number>();
+    const sectorMap = new Map<string, number>();
+    const currencyMap = new Map<string, number>();
+    const valued = pricedHoldings.map((h) => ({ h, mv: toCAD(h.marketValue ?? 0, h.currency, rate) }));
+
+    for (const { h, mv } of valued) {
+      const type = h.quoteType === "ETF" ? "ETFs" : "Stocks";
+      assetTypeMap.set(type, (assetTypeMap.get(type) ?? 0) + mv);
+      const sector = h.sector || "Unknown";
+      sectorMap.set(sector, (sectorMap.get(sector) ?? 0) + mv);
+      currencyMap.set(h.currency, (currencyMap.get(h.currency) ?? 0) + mv);
+    }
+    if (cashCadTotal > 0) assetTypeMap.set("Cash", cashCadTotal);
+
+    const toSorted = (map: Map<string, number>): BreakdownItem[] =>
+      [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+
+    const topHoldings: BreakdownItem[] = valued
+      .sort((a, b) => b.mv - a.mv)
+      .map(({ h, mv }) => ({ name: h.symbol, value: mv }));
+
+    return {
+      portfolios: [portfolioSummary],
+      totals: {
+        marketValue: portfolioSummary.marketValue,
+        costBasis: portfolioSummary.costBasis,
+        gainLoss: portfolioSummary.gainLoss,
+        gainLossPercent: portfolioSummary.gainLossPercent,
+        todayReturn: portfolioSummary.todayReturn,
+        todayReturnPercent: portfolioSummary.todayReturnPercent,
+        sinceInception: portfolioSummary.sinceInception,
+        cagr: portfolioSummary.cagr,
+        // The summary's createdAt is the portfolio's earliest transaction date.
+        earliestTransactionDate: portfolioSummary.createdAt,
+        periodReturns: portfolioSummary.periodReturns,
+      },
+      breakdowns: {
+        assetType: toSorted(assetTypeMap),
+        sector: toSorted(sectorMap),
+        currency: toSorted(currencyMap),
+        topHoldings,
+      },
+    };
+  }, [portfolioSummary, pricedHoldings, rate, cashCadTotal]);
 
   const handleCreateHoldingRule = async (input: CreateAlertRuleInput) => {
     const rule = await createAlertRule(input);
@@ -750,13 +746,19 @@ export default function PortfolioPage() {
           <PopoverTrigger asChild>
             <div className="group relative min-w-0 cursor-pointer rounded-lg border border-border bg-card px-3.5 py-3 transition-colors hover:border-border-strong">
               <Info className="absolute right-3 top-3 size-3 text-subtle-foreground/70 transition-colors group-hover:text-muted-foreground" />
-              <p className="mb-1 text-xs text-muted-foreground">Total Gain/Loss</p>
-              <p className={`break-words text-lg font-semibold tracking-tight sm:text-xl ${totalGainLoss >= 0 ? "text-positive" : "text-negative"}`}>
-                {totalGainLoss >= 0 ? "+" : "-"}{formatCurrency(Math.abs(totalGainLoss), "CAD")}
-              </p>
-              <p className={`mt-0.5 text-xs ${totalGainLoss >= 0 ? "text-positive" : "text-negative"}`}>
-                {totalGainLossPercent >= 0 ? "+" : ""}{totalGainLossPercent.toFixed(2)}%{dividendsCadTotal > 0 ? ` · incl. ${formatCurrency(dividendsCadTotal, "CAD")} div` : ""}
-              </p>
+              <p className="mb-1 text-xs text-muted-foreground">Total Return</p>
+              {sinceInception ? (
+                <>
+                  <p className={`break-words text-lg font-semibold tracking-tight sm:text-xl ${getChangeColor(sinceInception.amount)}`}>
+                    {sinceInception.amount >= 0 ? "+" : "-"}{formatCurrency(Math.abs(sinceInception.amount), "CAD")}
+                  </p>
+                  <p className={`mt-0.5 text-xs ${getChangeColor(sinceInception.amount)}`}>
+                    {formatPercent(sinceInception.percent)} since inception
+                  </p>
+                </>
+              ) : (
+                <p className="break-words text-lg font-semibold tracking-tight sm:text-xl text-subtle-foreground">-</p>
+              )}
             </div>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-72">
@@ -773,11 +775,18 @@ export default function PortfolioPage() {
                 <span className="text-sm font-medium text-positive">+{formatCurrency(dividendsCadTotal, "CAD")}</span>
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-border">
-                <span className="text-sm text-muted-foreground">Total Return</span>
-                <span className={`text-sm font-medium ${totalGainLoss >= 0 ? "text-positive" : "text-negative"}`}>
-                  {totalGainLoss >= 0 ? "+" : ""}{formatCurrency(totalGainLoss, "CAD")} ({totalGainLossPercent >= 0 ? "+" : ""}{totalGainLossPercent.toFixed(2)}%)
-                </span>
+                <span className="text-sm text-muted-foreground">Since inception</span>
+                {sinceInception ? (
+                  <span className={`text-sm font-medium ${getChangeColor(sinceInception.amount)}`}>
+                    {sinceInception.amount >= 0 ? "+" : ""}{formatCurrency(sinceInception.amount, "CAD")} ({formatPercent(sinceInception.percent)})
+                  </span>
+                ) : (
+                  <span className="text-sm text-subtle-foreground">-</span>
+                )}
               </div>
+              <p className="text-[11px] text-muted-foreground">
+                Since inception adds realized gains from sales to the above, over all money put in.
+              </p>
               {hasMixedCurrencies && (
                 <div className="flex justify-between items-center py-1.5">
                   <span className="text-sm text-muted-foreground">Exchange Rate</span>
@@ -808,6 +817,12 @@ export default function PortfolioPage() {
           );
         })()}
       </div>
+      {unpricedCount > 0 && (
+        <p className="-mt-2 mb-4 text-xs text-muted-foreground">
+          {unpricedCount === 1 ? "1 holding has" : `${unpricedCount} holdings have`} no current quote and{" "}
+          {unpricedCount === 1 ? "is" : "are"} left out of value, cost and return.
+        </p>
+      )}
 
       <div className="space-y-4">
           <Panel>
@@ -863,7 +878,7 @@ export default function PortfolioPage() {
                 <div className="p-4">
                   <PortfolioStats
                     data={dashboardData}
-                    loading={dashboardLoading}
+                    loading={summaryLoading && !dashboardData}
                     dividendsCadTotal={dividendsCadTotal}
                     showTotalValue={false}
                     showTotalReturn={false}
@@ -885,6 +900,7 @@ export default function PortfolioPage() {
               ) : holdingsView === "performance" ? (
                 <PortfolioPerformanceTable
                   holdings={activeHoldings}
+                  usdCadRate={rate}
                   storageKey={`portfolio_${portfolioId}`}
                 />
               ) : holdingsView === "dividend" ? (

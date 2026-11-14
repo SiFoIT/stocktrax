@@ -93,8 +93,17 @@ export function money2(value: number): string {
   })}`;
 }
 
-export function signedMoney(value: number): string {
+export function signedMoney(value: number | null): string {
+  if (value == null) return "—";
   return signed(value, money0(value));
+}
+
+/**
+ * A per-symbol price in its listing's currency. Values elsewhere in the email
+ * are CAD, so a US-listed price is marked rather than passed off as C$.
+ */
+export function price2(value: number, currency?: string): string {
+  return currency === "USD" ? `US${money2(value)}` : money2(value);
 }
 
 /** An index level or FX rate: grouped, and never more precise than it needs. */
@@ -105,11 +114,13 @@ export function level(value: number, decimals: number): string {
   });
 }
 
-export function percent(value: number, digits = 1): string {
+export function percent(value: number | null, digits = 1): string {
+  if (value == null) return "—";
   return signed(value, `${Math.abs(value).toFixed(digits)}%`);
 }
 
-function colorOf(value: number): string {
+function colorOf(value: number | null): string {
+  if (value == null) return C.muted;
   if (value > 0) return C.positive;
   if (value < 0) return C.negative;
   return C.muted;
@@ -169,9 +180,6 @@ function portfolioRow(
   const color = colorOf(row.change);
   const cell = `padding:6px 0;border-top:1px solid ${isTotal ? C.borderStrong : C.border};`;
   const weight = isTotal ? "font-weight:600;" : "";
-  const estimated = row.estimated
-    ? ` <span style="font-size:12px;color:${C.faint};">est.</span>`
-    : "";
 
   const cells = options.showDollars
     ? `<td align="right" style="${cell}${weight}font-family:${MONO};">${money0(row.value)}</td>
@@ -181,11 +189,11 @@ function portfolioRow(
 <td class="num" align="right" width="96" style="${cell}${weight}font-family:${MONO};color:${color};white-space:nowrap;">${percent(
         row.changePercent,
         digits
-      )}${estimated}</td>`
+      )}</td>`
     : `<td align="right" colspan="3" style="${cell}${weight}font-family:${MONO};color:${color};">${percent(
         row.changePercent,
         digits
-      )}${estimated}</td>`;
+      )}</td>`;
 
   return `<tr><td style="${cell}${weight}">${escapeHtml(row.name)}</td>${cells}</tr>`;
 }
@@ -217,8 +225,9 @@ function moverRows(movers: DigestMover[], withName: boolean): string {
         : "";
       return `<tr><td style="padding:5px 0;font-weight:600;white-space:nowrap;">${escapeHtml(
         mover.symbol
-      )}</td>${nameCell}<td align="right" style="font-family:${MONO};padding:5px 0 5px 12px;white-space:nowrap;">${money2(
-        mover.price
+      )}</td>${nameCell}<td align="right" style="font-family:${MONO};padding:5px 0 5px 12px;white-space:nowrap;">${price2(
+        mover.price,
+        mover.currency
       )}</td><td class="num" align="right" width="80" style="font-family:${MONO};padding:5px 0 5px 12px;color:${color};white-space:nowrap;">${percent(
         mover.changePercent
       )}</td></tr>`;
@@ -315,7 +324,7 @@ function shell(headerRight: string, body: string, appUrl: string): string {
 </td></tr>
 ${body}
 <tr><td class="pad" style="padding:12px 24px;background:${C.tile};border-top:1px solid ${C.border};font-size:12px;color:${C.muted};">
-Closing prices &middot; Values in CAD${links}
+Closing prices in each listing&rsquo;s currency &middot; Values in CAD${links}
 </td></tr>
 </table>
 </td></tr>
@@ -406,8 +415,9 @@ function renderDailyHtml(data: DailyDigestData, options: RenderOptions): string 
           row.symbol
         )}</td><td style="padding:5px 0;color:${C.muted};">${escapeHtml(
           row.name
-        )}</td><td align="right" style="font-family:${MONO};padding:5px 0 5px 12px;white-space:nowrap;">${money2(
-          row.price
+        )}</td><td align="right" style="font-family:${MONO};padding:5px 0 5px 12px;white-space:nowrap;">${price2(
+          row.price,
+          row.currency
         )}</td><td class="num" align="right" width="80" style="font-family:${MONO};padding:5px 0 5px 12px;color:${color};white-space:nowrap;">${percent(
           row.changePercent
         )}</td></tr>`;
@@ -453,7 +463,7 @@ function renderWeeklyHtml(data: WeeklyDigestData, options: RenderOptions): strin
 
   let allTimeRow = "";
   if (data.allTime) {
-    const { amount, percent: pct, sinceLabel, cagr, years } = data.allTime;
+    const { amount, percent: pct, sinceLabel, cagr } = data.allTime;
     const gain = options.showDollars
       ? `${signedMoney(amount)} (${percent(pct)})`
       : percent(pct);
@@ -461,9 +471,7 @@ function renderWeeklyHtml(data: WeeklyDigestData, options: RenderOptions): strin
       amount
     )};">${gain}</span> since ${escapeHtml(
       sinceLabel
-    )} &nbsp;·&nbsp; CAGR <span style="font-family:${MONO};">${cagr.toFixed(
-      1
-    )}%</span> per year over ${years.toFixed(1)} yrs</td></tr>`;
+    )} &nbsp;·&nbsp; ${percent(cagr).replace("+", "")} a year annualized</td></tr>`;
   }
 
   const portfolio = portfolioLine(data, "Portfolio · this week", options, allTimeRow);
@@ -588,7 +596,7 @@ function renderWeeklyHtml(data: WeeklyDigestData, options: RenderOptions): strin
           : "";
         return `<tr><td style="padding:4px 0;border-bottom:1px solid ${
           C.rowBorder
-        };font-weight:600;white-space:nowrap;">${escapeHtml(row.symbol)}</td>${cell(money2(row.price))}${cell(
+        };font-weight:600;white-space:nowrap;">${escapeHtml(row.symbol)}</td>${cell(price2(row.price, row.currency))}${cell(
           percent(row.weekPercent),
           `color:${color};`
         )}${money}</tr>`;
@@ -614,7 +622,7 @@ function renderWeeklyHtml(data: WeeklyDigestData, options: RenderOptions): strin
           `<td align="right" style="font-family:${MONO};padding:4px 0;border-bottom:1px solid ${C.rowBorder};${extra}">${body}</td>`;
         return `<tr><td style="padding:4px 0;border-bottom:1px solid ${
           C.rowBorder
-        };font-weight:600;white-space:nowrap;">${escapeHtml(row.symbol)}</td>${cell(money2(row.price))}${cell(
+        };font-weight:600;white-space:nowrap;">${escapeHtml(row.symbol)}</td>${cell(price2(row.price, row.currency))}${cell(
           percent(row.changePercent),
           `color:${color};`
         )}${cell(escapeHtml(row.rangeNote ?? ""), `color:${C.muted};`)}</tr>`;
@@ -667,14 +675,13 @@ function textPortfolio(
   const width = Math.max(...rows.map(({ row }) => row.name.length));
 
   const lines = rows.map(({ row }) => {
-    const estimated = row.estimated ? " est." : "";
     const body = options.showDollars
       ? `${money0(row.value).padStart(10)}  ${signedMoney(row.change).padStart(9)}  ${percent(
           row.changePercent,
           digits
         ).padStart(7)}`
       : percent(row.changePercent, digits).padStart(7);
-    return `  ${row.name.padEnd(width)}  ${body}${estimated}`;
+    return `  ${row.name.padEnd(width)}  ${body}`;
   });
 
   return [label.toUpperCase(), ...lines, ""];
@@ -683,7 +690,7 @@ function textPortfolio(
 function textMovers(movers: DigestMover[]): string[] {
   return movers.map(
     (mover) =>
-      `  ${mover.symbol.padEnd(10)} ${money2(mover.price).padStart(10)} ${percent(
+      `  ${mover.symbol.padEnd(10)} ${price2(mover.price, mover.currency).padStart(10)} ${percent(
         mover.changePercent
       ).padStart(7)}`
   );
@@ -705,7 +712,7 @@ function renderDailyText(data: DailyDigestData, options: RenderOptions): string 
     lines.push(`WATCHLIST · MOVES OVER ${data.watchlistThreshold}%`);
     for (const row of data.watchlist) {
       lines.push(
-        `  ${row.symbol.padEnd(10)} ${money2(row.price).padStart(10)} ${percent(
+        `  ${row.symbol.padEnd(10)} ${price2(row.price, row.currency).padStart(10)} ${percent(
           row.changePercent
         ).padStart(7)}`
       );
@@ -726,7 +733,7 @@ function renderDailyText(data: DailyDigestData, options: RenderOptions): string 
   }
 
   lines.push(...importReminderText(data.importReminder));
-  lines.push("Closing prices · Values in CAD");
+  lines.push("Closing prices in each listing's currency · Values in CAD");
   if (data.appUrl) lines.push(data.appUrl);
   return lines.join("\n");
 }
@@ -744,9 +751,7 @@ function renderWeeklyText(data: WeeklyDigestData, options: RenderOptions): strin
       ? `${signedMoney(data.allTime.amount)} (${percent(data.allTime.percent)})`
       : percent(data.allTime.percent);
     lines.push(
-      `  All time ${gain} since ${data.allTime.sinceLabel} · CAGR ${data.allTime.cagr.toFixed(
-        1
-      )}% per year over ${data.allTime.years.toFixed(1)} yrs`,
+      `  All time ${gain} since ${data.allTime.sinceLabel} · ${percent(data.allTime.cagr).replace("+", "")} a year annualized`,
       ""
     );
   }
@@ -805,7 +810,7 @@ function renderWeeklyText(data: WeeklyDigestData, options: RenderOptions): strin
         ? `  ${money0(row.value).padStart(10)} ${signedMoney(row.weekAmount).padStart(9)}`
         : "";
       lines.push(
-        `  ${row.symbol.padEnd(10)} ${money2(row.price).padStart(10)} ${percent(
+        `  ${row.symbol.padEnd(10)} ${price2(row.price, row.currency).padStart(10)} ${percent(
           row.weekPercent
         ).padStart(7)}${money}`
       );
@@ -818,7 +823,7 @@ function renderWeeklyText(data: WeeklyDigestData, options: RenderOptions): strin
     for (const row of group.rows) {
       const note = row.rangeNote ? `  ${row.rangeNote}` : "";
       lines.push(
-        `  ${row.symbol.padEnd(10)} ${money2(row.price).padStart(10)} ${percent(
+        `  ${row.symbol.padEnd(10)} ${price2(row.price, row.currency).padStart(10)} ${percent(
           row.changePercent
         ).padStart(7)}${note}`
       );
@@ -827,7 +832,7 @@ function renderWeeklyText(data: WeeklyDigestData, options: RenderOptions): strin
   }
 
   lines.push(...importReminderText(data.importReminder));
-  lines.push("Closing prices · Values in CAD");
+  lines.push("Closing prices in each listing's currency · Values in CAD");
   if (data.appUrl) lines.push(data.appUrl);
   return lines.join("\n");
 }

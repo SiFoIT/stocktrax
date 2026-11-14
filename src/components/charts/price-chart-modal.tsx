@@ -24,6 +24,11 @@ interface PriceChartModalProps {
   initialIndex: number;
   storageKey?: string;
   getTimeframeChanges?: (symbol: string) => TimeframeChanges | undefined;
+  /**
+   * The period the list's `changePercent` values cover. Defaults to "1D"; a
+   * caller listing a different range's change passes that range's label.
+   */
+  changeLabel?: string;
   onClose: () => void;
 }
 
@@ -54,6 +59,7 @@ export function PriceChartModal({
   initialIndex,
   storageKey,
   getTimeframeChanges,
+  changeLabel = "1D",
   onClose,
 }: PriceChartModalProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -143,6 +149,12 @@ export function PriceChartModal({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
+
+            {/* Which period the list's change column covers */}
+            <div className="flex items-center justify-between px-3 py-1 text-[11px] text-subtle-foreground shrink-0 border-b border-border">
+              <span>Symbol</span>
+              <span>{changeLabel} change</span>
+            </div>
 
             {/* Stock list */}
             <div ref={listRef} className="flex-1 overflow-y-auto">

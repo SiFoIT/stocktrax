@@ -9,7 +9,7 @@ import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createPortfolio } from "@/lib/portfolios/api";
-import { formatCurrency, formatPercent, getChangeColor } from "@/lib/utils";
+import { formatCurrency, formatDate, formatPercent, getChangeColor } from "@/lib/utils";
 
 interface PortfolioSummaryListProps {
   data: PortfolioDashboardData | null;
@@ -157,7 +157,8 @@ export function PortfolioSummaryList({ data, loading }: PortfolioSummaryListProp
                         {portfolio.name}
                       </span>
                       <span className="block text-xs text-subtle-foreground">
-                        Created {new Date(portfolio.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {/* The summary's createdAt is the earliest transaction: a calendar day stored as a UTC instant. */}
+                        Created {formatDate(portfolio.createdAt)}
                       </span>
                     </div>
                     <ArrowUpRight className="ml-1 size-3.5 opacity-0 transition-opacity group-hover:opacity-100 max-sm:hidden" />
@@ -227,7 +228,10 @@ export function PortfolioSummaryList({ data, loading }: PortfolioSummaryListProp
                 <td className="px-3.5 py-3"></td>
                 <td className="px-3.5 py-3"></td>
                 <td className="px-4 py-4 text-right">
-                  <ReturnCell amount={data.totals.gainLoss} percent={data.totals.gainLossPercent} />
+                  <ReturnCell
+                    amount={data.totals.sinceInception.amount}
+                    percent={data.totals.sinceInception.percent}
+                  />
                 </td>
               </tr>
             )}

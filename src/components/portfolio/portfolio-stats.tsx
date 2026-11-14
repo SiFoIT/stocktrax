@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { PortfolioDashboardData, BreakdownItem } from "@/types";
-import { formatCurrency, getChangeColor } from "@/lib/utils";
+import { formatCurrency, formatPercent, getChangeColor, parseCalendarDate } from "@/lib/utils";
 import { StatCard } from "@/components/ui/stat-card";
 import { Panel } from "@/components/ui/panel";
 
@@ -200,16 +200,16 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
 
   const { totals, breakdowns } = data;
 
-  // Always include dividends
   const divTotal = dividendsCadTotal ?? (totals.totalDividends ?? 0);
-  const adjustedGainLoss = totals.gainLoss + divTotal;
-  const adjustedGainLossPercent = totals.costBasis > 0 ? (adjustedGainLoss / totals.costBasis) * 100 : 0;
-  const gainColor = getChangeColor(adjustedGainLoss);
+  // All-time return is the server's since-inception figure everywhere: value,
+  // sale proceeds and dividends against all money put in.
+  const { sinceInception } = totals;
+  const gainColor = getChangeColor(sinceInception.amount);
 
-  // Compute CAGR date context
-  const earliestDate = new Date(totals.earliestTransactionDate);
+  // Inception is the earliest transaction's calendar day (stored as a UTC instant).
+  const earliestDate = parseCalendarDate(totals.earliestTransactionDate);
   const yearsSince = (now - earliestDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-  const cagrSubValue = `Since ${earliestDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })} (${yearsSince.toFixed(1)} yrs)`;
+  const cagrSubValue = `Money-weighted · since ${earliestDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })} (${yearsSince.toFixed(1)} yrs)`;
 
   return (
     <div className="space-y-4">
@@ -224,11 +224,9 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
         {showTotalReturn && (
           <StatCard
             label="Total Return"
-            value={formatCurrency(adjustedGainLoss, "CAD")}
+            value={formatCurrency(sinceInception.amount, "CAD")}
             valueClass={gainColor}
-            sub={`${adjustedGainLossPercent >= 0 ? "+" : ""}${adjustedGainLossPercent.toFixed(2)}%${
-              divTotal > 0 ? ` · incl. ${formatCurrency(divTotal, "CAD")} div` : ""
-            }`}
+            sub={`${formatPercent(sinceInception.percent)} since inception`}
             subClass={gainColor}
           />
         )}
@@ -240,8 +238,8 @@ export function PortfolioStats({ data, loading, dividendsCadTotal, showTotalValu
           />
         )}
         <StatCard
-          label="CAGR"
-          value={`${totals.cagr >= 0 ? "+" : ""}${totals.cagr.toFixed(2)}%`}
+          label="Annualized Return"
+          value={formatPercent(totals.cagr)}
           sub={cagrSubValue}
           valueClass={getChangeColor(totals.cagr)}
         />

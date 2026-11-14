@@ -76,8 +76,9 @@ export function PortfolioDividendTable({
           bVal = b.shares;
           break;
         case "value":
-          aVal = a.marketValue;
-          bVal = b.marketValue;
+          // Compare in CAD: native USD and CAD amounts are not comparable.
+          aVal = a.marketValue === undefined ? undefined : toCAD(a.marketValue, a.currency, usdCadRate);
+          bVal = b.marketValue === undefined ? undefined : toCAD(b.marketValue, b.currency, usdCadRate);
           break;
         case "dividendRate":
           aVal = a.dividendRate;
@@ -88,8 +89,8 @@ export function PortfolioDividendTable({
           bVal = b.dividendYield;
           break;
         case "annualIncome":
-          aVal = a.annualIncome;
-          bVal = b.annualIncome;
+          aVal = a.annualIncome === undefined ? undefined : toCAD(a.annualIncome, a.currency, usdCadRate);
+          bVal = b.annualIncome === undefined ? undefined : toCAD(b.annualIncome, b.currency, usdCadRate);
           break;
         case "exDividendDate":
           aVal = a.exDividendDate;
@@ -130,7 +131,7 @@ export function PortfolioDividendTable({
 
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [holdingsWithIncome, sortColumn, sortDirection]);
+  }, [holdingsWithIncome, sortColumn, sortDirection, usdCadRate]);
 
   if (holdings.length === 0) {
     return (

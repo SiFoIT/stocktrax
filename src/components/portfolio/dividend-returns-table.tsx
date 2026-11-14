@@ -13,7 +13,7 @@ import { StockIcon } from "@/components/ui/stock-icon";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { InfoTip } from "@/components/ui/info-tip";
 import { HoldingWithQuote, TransactionWithSymbol } from "@/types";
-import { formatCurrency, toCAD } from "@/lib/utils";
+import { formatCurrency, parseCalendarDate, toCAD } from "@/lib/utils";
 
 type SortColumn =
   | "symbol"
@@ -171,7 +171,7 @@ export function DividendReturnsTable({
 
   const monthsSinceFirstDividend = useMemo(() => {
     if (dividendTxns.length === 0) return 0;
-    const dates = dividendTxns.map((t) => new Date(t.date).getTime());
+    const dates = dividendTxns.map((t) => parseCalendarDate(t.date).getTime());
     const earliest = new Date(Math.min(...dates));
     const now = new Date();
     const months =
@@ -190,7 +190,8 @@ export function DividendReturnsTable({
 
     const buckets = new Map<string, number>();
     for (const txn of dividendTxns) {
-      const d = new Date(txn.date);
+      // The transaction's calendar day, not the browser-local reading of its instant.
+      const d = parseCalendarDate(txn.date);
       const year = d.getFullYear();
       const month = d.getMonth();
       const periodIndex =
@@ -228,7 +229,7 @@ export function DividendReturnsTable({
       // months for this specific stock
       let stockMonths = 0;
       if (txns.length > 0) {
-        const stockDates = txns.map((t) => new Date(t.date).getTime());
+        const stockDates = txns.map((t) => parseCalendarDate(t.date).getTime());
         const earliest = new Date(Math.min(...stockDates));
         const now = new Date();
         stockMonths =

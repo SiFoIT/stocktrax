@@ -9,11 +9,30 @@ import {
   watchlists,
   watchlistItems,
   portfolioSnapshots,
+  alertRules,
+  alerts,
+  screens,
+  screenPresets,
   settings as settingsTable,
 } from "@/lib/db/schema";
+import { like } from "drizzle-orm";
 import { z } from "zod";
 import { BACKUP_VERSION } from "@/lib/backup/settings-registry";
+import {
+  PORTFOLIO_SCOPED_SETTING_PREFIXES,
+  restorableAlertRules,
+  restorableSettings,
+} from "@/lib/backup/restore";
 import { recomputeHolding } from "@/lib/holdings";
+import {
+  alertMetrics,
+  alertOperators,
+  alertResetStrategies,
+  alertScopes,
+} from "@/lib/alerts/config";
+
+const dateValue = z.union([z.string(), z.date(), z.number()]);
+const nullableDate = dateValue.nullable().optional();
 
 // Schema for validating import data
 const backupSchema = z.object({
@@ -72,6 +91,62 @@ const backupSchema = z.object({
       currency: z.string(),
       createdAt: z.union([z.string(), z.date(), z.number()]),
     })).optional().default([]),
+    // Absent from backups made before 1.1: those tables are then left alone.
+    alertRules: z.array(z.object({
+      id: z.number(),
+      scope: z.enum(alertScopes),
+      watchlistItemId: z.number().nullable(),
+      holdingId: z.number().nullable(),
+      symbol: z.string(),
+      metric: z.enum(alertMetrics),
+      operator: z.enum(alertOperators),
+      threshold: z.number(),
+      resetStrategy: z.enum(alertResetStrategies),
+      anchorValue: z.number().nullable().optional(),
+      cooldownMinutes: z.number().nullable().optional(),
+      baselineValue: z.number().nullable().optional(),
+      needsRecovery: z.boolean().optional().default(false),
+      isMuted: z.boolean().optional().default(false),
+      cooldownUntil: nullableDate,
+      lastTriggeredAt: nullableDate,
+      lastResetAt: nullableDate,
+      createdAt: dateValue,
+      updatedAt: dateValue,
+    })).optional(),
+    alerts: z.array(z.object({
+      id: z.number(),
+      ruleId: z.number(),
+      scope: z.enum(alertScopes),
+      symbol: z.string(),
+      message: z.string(),
+      metricValue: z.number().nullable().optional(),
+      price: z.number().nullable().optional(),
+      changePercent: z.number().nullable().optional(),
+      triggeredAt: dateValue,
+      acknowledgedAt: nullableDate,
+      resetStrategy: z.enum(alertResetStrategies),
+      operator: z.enum(alertOperators),
+      threshold: z.number(),
+    })).optional(),
+    screens: z.array(z.object({
+      id: z.number(),
+      name: z.string(),
+      source: z.string(),
+      rules: z.string(),
+      match: z.enum(["all", "any"]),
+      createdAt: dateValue,
+      updatedAt: dateValue,
+      lastRunAt: nullableDate,
+      lastMatchCount: z.number().nullable().optional(),
+      lastTotalScanned: z.number().nullable().optional(),
+    })).optional(),
+    screenPresets: z.array(z.object({
+      id: z.number(),
+      name: z.string(),
+      rules: z.string(),
+      match: z.enum(["all", "any"]),
+      createdAt: dateValue,
+    })).optional(),
   }),
   serverSettings: z.array(z.object({
     key: z.string(),
@@ -90,6 +165,10 @@ function parseDate(value: string | Date | number): Date {
   if (value instanceof Date) return value;
   if (typeof value === "number") return new Date(value);
   return new Date(value);
+}
+
+function parseOptionalDate(value: string | Date | number | null | undefined): Date | null {
+  return value === null || value === undefined ? null : parseDate(value);
 }
 
 export async function POST(request: NextRequest) {
@@ -117,10 +196,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const data = backup.data;
+    let alertRulesDropped = 0;
+
     // Wrap entire delete + insert + recompute in a transaction
     // so a failure mid-import rolls back all changes
     db.transaction((tx) => {
+      // Alert rules hang off holdings and watchlist items with ON DELETE
+      // CASCADE, so deleting those below wipes every non-market rule and its
+      // history. A backup that predates alert export restores the rules that
+      // were here; a newer one replaces them with its own.
+      const ruleSource = data.alertRules
+        ? data.alertRules.map((r) => ({
+            ...r,
+            anchorValue: r.anchorValue ?? null,
+            cooldownMinutes: r.cooldownMinutes ?? 60,
+            baselineValue: r.baselineValue ?? null,
+            cooldownUntil: parseOptionalDate(r.cooldownUntil),
+            lastTriggeredAt: parseOptionalDate(r.lastTriggeredAt),
+            lastResetAt: parseOptionalDate(r.lastResetAt),
+            createdAt: parseDate(r.createdAt),
+            updatedAt: parseDate(r.updatedAt),
+          }))
+        : tx.select().from(alertRules).all();
+      const alertSource = data.alertRules
+        ? (data.alerts ?? []).map((a) => ({
+            ...a,
+            metricValue: a.metricValue ?? null,
+            price: a.price ?? null,
+            changePercent: a.changePercent ?? null,
+            triggeredAt: parseDate(a.triggeredAt),
+            acknowledgedAt: parseOptionalDate(a.acknowledgedAt),
+          }))
+        : tx.select().from(alerts).all();
+
       // Delete all existing data (order matters for foreign keys)
+      tx.delete(alerts).run();
+      tx.delete(alertRules).run();
       tx.delete(transactions).run();
       tx.delete(portfolioSnapshots).run();
       tx.delete(holdings).run();
@@ -128,6 +240,8 @@ export async function POST(request: NextRequest) {
       tx.delete(portfolios).run();
       tx.delete(watchlistItems).run();
       tx.delete(watchlists).run();
+      if (data.screens) tx.delete(screens).run();
+      if (data.screenPresets) tx.delete(screenPresets).run();
 
       // Insert new data (order matters for foreign keys)
       for (const p of backup.data.portfolios) {
@@ -191,9 +305,50 @@ export async function POST(request: NextRequest) {
         }).run();
       }
 
+      // Alert rules last among the keyed rows: they reference holdings and
+      // watchlist items. A rule whose target is gone (or now a different
+      // symbol) is dropped rather than failing the restore.
+      const { kept, dropped } = restorableAlertRules(
+        ruleSource,
+        new Map(data.holdings.map((h) => [h.id, h.symbol])),
+        new Map(data.watchlistItems.map((i) => [i.id, i.symbol]))
+      );
+      alertRulesDropped = dropped.length;
+      for (const rule of kept) {
+        tx.insert(alertRules).values(rule).run();
+      }
+      const keptRuleIds = new Set(kept.map((r) => r.id));
+      for (const alert of alertSource) {
+        if (keptRuleIds.has(alert.ruleId)) tx.insert(alerts).values(alert).run();
+      }
+
+      for (const screen of data.screens ?? []) {
+        tx.insert(screens).values({
+          ...screen,
+          createdAt: parseDate(screen.createdAt),
+          updatedAt: parseDate(screen.updatedAt),
+          lastRunAt: parseOptionalDate(screen.lastRunAt),
+          lastMatchCount: screen.lastMatchCount ?? null,
+          lastTotalScanned: screen.lastTotalScanned ?? null,
+        }).run();
+      }
+      for (const preset of data.screenPresets ?? []) {
+        tx.insert(screenPresets).values({
+          ...preset,
+          createdAt: parseDate(preset.createdAt),
+        }).run();
+      }
+
+      // Keys tied to a portfolio id describe the portfolios being replaced, so
+      // they go; the backup's own are written back below for its portfolios.
+      for (const prefix of PORTFOLIO_SCOPED_SETTING_PREFIXES) {
+        tx.delete(settingsTable).where(like(settingsTable.key, `${prefix}%`)).run();
+      }
+
       // Server settings merge rather than replace: the SMTP password is never
       // in a backup, so wiping the table would silently break sending.
-      for (const setting of backup.serverSettings) {
+      const portfolioIds = new Set(data.portfolios.map((p) => p.id));
+      for (const setting of restorableSettings(backup.serverSettings, portfolioIds)) {
         tx.insert(settingsTable).values({
           key: setting.key,
           value: setting.value,
@@ -234,7 +389,11 @@ export async function POST(request: NextRequest) {
         cashTransactions: backup.data.cashTransactions?.length || 0,
         watchlists: backup.data.watchlists.length,
         watchlistItems: backup.data.watchlistItems.length,
+        alertRules: data.alertRules ? data.alertRules.length - alertRulesDropped : null,
+        screens: data.screens?.length ?? null,
+        screenPresets: data.screenPresets?.length ?? null,
       },
+      alertRulesDropped,
       settings: backup.settings,
     });
   } catch {

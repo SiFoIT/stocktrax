@@ -7,7 +7,7 @@ import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
 import { StockDetailsModal } from "@/components/stocks/stock-details-modal";
 import { PriceChartModal } from "@/components/charts/price-chart-modal";
-import { formatCurrency, formatPercent, getChangeColor, formatTradeTime, formatVolume } from "@/lib/utils";
+import { formatCurrency, formatPercent, getChangeColor, formatTradeTime, formatVolume, toCAD } from "@/lib/utils";
 
 type SortColumn = "symbol" | "price" | "dayRange" | "52wRange" | "1D" | "5D" | "1M" | "3M" | "1Y" | "5Y" | "volume" | "value";
 type SortDirection = "asc" | "desc";
@@ -15,6 +15,8 @@ type SortDirection = "asc" | "desc";
 interface PortfolioPerformanceTableProps {
   holdings: HoldingWithQuote[];
   storageKey?: string;
+  /** USD→CAD, so the Value sort compares like with like. */
+  usdCadRate?: number;
 }
 
 
@@ -29,6 +31,7 @@ function SortIcon({ direction }: { direction: SortDirection | null }) {
 export function PortfolioPerformanceTable({
   holdings,
   storageKey,
+  usdCadRate = 1,
 }: PortfolioPerformanceTableProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -61,8 +64,9 @@ export function PortfolioPerformanceTable({
           bVal = b.currentPrice;
           break;
         case "value":
-          aVal = a.marketValue;
-          bVal = b.marketValue;
+          // Compare in CAD: native USD and CAD amounts are not comparable.
+          aVal = a.marketValue === undefined ? undefined : toCAD(a.marketValue, a.currency, usdCadRate);
+          bVal = b.marketValue === undefined ? undefined : toCAD(b.marketValue, b.currency, usdCadRate);
           break;
         case "dayRange": {
           const aRange = a.dayHigh && a.dayLow && a.currentPrice && a.dayHigh > a.dayLow ? ((a.currentPrice - a.dayLow) / (a.dayHigh - a.dayLow)) * 100 : undefined;
@@ -121,7 +125,7 @@ export function PortfolioPerformanceTable({
 
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [holdings, sortColumn, sortDirection]);
+  }, [holdings, sortColumn, sortDirection, usdCadRate]);
 
   if (holdings.length === 0) {
     return (

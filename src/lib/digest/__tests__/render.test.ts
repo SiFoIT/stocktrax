@@ -60,7 +60,6 @@ const weekly: WeeklyDigestData = {
         value: 184210,
         change: 2910,
         changePercent: 1.6,
-        estimated: false,
       },
     ],
     total: null,
@@ -138,7 +137,7 @@ describe("plain text", () => {
       DIVIDENDS
         Received $84.00 from ENB.TO
 
-      Closing prices · Values in CAD
+      Closing prices in each listing's currency · Values in CAD
       https://stocktrax.example"
     `);
   });
@@ -146,7 +145,7 @@ describe("plain text", () => {
   it("renders the weekly", () => {
     const text = renderText(weekly, WITH_DOLLARS);
     expect(text).toContain("StockTrax weekly · Sep 1 – 5, 2026");
-    expect(text).toContain("All time +$22,905 (+14.2%) since Mar 2021 · CAGR 9.8% per year over 5.5 yrs");
+    expect(text).toContain("All time +$22,905 (+14.2%) since Mar 2021 · 9.8% a year annualized");
     expect(text).toContain("ALL HOLDINGS · BY WEEK CHANGE");
     expect(text).toContain("WATCHLIST · TECH");
   });
@@ -304,17 +303,30 @@ describe("privacy switch", () => {
   });
 });
 
-describe("estimated week change", () => {
-  it("marks a week priced without a stored snapshot", () => {
-    const estimated: WeeklyDigestData = {
+describe("unavailable figures", () => {
+  it("shows a dash rather than a number when a week change could not be computed", () => {
+    const missing: WeeklyDigestData = {
       ...weekly,
       portfolio: {
         ...weekly.portfolio!,
-        rows: [{ ...weekly.portfolio!.rows[0], estimated: true }],
+        rows: [{ ...weekly.portfolio!.rows[0], change: null, changePercent: null }],
       },
     };
-    expect(renderText(estimated, WITH_DOLLARS)).toContain("est.");
-    expect(renderHtml(estimated, WITH_DOLLARS)).toContain("est.");
+    const text = renderText(missing, WITH_DOLLARS);
+    expect(text).toContain("—");
+    expect(text).not.toContain("+0.0%");
+    expect(renderHtml(missing, WITH_DOLLARS)).toContain("—");
+  });
+});
+
+describe("prices in their own currency", () => {
+  it("marks a US-listed price as US$", () => {
+    const usd: DailyDigestData = {
+      ...daily,
+      movers: [{ symbol: "MSFT", name: "Microsoft", price: 523.88, currency: "USD", changePercent: -2.2 }],
+    };
+    expect(renderText(usd, WITH_DOLLARS)).toContain("US$523.88");
+    expect(renderHtml(usd, WITH_DOLLARS)).toContain("US$523.88");
   });
 });
 

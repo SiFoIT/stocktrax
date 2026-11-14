@@ -5,6 +5,7 @@ import { Minus, Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { HoldingWithQuote } from "@/types";
+import { localDateString } from "@/lib/utils";
 
 interface SearchResult {
   symbol: string;
@@ -35,7 +36,7 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
   const [transactionType, setTransactionType] = useState<"buy" | "sell" | "dividend" | "transfer_in">("buy");
   const [shares, setShares] = useState("");
   const [price, setPrice] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(() => localDateString());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
@@ -197,7 +198,7 @@ export function AddTransactionForm({ portfolioId, holdings, onTransactionAdded, 
       setSymbol("");
       setShares("");
       setPrice("");
-      setDate(new Date().toISOString().split("T")[0]);
+      setDate(localDateString());
       setTransactionType("buy");
       onTransactionAdded();
     } catch (err) {

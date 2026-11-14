@@ -175,6 +175,63 @@ export function getMarketHolidays(year: number): Set<string> {
   return holidays;
 }
 
+// --- Toronto Stock Exchange holidays ---
+
+const tsxHolidayCache = new Map<number, Set<string>>();
+
+/**
+ * TSX holidays for a year. Most of the user's holdings trade in Toronto, so a
+ * US-only holiday (MLK, Presidents', Memorial, Juneteenth, July 4, US
+ * Thanksgiving) is still a trading day for them, and Canadian ones (Family
+ * Day, Victoria Day, Canada Day, Civic Holiday, Thanksgiving, Boxing Day) are
+ * closed. A holiday on a weekend is observed on the following weekday.
+ */
+export function getTsxHolidays(year: number): Set<string> {
+  const cached = tsxHolidayCache.get(year);
+  if (cached) return cached;
+
+  const holidays = new Set<string>();
+  const add = (m: number, d: number) => holidays.add(toDateStr(year, m, d));
+  /** A fixed date moved off a weekend, and past any date already taken. */
+  const addObserved = (m: number, d: number) => {
+    const date = new Date(year, m - 1, d);
+    while (
+      date.getDay() === 0 ||
+      date.getDay() === 6 ||
+      holidays.has(toDateStr(date.getFullYear(), date.getMonth() + 1, date.getDate()))
+    ) {
+      date.setDate(date.getDate() + 1);
+    }
+    holidays.add(toDateStr(date.getFullYear(), date.getMonth() + 1, date.getDate()));
+  };
+
+  addObserved(1, 1); // New Year's Day
+  add(2, nthWeekday(year, 2, 1, 3)); // Family Day — 3rd Monday of February
+  const easter = easterSunday(year);
+  const gf = new Date(year, easter.month - 1, easter.day - 2);
+  add(gf.getMonth() + 1, gf.getDate()); // Good Friday
+  // Victoria Day — the Monday before May 25
+  const may24 = new Date(year, 4, 24);
+  add(5, 24 - ((may24.getDay() + 6) % 7));
+  addObserved(7, 1); // Canada Day
+  add(8, nthWeekday(year, 8, 1, 1)); // Civic Holiday — 1st Monday of August
+  add(9, nthWeekday(year, 9, 1, 1)); // Labour Day
+  add(10, nthWeekday(year, 10, 1, 2)); // Thanksgiving — 2nd Monday of October
+  addObserved(12, 25); // Christmas
+  addObserved(12, 26); // Boxing Day
+
+  tsxHolidayCache.set(year, holidays);
+  return holidays;
+}
+
+/** Whether the Toronto Stock Exchange trades on `dateStr`. */
+export function isTsxTradingDay(dateStr: string): boolean {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  if (dow === 0 || dow === 6) return false;
+  return !getTsxHolidays(y).has(dateStr);
+}
+
 // --- Early-close (half-day) computation ---
 
 const earlyCloseCache = new Map<number, Set<string>>();

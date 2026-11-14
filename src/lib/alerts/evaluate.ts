@@ -42,6 +42,23 @@ function sourcePrice(source: AlertSource): number | null | undefined {
   return "price" in source ? source.price : (source as HoldingAlertSource).currentPrice;
 }
 
+/**
+ * A price usable for evaluation or as a reference: finite and positive. A
+ * failed quote arrives as null, 0 or NaN, and must neither trigger a rule nor
+ * become one's baseline.
+ */
+export function validPrice(value: number | null | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/**
+ * The price a `price_vs_anchor` rule measures from: the baseline when it has
+ * one, else the anchor. A zero or non-finite stored value counts as unset.
+ */
+export function referencePrice(rule: Pick<AlertRule, "baselineValue" | "anchorValue">): number | null {
+  return validPrice(rule.baselineValue) ?? validPrice(rule.anchorValue);
+}
+
 export interface TriggeredAlertEvent {
   rule: AlertRule;
   symbol: string;
@@ -58,6 +75,7 @@ export interface RuleStateUpdate {
   isMuted?: boolean;
   cooldownUntil?: Date | null;
   baselineValue?: number | null;
+  anchorValue?: number | null;
   lastTriggeredAt?: Date | null;
 }
 
@@ -75,8 +93,25 @@ export function evaluateAlerts(
     const source = getSourceForRule(payload, rule);
     if (!source) continue;
 
+    // No usable quote, no evaluation: whatever the metric, a missing or zero
+    // price means the row's data failed to load.
+    const price = validPrice(sourcePrice(source));
+    if (price === null) continue;
+
+    // A price_vs_anchor rule with no usable reference (created with a blank
+    // anchor while the quote was unavailable, or a baseline stored as 0) takes
+    // the current price as its reference and starts measuring next run.
+    if (rule.metric === "price_vs_anchor" && referencePrice(rule) === null) {
+      updates.push({
+        id: rule.id,
+        anchorValue: validPrice(rule.anchorValue) ?? price,
+        baselineValue: rule.resetStrategy === "baseline" ? price : null,
+      });
+      continue;
+    }
+
     const metricValue = getMetricValue(rule.metric as AlertMetric, source, rule);
-    if (metricValue === undefined || metricValue === null || Number.isNaN(metricValue)) {
+    if (metricValue === undefined || metricValue === null || !Number.isFinite(metricValue)) {
       continue;
     }
 
@@ -147,10 +182,10 @@ function getMetricValue(
     case "last_price":
       return sourcePrice(source) ?? null;
     case "price_vs_anchor": {
-      const price = sourcePrice(source) ?? null;
-      const baseline = rule.baselineValue ?? rule.anchorValue ?? price;
-      if (price === null || price === undefined || !baseline) return null;
-      if (baseline === 0) return null;
+      // Never falls back to the live price: that would always read 0%.
+      const price = validPrice(sourcePrice(source));
+      const baseline = referencePrice(rule);
+      if (price === null || baseline === null) return null;
       return ((price - baseline) / baseline) * 100;
     }
     case "holding_gain_percent":
@@ -213,8 +248,8 @@ function applyReset(
       break;
     }
     case "baseline": {
-      const nextBaseline = sourcePrice(source) ?? null;
-      if (nextBaseline !== null && nextBaseline !== undefined) {
+      const nextBaseline = validPrice(sourcePrice(source));
+      if (nextBaseline !== null) {
         update.baselineValue = nextBaseline;
       }
       break;

@@ -170,7 +170,7 @@ export function InsiderTable({
               <HeaderCell column="insidersPercentHeld" label="Insider %" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Percentage of outstanding shares held by company insiders (officers, directors, and beneficial owners)." />
               <HeaderCell column="netBuyCount6mo" label="Buys (6mo)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Number of insider buy transactions in the last 6 months." />
               <HeaderCell column="netSellCount6mo" label="Sells (6mo)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Number of insider sell transactions in the last 6 months." />
-              <HeaderCell column="netInsiderShares6mo" label="Net Shares" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Net insider transactions in the last 6 months (buys minus sells). This is a transaction count, not a share count." />
+              <HeaderCell column="netInsiderShares6mo" label="Net Buys (6mo)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Insider buy transactions minus sell transactions in the last 6 months. A count of transactions, not of shares." />
               <HeaderCell column="lastInsiderDate" label="Last Activity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} tooltip="Most recent insider purchase or sale transaction." />
               <th className="px-3.5 py-2 text-[11.5px] font-medium text-muted-foreground text-right">Actions</th>
             </tr>

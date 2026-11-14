@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { normalizeSymbol } from "@/lib/import/trade-date";
 
 const addSymbolSchema = z.object({
   watchlistId: z.number(),
-  symbol: z.string().min(1, "Symbol is required").toUpperCase(),
+  symbol: z.string().transform(normalizeSymbol).pipe(z.string().min(1, "Symbol is required")),
 });
 
 export async function GET(request: NextRequest) {

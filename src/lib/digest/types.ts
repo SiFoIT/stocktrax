@@ -23,13 +23,13 @@ export interface DigestMarketTile {
 export interface DigestPortfolioRow {
   name: string;
   value: number;
-  change: number;
-  changePercent: number;
   /**
-   * True when the week's change came from re-pricing today's holdings a week
-   * back rather than from a stored snapshot, which ignores mid-week trades.
+   * Change over the period net of trades and deposits. Null when a price it
+   * needs was unavailable; the row then shows a dash rather than a number
+   * that silently leaves a position out.
    */
-  estimated?: boolean;
+  change: number | null;
+  changePercent: number | null;
 }
 
 export interface DigestPortfolioSection {
@@ -53,6 +53,8 @@ export interface DigestMover {
   name: string;
   /** Closing price in the symbol's own currency. */
   price: number;
+  /** The listing's currency, so a USD price is marked as such. */
+  currency?: string;
   changePercent: number;
 }
 
@@ -60,7 +62,9 @@ export interface DigestWatchlistRow {
   symbol: string;
   name: string;
   price: number;
-  changePercent: number;
+  currency?: string;
+  /** Null when the week's baseline close is unavailable (weekly only). */
+  changePercent: number | null;
   /** "near high" / "near low" / "" — weekly tables only. */
   rangeNote?: string;
 }
@@ -117,9 +121,12 @@ export interface DigestAllTime {
 export interface DigestHoldingRow {
   symbol: string;
   price: number;
-  weekPercent: number;
+  currency?: string;
+  /** Price change over the week. Null when the baseline close is unavailable. */
+  weekPercent: number | null;
   value: number;
-  weekAmount: number;
+  /** CAD gain over the week net of trades in it. Null with weekPercent. */
+  weekAmount: number | null;
 }
 
 export interface DigestFiftyTwoWeekNote {

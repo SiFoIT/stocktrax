@@ -92,7 +92,7 @@ export function MarketTable({
           <tbody>
             {items.map((data) => {
               const positive = data.rangeChange >= 0;
-              const changeColor = getChangeColor(data.rangeChange);
+              const changeColor = data.unavailable ? "text-muted-foreground" : getChangeColor(data.rangeChange);
               const pair = onFlip ? parsePairSymbol(data.symbol) : null;
               return (
                 <tr
@@ -117,7 +117,7 @@ export function MarketTable({
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <span className="font-mono text-[13px] font-medium text-foreground">
-                      {formatMarketPrice(data.price, data.symbol)}
+                      {data.unavailable ? "—" : formatMarketPrice(data.price, data.symbol)}
                     </span>
                     {data.extendedHours && (
                       <ExtendedHoursLabel extendedHours={data.extendedHours} compact />
@@ -125,16 +125,16 @@ export function MarketTable({
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <span className={`font-mono text-[12.5px] ${changeColor}`}>
-                      {formatMarketChange(data.rangeChange, data.symbol, data.price)}
+                      {data.unavailable ? "—" : formatMarketChange(data.rangeChange, data.symbol, data.price)}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <span className={`font-mono text-[12.5px] ${getChangeColor(data.rangeChangePercent)}`}>
-                      {formatPercent(data.rangeChangePercent)}
+                    <span className={`font-mono text-[12.5px] ${changeColor}`}>
+                      {data.unavailable ? "—" : formatPercent(data.rangeChangePercent)}
                     </span>
                   </td>
                   <td className="px-3 py-2">
-                    {data.rangeLow !== undefined && data.rangeHigh !== undefined && (
+                    {!data.unavailable && data.rangeLow !== undefined && data.rangeHigh !== undefined && (
                       <div className="mx-auto w-28">
                         <PriceRangeBar
                           low={data.rangeLow}

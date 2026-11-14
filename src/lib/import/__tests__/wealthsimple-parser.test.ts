@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { parseMultipleFiles, parseWealthSimpleCsv } from "@/lib/import/wealthsimple-parser";
+import {
+  cashTxnDedupKey,
+  fromYahooSymbol,
+  parseAmount,
+  parseMultipleFiles,
+  parseWealthSimpleCsv,
+  splitDuplicates,
+  stockTxnDedupKey,
+  toYahooSymbol,
+} from "@/lib/import/wealthsimple-parser";
 
 const HEADER = "date,transaction,description,amount,balance,currency";
 
@@ -26,5 +35,152 @@ describe("coveredThrough", () => {
       { name: "aug.csv", content: aug },
     ]);
     expect(merged.coveredThrough).toBe("2026-09-12");
+  });
+});
+
+describe("parseAmount", () => {
+  it("reads plain, signed, currency-marked and accounting-style amounts", () => {
+    expect(parseAmount("12.5")).toBe(12.5);
+    expect(parseAmount("-12.50")).toBe(-12.5);
+    expect(parseAmount("(12.50)")).toBe(-12.5);
+    expect(parseAmount("($1,234.56)")).toBe(-1234.56);
+    expect(parseAmount("$1,234.56")).toBe(1234.56);
+    expect(parseAmount("-$12.50")).toBe(-12.5);
+    expect(parseAmount("CA$12.50")).toBe(12.5);
+    expect(parseAmount("12.50 CAD")).toBe(12.5);
+    expect(parseAmount("−12.50")).toBe(-12.5);
+  });
+
+  it("treats an empty cell as 0 and garbage as NaN", () => {
+    expect(parseAmount("")).toBe(0);
+    expect(parseAmount(undefined)).toBe(0);
+    expect(parseAmount("n/a")).toBeNaN();
+    expect(parseAmount("12.5.3")).toBeNaN();
+  });
+});
+
+describe("amount handling in rows", () => {
+  it("imports an accounting-style negative instead of failing", () => {
+    const csv = `${HEADER}\n2026-09-03,BUY,"TD - Toronto-Dominion Bank: Bought 2.0000 shares (executed at 2026-09-03)",(150.00),0,CAD`;
+    const result = parseWealthSimpleCsv(csv);
+    expect(result.errors).toEqual([]);
+    expect(result.stockTransactions[0]).toMatchObject({ symbol: "TD.TO", shares: 2, price: 75 });
+  });
+
+  it("rejects only the row with an unreadable amount, with a clear message", () => {
+    const csv = [
+      HEADER,
+      "2026-09-03,CONT,Contribution,abc,0,CAD",
+      "2026-09-04,CONT,Contribution,500,500,CAD",
+    ].join("\n");
+    const result = parseWealthSimpleCsv(csv);
+    expect(result.cashTransactions).toHaveLength(1);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain('"abc"');
+    expect(result.errors[0]).toContain("2026-09-03");
+  });
+
+  it("keeps a dividend reversal negative", () => {
+    const csv = `${HEADER}\n2026-09-03,DIV,"TD - Toronto-Dominion Bank: Cash dividend distribution, received on 2026-09-03",-10.20,0,CAD`;
+    const [div] = parseWealthSimpleCsv(csv).stockTransactions;
+    expect(div).toMatchObject({ type: "dividend", shares: 1, price: -10.2 });
+  });
+});
+
+describe("stock distributions", () => {
+  it("marks STKDIS shares as a $0 distribution, unlike a TRFIN transfer", () => {
+    const csv = [
+      HEADER,
+      '2026-09-01,TRFIN,"SHOP - Shopify Inc: Transfer of 10.0000 shares",0,0,CAD',
+      '2026-09-02,STKDIS,"SHOP - Shopify Inc: Distribution of 90.0000 shares",0,0,CAD',
+    ].join("\n");
+    const [transfer, split] = parseWealthSimpleCsv(csv).stockTransactions;
+    expect(transfer).toMatchObject({ type: "transfer_in", shares: 10, price: 0 });
+    expect(transfer.isDistribution).toBeUndefined();
+    expect(split).toMatchObject({ type: "transfer_in", shares: 90, price: 0, isDistribution: true });
+  });
+});
+
+describe("toYahooSymbol", () => {
+  it("defaults CAD trades to the TSX, hyphenating classes and units", () => {
+    expect(toYahooSymbol("TD", "CAD")).toBe("TD.TO");
+    expect(toYahooSymbol("RCI.B", "CAD")).toBe("RCI-B.TO");
+    expect(toYahooSymbol("SRU.UN", "CAD")).toBe("SRU-UN.TO");
+    expect(toYahooSymbol("HISU.U", "USD")).toBe("HISU-U.TO");
+  });
+
+  it("keeps an existing venue suffix instead of appending .TO", () => {
+    expect(toYahooSymbol("ABC.V", "CAD")).toBe("ABC.V");
+    expect(toYahooSymbol("XYZ.NE", "CAD")).toBe("XYZ.NE");
+    expect(toYahooSymbol("LEAF.CN", "CAD")).toBe("LEAF.CN");
+    expect(toYahooSymbol("TD.TO", "CAD")).toBe("TD.TO");
+    expect(toYahooSymbol("RCI.B.TO", "CAD")).toBe("RCI-B.TO");
+  });
+
+  it("uses the exchange column when the export has one", () => {
+    expect(toYahooSymbol("ABC", "CAD", "TSXV")).toBe("ABC.V");
+    expect(toYahooSymbol("AAPL", "CAD", "NEO")).toBe("AAPL.NE");
+    expect(toYahooSymbol("AAPL", "CAD", "Cboe Canada")).toBe("AAPL.NE");
+    expect(toYahooSymbol("LEAF", "CAD", "CSE")).toBe("LEAF.CN");
+    expect(toYahooSymbol("SHOP", "USD", "NYSE")).toBe("SHOP");
+    expect(toYahooSymbol("SHOP", "CAD", "NYSE")).toBe("SHOP");
+  });
+
+  it("writes US share classes with a hyphen", () => {
+    expect(toYahooSymbol("BRK.B", "USD")).toBe("BRK-B");
+    expect(toYahooSymbol("BF/B", "USD")).toBe("BF-B");
+    expect(toYahooSymbol("AAPL", "USD")).toBe("AAPL");
+  });
+
+  it("reads the exchange column from the CSV", () => {
+    const csv = [
+      "date,transaction,description,amount,balance,currency,exchange",
+      '2026-09-03,BUY,"ABC - Abc Mining: Bought 100.0000 shares (executed at 2026-09-03)",-50.00,0,CAD,TSXV',
+    ].join("\n");
+    expect(parseWealthSimpleCsv(csv).stockTransactions[0].symbol).toBe("ABC.V");
+  });
+});
+
+describe("fromYahooSymbol", () => {
+  it("reverses the venue suffix and class hyphen", () => {
+    expect(fromYahooSymbol("SRU-UN.TO")).toBe("SRU.UN");
+    expect(fromYahooSymbol("ABC.V")).toBe("ABC");
+    expect(fromYahooSymbol("BRK-B")).toBe("BRK.B");
+    expect(fromYahooSymbol("AAPL")).toBe("AAPL");
+  });
+});
+
+describe("dedup", () => {
+  const key = (t: { date: string; symbol: string; type: string; shares: number; price: number }) =>
+    stockTxnDedupKey(t.date, t.symbol, t.type, t.shares, t.price);
+  const fill = { date: "2026-09-03T12:00:00.000Z", symbol: "TD.TO", type: "buy", shares: 10, price: 80 };
+
+  it("matches a re-imported transfer whatever cost basis was entered", () => {
+    const stored = key({ ...fill, type: "transfer_in", price: 42.17 });
+    const incoming = { ...fill, type: "transfer_in", price: 0 };
+    expect(splitDuplicates([incoming], [stored], key)).toEqual({ fresh: [], duplicates: 1 });
+  });
+
+  it("keeps identical fills within one file", () => {
+    const result = splitDuplicates([fill, { ...fill }], [], key);
+    expect(result.fresh).toHaveLength(2);
+    expect(result.duplicates).toBe(0);
+  });
+
+  it("dedups only as many identical rows as are already stored", () => {
+    const result = splitDuplicates([fill, { ...fill }, { ...fill }], [key(fill)], key);
+    expect(result.fresh).toHaveLength(2);
+    expect(result.duplicates).toBe(1);
+  });
+
+  it("imports nothing when every identical row is already stored", () => {
+    const result = splitDuplicates([fill, { ...fill }], [key(fill), key(fill)], key);
+    expect(result).toEqual({ fresh: [], duplicates: 2 });
+  });
+
+  it("separates cash rows by currency", () => {
+    const usd = cashTxnDedupKey("2026-09-03", "deposit", 100, "USD");
+    const cad = cashTxnDedupKey("2026-09-03", "deposit", 100, "CAD");
+    expect(usd).not.toBe(cad);
   });
 });

@@ -5,22 +5,39 @@ import { z } from "zod";
 import { recomputeHolding } from "@/lib/holdings";
 import { invalidatePortfolioSummary } from "@/lib/portfolio-summary";
 import { recordImportCoverage } from "@/lib/import/coverage";
-import { stockTxnDedupKey, cashTxnDedupKey } from "@/lib/import/wealthsimple-parser";
+import {
+  stockTxnDedupKey,
+  cashTxnDedupKey,
+  splitDuplicates,
+} from "@/lib/import/wealthsimple-parser";
+import { normalizeSymbol, normalizeTradeDate } from "@/lib/import/trade-date";
 
-const stockTransactionSchema = z.object({
-  type: z.enum(["buy", "sell", "dividend", "transfer_in"]),
-  symbol: z.string().min(1),
-  shares: z.number().positive(),
-  price: z.number().min(0),
-  date: z.string(),
-  currency: z.string(),
+const tradeDateSchema = z.string().refine((s) => normalizeTradeDate(s) !== null, {
+  message: "Invalid date",
 });
+
+// A dividend may be negative: Wealthsimple reports a reversed or corrected
+// dividend as a DIV row with a negative amount, and storing it as-is nets it
+// against the original wherever dividends are summed (shares × price).
+const stockTransactionSchema = z
+  .object({
+    type: z.enum(["buy", "sell", "dividend", "transfer_in"]),
+    symbol: z.string().transform(normalizeSymbol).pipe(z.string().min(1)),
+    shares: z.number().positive(),
+    price: z.number(),
+    date: tradeDateSchema,
+    currency: z.string(),
+  })
+  .refine((t) => t.type === "dividend" || t.price >= 0, {
+    message: "Price must be non-negative",
+    path: ["price"],
+  });
 
 const cashTransactionSchema = z.object({
   type: z.enum(["contribution", "deposit", "refund", "referral", "transfer_in", "transfer_out", "fx_conversion"]),
   description: z.string(),
   amount: z.number(),
-  date: z.string(),
+  date: tradeDateSchema,
   currency: z.string(),
 });
 
@@ -66,7 +83,7 @@ export async function POST(request: NextRequest) {
         : [];
 
     const holdingMap = new Map(existingHoldings.map((h) => [h.id, h]));
-    const existingStockKeys = new Set<string>();
+    const existingStockKeys: string[] = [];
     for (const txn of existingTxns) {
       const holding = holdingMap.get(txn.holdingId);
       if (holding) {
@@ -74,7 +91,7 @@ export async function POST(request: NextRequest) {
           txn.date instanceof Date
             ? txn.date.toISOString()
             : new Date(txn.date).toISOString();
-        existingStockKeys.add(
+        existingStockKeys.push(
           stockTxnDedupKey(dateStr, holding.symbol, txn.type, txn.shares, txn.price)
         );
       }
@@ -84,36 +101,27 @@ export async function POST(request: NextRequest) {
     const existingCashTxns = await db.query.cashTransactions.findMany({
       where: eq(schema.cashTransactions.portfolioId, validated.portfolioId),
     });
-    const existingCashKeys = new Set<string>();
+    const existingCashKeys: string[] = [];
     for (const ct of existingCashTxns) {
       const dateStr =
         ct.date instanceof Date
           ? ct.date.toISOString()
           : new Date(ct.date).toISOString();
-      existingCashKeys.add(cashTxnDedupKey(dateStr, ct.type, ct.amount, ct.currency));
+      existingCashKeys.push(cashTxnDedupKey(dateStr, ct.type, ct.amount, ct.currency));
     }
 
-    // Filter out duplicate stock transactions
-    let stockDuplicates = 0;
-    const newStockTxns = validated.stockTransactions.filter((txn) => {
-      const key = stockTxnDedupKey(txn.date, txn.symbol, txn.type, txn.shares, txn.price);
-      if (existingStockKeys.has(key)) {
-        stockDuplicates++;
-        return false;
-      }
-      return true;
-    });
-
-    // Filter out duplicate cash transactions
-    let cashDuplicates = 0;
-    const newCashTxns = validated.cashTransactions.filter((txn) => {
-      const key = cashTxnDedupKey(txn.date, txn.type, txn.amount, txn.currency);
-      if (existingCashKeys.has(key)) {
-        cashDuplicates++;
-        return false;
-      }
-      return true;
-    });
+    // Filter out rows already stored, counting identical rows so two equal
+    // fills on one day both import the first time and neither the second.
+    const { fresh: newStockTxns, duplicates: stockDuplicates } = splitDuplicates(
+      validated.stockTransactions,
+      existingStockKeys,
+      (txn) => stockTxnDedupKey(txn.date, txn.symbol, txn.type, txn.shares, txn.price)
+    );
+    const { fresh: newCashTxns, duplicates: cashDuplicates } = splitDuplicates(
+      validated.cashTransactions,
+      existingCashKeys,
+      (txn) => cashTxnDedupKey(txn.date, txn.type, txn.amount, txn.currency)
+    );
 
     // Group stock transactions by symbol
     const bySymbol = new Map<string, typeof newStockTxns>();
@@ -157,7 +165,7 @@ export async function POST(request: NextRequest) {
             type: txn.type,
             shares: txn.shares,
             price: txn.price,
-            date: new Date(txn.date),
+            date: normalizeTradeDate(txn.date)!,
           });
           stockImported++;
         }
@@ -179,7 +187,7 @@ export async function POST(request: NextRequest) {
           description: txn.description,
           amount: txn.amount,
           currency: txn.currency,
-          date: new Date(txn.date),
+          date: normalizeTradeDate(txn.date)!,
         });
         cashImported++;
       } catch (e) {
@@ -203,7 +211,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json(
+        { error: formatImportIssues(error.issues), details: error.issues },
+        { status: 400 }
+      );
     }
     console.error("CSV import error:", error);
     return NextResponse.json(
@@ -211,4 +222,20 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/** One readable line per rejected field, naming the row it came from. */
+function formatImportIssues(issues: z.core.$ZodIssue[]): string {
+  return issues
+    .slice(0, 5)
+    .map((issue) => {
+      const [list, index, field] = issue.path;
+      const where =
+        typeof index === "number"
+          ? `${list === "cashTransactions" ? "Cash" : "Stock"} row ${index + 1}${field ? ` (${String(field)})` : ""}`
+          : issue.path.join(".") || "Request";
+      return `${where}: ${issue.message}`;
+    })
+    .join("; ")
+    .concat(issues.length > 5 ? `; and ${issues.length - 5} more` : "");
 }

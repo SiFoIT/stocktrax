@@ -3,12 +3,14 @@ import { and, desc, eq, lte } from "drizzle-orm";
 import { getPortfolioSummary } from "@/lib/portfolio-summary";
 
 /**
- * Daily portfolio value snapshots.
+ * Daily portfolio value snapshots: a value history, one row per portfolio per
+ * trading day, for a future value-history chart.
  *
- * Week-over-week change cannot be derived by re-pricing today's holdings a
- * week back: that silently ignores anything bought, sold or deposited during
- * the week. One row per portfolio per trading day gives an accurate baseline,
- * and doubles as the seed for a future value-history chart.
+ * Not used for the weekly change. A stored value can't see trades imported
+ * after it was taken (CSV imports arrive weeks late), and differencing two
+ * values counts money moved in as gain. The weekly instead values Friday's
+ * position from the transaction ledger and nets out trades since; see
+ * `weekReturn` in `portfolio-summary.ts`.
  */
 
 export interface SnapshotTotals {
@@ -30,6 +32,13 @@ export async function writeSnapshots(date: string): Promise<boolean> {
 
   const summary = await getPortfolioSummary();
   if (summary.portfolios.length === 0) return false;
+  // Rows are never overwritten, so an incomplete summary (a quote or the
+  // exchange rate failed) must not be stored; the scheduler retries every
+  // minute until the day ends.
+  if (summary.missing) {
+    console.warn("[digest] snapshot deferred: incomplete prices", summary.missing);
+    return false;
+  }
 
   for (const portfolio of summary.portfolios) {
     await db

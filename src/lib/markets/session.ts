@@ -105,12 +105,36 @@ function extremes(points: Point[]): Pick<SparklineWindow, "low" | "high"> {
   return { low, high };
 }
 
+/** Where a window covering the last `months` calendar months starts. */
+export function monthsBefore(now: Date, months: number): number {
+  const start = new Date(now.getTime());
+  start.setUTCMonth(start.getUTCMonth() - months);
+  return start.getTime();
+}
+
 /**
  * Pick out the window a range shows. With `sessions` set, that is the last N
- * sessions in the series; without it, the whole fetch.
+ * sessions in the series; with `months`, the bars since that many calendar
+ * months before `now`; with neither, the whole fetch. The anchor is the last
+ * close before the window whenever the series reaches back that far.
  */
-export function sparklineWindow(series: StockTimeSeries[], sessions?: number): SparklineWindow {
+export function sparklineWindow(
+  series: StockTimeSeries[],
+  sessions?: number,
+  months?: number,
+  now: Date = new Date()
+): SparklineWindow {
   const points = toPoints(series);
+  if (sessions === undefined && months !== undefined) {
+    const start = monthsBefore(now, months);
+    const shown = points.filter((p) => p.t >= start);
+    const before = points.filter((p) => p.t < start);
+    return {
+      anchor: before[before.length - 1]?.close,
+      closes: downsample(shown.map((p) => p.close)),
+      ...extremes(shown),
+    };
+  }
   if (sessions === undefined) {
     return { closes: downsample(points.map((p) => p.close)), ...extremes(points) };
   }

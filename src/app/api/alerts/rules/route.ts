@@ -3,6 +3,8 @@ import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { alertMetrics, alertOperators, alertResetStrategies, alertScopes } from "@/lib/alerts/config";
 import type { SQL } from "drizzle-orm";
+import { getQuote } from "@/lib/api/yahoo-finance";
+import { validPrice } from "@/lib/alerts/evaluate";
 
 const createRuleSchema = z.object({
   scope: z.enum(alertScopes),
@@ -44,20 +46,29 @@ export async function POST(request: NextRequest) {
     const json = await request.json();
     const data = createRuleSchema.parse(json);
 
+    // A blank anchor means "from today's price", so record that price now.
+    // If the quote is unavailable the anchor stays null and the evaluator
+    // sets it from the first good price it sees.
+    let anchorValue = validPrice(data.anchorValue);
+    if (anchorValue === null && data.metric === "price_vs_anchor") {
+      const quote = await getQuote(data.symbol.trim().toUpperCase()).catch(() => null);
+      anchorValue = validPrice(quote?.price);
+    }
+
     const inserted = await db
       .insert(schema.alertRules)
       .values({
         scope: data.scope,
-        symbol: data.symbol.toUpperCase(),
+        symbol: data.symbol.trim().toUpperCase(),
         watchlistItemId: data.watchlistItemId,
         holdingId: data.holdingId,
         metric: data.metric,
         operator: data.operator,
         threshold: data.threshold,
         resetStrategy: data.resetStrategy,
-        anchorValue: data.anchorValue ?? null,
+        anchorValue,
         cooldownMinutes: data.cooldownMinutes,
-        baselineValue: data.resetStrategy === "baseline" ? data.anchorValue ?? null : null,
+        baselineValue: data.resetStrategy === "baseline" ? anchorValue : null,
         lastResetAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),

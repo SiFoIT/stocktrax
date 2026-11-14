@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Check, ChevronDown, Coins, Search, Trash2, X } from "lucide-react";
 import { StockIcon } from "@/components/ui/stock-icon";
 import { UnifiedTransaction, StockTransactionRow } from "@/types";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, toCalendarDate } from "@/lib/utils";
 
 type SelectionKey = string; // "${kind}-${id}"
 
@@ -30,8 +30,7 @@ interface TransactionsTableProps {
 }
 
 function toInputDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toISOString().split("T")[0];
+  return toCalendarDate(dateStr);
 }
 
 function getTypeBadge(type: string) {

@@ -176,7 +176,7 @@ export function PortfolioInsiderTable({
               <HeaderCell column="insidersPercentHeld" label="Insider %" tooltip="Percentage of outstanding shares held by company insiders (officers, directors, and beneficial owners)." {...sortProps} />
               <HeaderCell column="netBuyCount6mo" label="Buys (6mo)" tooltip="Number of insider buy transactions in the last 6 months." {...sortProps} />
               <HeaderCell column="netSellCount6mo" label="Sells (6mo)" tooltip="Number of insider sell transactions in the last 6 months." {...sortProps} />
-              <HeaderCell column="netInsiderShares6mo" label="Net Shares" tooltip="Net insider transactions in the last 6 months (buys minus sells). This is a transaction count, not a share count." {...sortProps} />
+              <HeaderCell column="netInsiderShares6mo" label="Net Buys (6mo)" tooltip="Insider buy transactions minus sell transactions in the last 6 months. A count of transactions, not of shares." {...sortProps} />
               <HeaderCell column="lastInsiderDate" label="Last Activity" tooltip="Most recent insider purchase or sale transaction." {...sortProps} />
             </tr>
           </thead>

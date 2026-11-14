@@ -9,6 +9,12 @@ export interface ParsedStockTransaction {
   date: string; // ISO date string
   currency: string;
   rawDescription: string;
+  /**
+   * Shares received from a stock split or distribution (WS `STKDIS`). They
+   * arrive as `transfer_in` at $0 and must stay at $0: a split adds shares,
+   * not book value, so no ACB is ever applied to them.
+   */
+  isDistribution?: boolean;
 }
 
 export interface ParsedCashTransaction {
@@ -68,6 +74,8 @@ interface CsvRow {
   Description: string;
   Amount?: string;
   Currency?: string;
+  /** Listing exchange, when the export carries one (e.g. TSX, TSXV, NEO, CSE). */
+  Exchange?: string;
   [key: string]: string | undefined;
 }
 
@@ -79,6 +87,7 @@ const HEADER_MAP: Record<string, string> = {
   amount: "Amount",
   balance: "Balance",
   currency: "Currency",
+  exchange: "Exchange",
   // Also accept already-capitalized headers
   Date: "Date",
   Type: "Type",
@@ -86,6 +95,7 @@ const HEADER_MAP: Record<string, string> = {
   Amount: "Amount",
   Balance: "Balance",
   Currency: "Currency",
+  Exchange: "Exchange",
 };
 
 function parseCsvText(text: string): CsvRow[] {
@@ -164,25 +174,92 @@ function laterDate(a: string | null, b: string | null): string | null {
   return a > b ? a : b;
 }
 
-function parseAmount(amountStr: string): number {
-  // Remove $ and commas, parse as float
-  return parseFloat(amountStr.replace(/[$,]/g, ""));
+/**
+ * Parse a statement amount. Accepts currency symbols and codes, thousands
+ * separators, a leading minus (ASCII or Unicode) and accounting-style
+ * parentheses: "(12.50)" and "-$12.50" are both -12.5. An empty cell is 0.
+ * Returns NaN when the text is not a number, so the caller can reject the row.
+ */
+export function parseAmount(amountStr: string | undefined): number {
+  let text = (amountStr ?? "").trim();
+  if (!text) return 0;
+  let negative = false;
+  const paren = text.match(/^\((.*)\)$/);
+  if (paren) {
+    negative = true;
+    text = paren[1];
+  }
+  text = text
+    .replace(/[\u2212\u2012\u2013]/g, "-")
+    .replace(/[A-Za-z]{3}(?=[\s$\d-]|$)/g, "") // currency codes: CAD, USD
+    .replace(/[A-Za-z]*\$|[€£¥]/g, "") // $, CA$, US$, C$
+    .replace(/[,\s]/g, "");
+  if (text.startsWith("-")) {
+    negative = !negative;
+    text = text.slice(1);
+  }
+  if (!/^(\d+\.?\d*|\.\d+)$/.test(text)) return NaN;
+  const value = parseFloat(text);
+  return negative ? -value : value;
 }
 
+/** Yahoo's suffix for each Canadian listing venue. */
+const CANADIAN_EXCHANGE_SUFFIX: Record<string, string> = {
+  TSX: ".TO",
+  TOR: ".TO",
+  "TORONTO STOCK EXCHANGE": ".TO",
+  TSXV: ".V",
+  "TSX-V": ".V",
+  "TSX VENTURE": ".V",
+  "TSX VENTURE EXCHANGE": ".V",
+  CVE: ".V",
+  NEO: ".NE",
+  "NEO EXCHANGE": ".NE",
+  "CBOE CANADA": ".NE",
+  CSE: ".CN",
+  CNSX: ".CN",
+  "CANADIAN SECURITIES EXCHANGE": ".CN",
+};
+
+/** US venues: a symbol listed here takes no suffix whatever the trade currency. */
+const US_EXCHANGES = new Set([
+  "NYSE", "NASDAQ", "NYSEARCA", "NYSE ARCA", "ARCA", "AMEX", "NYSE AMERICAN",
+  "NYSEAMERICAN", "BATS", "CBOE", "CBOE BZX", "OTC", "NMS", "NYQ", "NGM", "NCM", "PCX", "ASE",
+]);
+
+/** Suffixes that already name a Canadian venue in Yahoo's format. */
+const YAHOO_CANADIAN_SUFFIX = /\.(TO|V|NE|CN)$/i;
+
 /**
- * Convert a raw broker symbol to Yahoo Finance format for Canadian stocks.
- * CAD stocks on TSX need ".TO" suffix, and dots in the symbol become hyphens.
- * .U suffix is a TSX convention for USD-denominated stocks (e.g. HISU.U → HISU-U.TO).
- * Examples: TD → TD.TO, SRU.UN → SRU-UN.TO, NA → NA.TO, HISU.U → HISU-U.TO
+ * Convert a raw broker symbol to Yahoo Finance format.
+ *
+ * Yahoo writes share classes and units with a hyphen (BRK.B → BRK-B,
+ * RCI.B → RCI-B.TO, SRU.UN → SRU-UN.TO), on both sides of the border.
+ * Canadian listings carry a venue suffix: the exchange column picks it when
+ * the export has one (TSXV → .V, NEO/Cboe Canada → .NE, CSE → .CN); a symbol
+ * that already ends in one keeps it; otherwise a CAD trade defaults to .TO.
+ * .U is a TSX convention for USD-denominated units (HISU.U → HISU-U.TO).
  */
-export function toYahooSymbol(symbol: string, currency: string): string {
-  if (symbol.endsWith(".TO")) return symbol;
-  const isTsx = currency === "CAD" || /\.U$/i.test(symbol);
-  if (isTsx) {
-    return symbol.replace(/\./g, "-") + ".TO";
-  }
-  return symbol;
+export function toYahooSymbol(symbol: string, currency: string, exchange?: string): string {
+  const raw = symbol.trim().toUpperCase();
+  const venue = (exchange ?? "").trim().toUpperCase();
+  const venueSuffix = CANADIAN_EXCHANGE_SUFFIX[venue];
+
+  const existing = raw.match(YAHOO_CANADIAN_SUFFIX);
+  const base = existing ? raw.slice(0, -existing[0].length) : raw;
+  const yahooBase = base.replace(/[./]/g, "-");
+
+  if (existing) return yahooBase + (venueSuffix ?? existing[0]);
+  if (venueSuffix) return yahooBase + venueSuffix;
+
+  // A US venue means no suffix whatever the trade currency; otherwise CAD
+  // trades and .U units are taken as TSX.
+  const isCanadian = !US_EXCHANGES.has(venue) && (currency === "CAD" || /\.U$/.test(raw));
+  return isCanadian ? yahooBase + ".TO" : yahooBase;
 }
+
+/** WS types parsed as stock transactions (TRFIN is handled on its own). */
+const STOCK_TYPES = new Set(["BUY", "SELL", "DIV", "STKDIS"]);
 
 // Description regex patterns
 const BUY_PATTERN = /^(\S+)\s*-\s*.+?:\s*Bought\s+([\d,.]+)\s+shares/;
@@ -199,7 +276,7 @@ function parseShares(raw: string): number {
 function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
   const wsType = row.Type;
   const desc = row.Description;
-  const amount = parseAmount(row.Amount || "0");
+  const amount = parseAmount(row.Amount);
   const currency = row.Currency || "CAD";
   const date = parseWsDate(row.Date);
 
@@ -207,7 +284,7 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
     const match = desc.match(BUY_PATTERN);
     if (!match) return null;
     const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
-    const symbol = toYahooSymbol(match[1], currency);
+    const symbol = toYahooSymbol(match[1], currency, row.Exchange);
     const shares = parseShares(match[2]);
     const price = shares > 0 ? Math.abs(amount) / shares : 0;
     return { type: "buy", symbol, shares, price, date, currency: effectiveCurrency, rawDescription: desc };
@@ -217,7 +294,7 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
     const match = desc.match(SELL_PATTERN);
     if (!match) return null;
     const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
-    const symbol = toYahooSymbol(match[1], currency);
+    const symbol = toYahooSymbol(match[1], currency, row.Exchange);
     const shares = parseShares(match[2]);
     const price = shares > 0 ? Math.abs(amount) / shares : 0;
     return { type: "sell", symbol, shares, price, date, currency: effectiveCurrency, rawDescription: desc };
@@ -227,7 +304,7 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
     const match = desc.match(DIV_PATTERN);
     if (!match) return null;
     const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
-    const symbol = toYahooSymbol(match[1], currency);
+    const symbol = toYahooSymbol(match[1], currency, row.Exchange);
     // Preserve sign: negative amounts are dividend reversals/corrections and
     // must reduce recorded income, not add to it.
     return { type: "dividend", symbol, shares: 1, price: amount, date, currency: effectiveCurrency, rawDescription: desc };
@@ -237,7 +314,7 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
     const match = desc.match(TRFIN_PATTERN);
     if (!match) return null;
     const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
-    const symbol = toYahooSymbol(match[1], currency);
+    const symbol = toYahooSymbol(match[1], currency, row.Exchange);
     const shares = parseShares(match[2]);
     return { type: "transfer_in", symbol, shares, price: 0, date, currency: effectiveCurrency, rawDescription: desc };
   }
@@ -246,9 +323,18 @@ function parseStockRow(row: CsvRow): ParsedStockTransaction | null {
     const match = desc.match(STKDIS_PATTERN);
     if (!match) return null;
     const effectiveCurrency = /\.U$/i.test(match[1]) ? "USD" : currency;
-    const symbol = toYahooSymbol(match[1], currency);
+    const symbol = toYahooSymbol(match[1], currency, row.Exchange);
     const shares = parseShares(match[2]);
-    return { type: "transfer_in", symbol, shares, price: 0, date, currency: effectiveCurrency, rawDescription: desc };
+    return {
+      type: "transfer_in",
+      symbol,
+      shares,
+      price: 0,
+      date,
+      currency: effectiveCurrency,
+      rawDescription: desc,
+      isDistribution: true,
+    };
   }
 
   return null;
@@ -259,7 +345,7 @@ function parseCashRow(row: CsvRow): ParsedCashTransaction | null {
   const cashType = CASH_TYPE_MAP[wsType];
   if (!cashType) return null;
 
-  const amount = parseAmount(row.Amount || "0");
+  const amount = parseAmount(row.Amount);
   const currency = row.Currency || "CAD";
   const date = parseWsDate(row.Date);
 
@@ -313,6 +399,20 @@ export function parseWealthSimpleCsv(csvText: string, fileName?: string): Wealth
       continue;
     }
 
+    // A row whose amount carries the value must have a readable one. Reject
+    // just that row, with the text that failed, rather than letting NaN reach
+    // the import and fail the whole request.
+    const isStockTransfer =
+      wsType === "STKDIS" ||
+      (wsType === "TRFIN" && TRFIN_PATTERN.test(row.Description || ""));
+    const needsAmount = !isStockTransfer && (STOCK_TYPES.has(wsType) || wsType === "TRFIN" || wsType in CASH_TYPE_MAP);
+    if (needsAmount && !Number.isFinite(parseAmount(row.Amount))) {
+      result.errors.push(
+        `Unreadable amount "${row.Amount}" on ${wsType} row dated ${row.Date}: ${row.Description}`
+      );
+      continue;
+    }
+
     // TRFIN can be stock transfer OR cash transfer
     if (wsType === "TRFIN") {
       const stockTxn = parseStockRow(row);
@@ -320,7 +420,7 @@ export function parseWealthSimpleCsv(csvText: string, fileName?: string): Wealth
         result.stockTransactions.push(stockTxn);
       } else {
         // Cash money transfer (e.g. "Money transfer into the account")
-        const amount = parseAmount(row.Amount || "0");
+        const amount = parseAmount(row.Amount);
         const currency = row.Currency || "CAD";
         const date = parseWsDate(row.Date);
         result.cashTransactions.push({
@@ -335,7 +435,7 @@ export function parseWealthSimpleCsv(csvText: string, fileName?: string): Wealth
     }
 
     // Try stock transaction types
-    if (["BUY", "SELL", "DIV", "STKDIS"].includes(wsType)) {
+    if (STOCK_TYPES.has(wsType)) {
       const stockTxn = parseStockRow(row);
       if (stockTxn) {
         result.stockTransactions.push(stockTxn);
@@ -403,14 +503,13 @@ export function parseMultipleFiles(
 
 /**
  * Convert a Yahoo-formatted symbol back to the raw broker symbol.
- * Reverses toYahooSymbol: strip .TO suffix, convert hyphens back to dots.
- * Examples: TRP.TO → TRP, SRU-UN.TO → SRU.UN, HISU-U.TO → HISU.U
+ * Reverses toYahooSymbol: strip the venue suffix, convert hyphens back to dots.
+ * Examples: TRP.TO → TRP, SRU-UN.TO → SRU.UN, ABC.V → ABC, BRK-B → BRK.B
  */
-function fromYahooSymbol(symbol: string): string {
-  if (symbol.endsWith(".TO")) {
-    return symbol.slice(0, -3).replace(/-/g, ".");
-  }
-  return symbol;
+export function fromYahooSymbol(symbol: string): string {
+  const suffix = symbol.match(YAHOO_CANADIAN_SUFFIX);
+  const base = suffix ? symbol.slice(0, -suffix[0].length) : symbol;
+  return base.replace(/-/g, ".");
 }
 
 function escapeRegex(str: string): string {
@@ -458,6 +557,10 @@ export function parseAcbTable(
 /**
  * Build dedup key for stock transactions.
  * Key: date(YYYY-MM-DD)|symbol|type|shares|price
+ *
+ * Transfers leave the price out: the file always has 0, while the stored row
+ * carries the cost basis the user entered at import, so including it would
+ * never match and every re-import would add the transfer again.
  */
 export function stockTxnDedupKey(
   date: string | Date,
@@ -468,7 +571,39 @@ export function stockTxnDedupKey(
 ): string {
   const d = date instanceof Date ? date : new Date(date);
   const dateStr = d.toISOString().split("T")[0];
+  if (type === "transfer_in") return `${dateStr}|${symbol}|${type}|${shares}`;
   return `${dateStr}|${symbol}|${type}|${shares}|${price}`;
+}
+
+/**
+ * Split incoming rows into new ones and duplicates of rows already stored.
+ *
+ * Counts, not a set: two identical fills on the same day are two real trades,
+ * so an incoming row is a duplicate only while the stored side still has an
+ * unmatched row with the same key. Rows within the incoming batch are never
+ * matched against each other.
+ */
+export function splitDuplicates<T>(
+  incoming: T[],
+  existingKeys: Iterable<string>,
+  keyOf: (row: T) => string
+): { fresh: T[]; duplicates: number } {
+  const remaining = new Map<string, number>();
+  for (const key of existingKeys) remaining.set(key, (remaining.get(key) ?? 0) + 1);
+
+  const fresh: T[] = [];
+  let duplicates = 0;
+  for (const row of incoming) {
+    const key = keyOf(row);
+    const left = remaining.get(key) ?? 0;
+    if (left > 0) {
+      remaining.set(key, left - 1);
+      duplicates++;
+    } else {
+      fresh.push(row);
+    }
+  }
+  return { fresh, duplicates };
 }
 
 /**

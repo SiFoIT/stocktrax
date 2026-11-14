@@ -45,8 +45,8 @@ export function ExtendedHoursLabel({ extendedHours, currency = "USD", compact }:
     return null;
   }
 
-  const isPositive = (changePercent ?? 0) >= 0;
-  const changeColor = isPositive ? "text-positive" : "text-negative";
+  const pct = changePercent ?? 0;
+  const changeColor = pct > 0 ? "text-positive" : pct < 0 ? "text-negative" : "text-muted-foreground";
 
   if (compact) {
     return (

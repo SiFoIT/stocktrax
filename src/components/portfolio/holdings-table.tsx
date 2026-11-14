@@ -110,12 +110,10 @@ export function HoldingsTable({
           bVal = b.changePercent;
           break;
         case "value":
-          aVal = a.marketValue;
-          bVal = b.marketValue;
-          break;
         case "port":
-          aVal = a.marketValue;
-          bVal = b.marketValue;
+          // Compare in CAD: native USD and CAD amounts are not comparable.
+          aVal = a.marketValue === undefined ? undefined : toCAD(a.marketValue, a.currency, usdCadRate);
+          bVal = b.marketValue === undefined ? undefined : toCAD(b.marketValue, b.currency, usdCadRate);
           break;
         case "gainLoss":
           aVal = a.gainLossPercent;
@@ -134,7 +132,7 @@ export function HoldingsTable({
       const numB = bVal as number;
       return sortDirection === "asc" ? numA - numB : numB - numA;
     });
-  }, [holdings, sortColumn, sortDirection]);
+  }, [holdings, sortColumn, sortDirection, usdCadRate]);
 
   // Close context menu on click outside or Escape
   useEffect(() => {

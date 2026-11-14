@@ -38,6 +38,12 @@ interface MarketQuote {
   price: number;
   change: number;
   changePercent: number;
+  /**
+   * Set when Yahoo returned no usable quote. `MarketData.price` is a number,
+   * so the row still carries 0; this flag is what tells it apart from a real
+   * price, and the client must not show or alert on it.
+   */
+  unavailable?: true;
   extendedHours?: ExtendedHoursData;
   futures?: FuturesQuote;
 }
@@ -119,22 +125,37 @@ async function fetchQuote(entry: MarketSymbol, skipCache: boolean): Promise<Mark
       entry.futures ? getQuote(entry.futures.symbol, true).catch(() => null) : Promise.resolve(null),
     ]);
 
+    // getQuote returns null rather than throwing when Yahoo has nothing, so
+    // a missing or non-positive price is the failure case here.
+    if (!quote || !Number.isFinite(quote.price) || quote.price <= 0) {
+      return unavailableQuote(entry, labels);
+    }
+
     const fresh: CachedQuote = {
       symbol: entry.symbol,
-      price: quote?.price ?? 0,
-      change: quote?.change ?? 0,
-      changePercent: quote?.changePercent ?? 0,
-      extendedHours: quote?.extendedHours,
+      price: quote.price,
+      change: Number.isFinite(quote.change) ? quote.change : 0,
+      changePercent: Number.isFinite(quote.changePercent) ? quote.changePercent : 0,
+      extendedHours: quote.extendedHours,
       futures: buildFuturesQuote(entry.futures, futuresQuote as QuoteWithRange | null),
     };
 
     await writeCache(cacheKey, fresh);
     return { ...fresh, ...labels, futures: nameFutures(fresh.futures, entry.futures) };
   } catch {
-    // Not cached: a failed fetch should be retried on the next request rather
-    // than held for the full TTL.
-    return { symbol: entry.symbol, price: 0, change: 0, changePercent: 0, ...labels };
+    return unavailableQuote(entry, labels);
   }
+}
+
+/**
+ * A row with no quote. Never cached: a failed fetch is retried on the next
+ * request rather than held for the full TTL, and never fed to alerts.
+ */
+function unavailableQuote(
+  entry: MarketSymbol,
+  labels: Pick<MarketQuote, "name" | "short" | "description">
+): MarketQuote {
+  return { symbol: entry.symbol, price: 0, change: 0, changePercent: 0, unavailable: true, ...labels };
 }
 
 async function fetchSeries(
@@ -142,15 +163,18 @@ async function fetchSeries(
   range: MarketRange,
   skipCache: boolean
 ): Promise<SparklineWindow> {
-  const cacheKey = `markets_series_v3_${symbol}_${range}`;
+  // v4: month ranges fetch a longer period and carry the prior close as anchor.
+  const cacheKey = `markets_series_v4_${symbol}_${range}`;
   const cached = await readCache<SparklineWindow>(cacheKey, CACHE_TTL.marketSeries[range], skipCache);
   if (cached) return cached;
 
-  const { period, interval, sessions } = RANGE_CONFIG[range];
+  const { period, interval, sessions, months } = RANGE_CONFIG[range];
   const series = await getTimeSeries(symbol, period, interval).catch(() => []);
-  const window = sparklineWindow(series, sessions);
+  const window = sparklineWindow(series, sessions, months);
 
-  await writeCache(cacheKey, window);
+  // An empty series is a failed fetch (getTimeSeries returns [] on error), so
+  // it is retried on the next request rather than held for the full TTL.
+  if (window.closes.length > 0) await writeCache(cacheKey, window);
   return window;
 }
 
@@ -163,6 +187,12 @@ async function fetchSeries(
 function joinQuote(quote: MarketQuote, window: SparklineWindow | undefined, range: MarketRange): MarketData {
   const closes = window?.closes ?? [];
   const daily = range === "1D";
+
+  // Without a price there is no change to report; measuring 0 against the
+  // anchor would print a -100% move.
+  if (quote.unavailable) {
+    return { ...quote, rangeChange: 0, rangeChangePercent: 0, sparklineData: [] };
+  }
   const anchor = daily ? quote.price - quote.change : (window?.anchor ?? closes[0] ?? 0);
 
   const rangeChange = daily ? quote.change : quote.price - anchor;

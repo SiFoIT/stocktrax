@@ -8,6 +8,10 @@ import {
   watchlists,
   watchlistItems,
   portfolioSnapshots,
+  alertRules,
+  alerts,
+  screens,
+  screenPresets,
   settings as settingsTable,
 } from "@/lib/db/schema";
 import {
@@ -33,6 +37,10 @@ export async function GET(request: NextRequest) {
       watchlistsData,
       watchlistItemsData,
       snapshotsData,
+      alertRulesData,
+      alertsData,
+      screensData,
+      screenPresetsData,
       serverSettingsData,
     ] = await Promise.all([
       db.select().from(portfolios),
@@ -42,6 +50,10 @@ export async function GET(request: NextRequest) {
       db.select().from(watchlists),
       db.select().from(watchlistItems),
       db.select().from(portfolioSnapshots),
+      db.select().from(alertRules),
+      db.select().from(alerts),
+      db.select().from(screens),
+      db.select().from(screenPresets),
       db.select().from(settingsTable),
     ]);
 
@@ -70,6 +82,10 @@ export async function GET(request: NextRequest) {
         watchlists: watchlistsData,
         watchlistItems: watchlistItemsData,
         portfolioSnapshots: snapshotsData,
+        alertRules: alertRulesData,
+        alerts: alertsData,
+        screens: screensData,
+        screenPresets: screenPresetsData,
       },
       settings,
       serverSettings: serverSettingsData

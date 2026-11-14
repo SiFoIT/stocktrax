@@ -25,8 +25,10 @@ export const EXCLUDED_SETTING_KEYS = [
   "digest.lastSent.weekly",
 ] as const;
 
-// Export format version - increment when making breaking changes
-export const BACKUP_VERSION = "1.0";
+// Export format version - increment when making breaking changes.
+// 1.1 adds alert rules, alert history, screens and screen presets; a 1.0
+// backup still restores, and leaves those tables as they are.
+export const BACKUP_VERSION = "1.1";
 
 export interface BackupData {
   version: string;
@@ -39,6 +41,10 @@ export interface BackupData {
     watchlists: unknown[];
     watchlistItems: unknown[];
     portfolioSnapshots?: unknown[];
+    alertRules?: unknown[];
+    alerts?: unknown[];
+    screens?: unknown[];
+    screenPresets?: unknown[];
   };
   /** Server-side settings (SMTP, digest schedule), secrets removed. */
   serverSettings?: { key: string; value: string }[];

@@ -1,11 +1,27 @@
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { getQuote, getHistoricalPrice, getHistoricalPricesMultiDate, getDividendInfo } from "@/lib/api/yahoo-finance";
-import type { QuoteWithRange } from "@/lib/api/yahoo-finance";
+import { getQuote, getDailyHistory, getDividendInfo } from "@/lib/api/yahoo-finance";
+import type { DailyHistory, QuoteWithRange } from "@/lib/api/yahoo-finance";
+import { addDays, digestWeek, MARKET_TIMEZONE, zonedDateStr } from "@/lib/digest/time";
+import {
+  closeOnOrBeforeDay,
+  latestSessionOnOrBefore,
+  PERIOD_KEYS,
+  periodBaselineDay,
+  splitFactorAfter,
+  xirr,
+  type CashFlow,
+} from "@/lib/returns";
+import { resolveUsdCadRate } from "@/lib/fx";
 import type { PortfolioDashboardData, PortfolioSummary, BreakdownItem } from "@/types";
 import { CACHE_TTL } from "@/lib/config";
 
-const CACHE_KEY = "PORTFOLIO_SUMMARY";
+// Versioned: a summary cached in an older shape must not be served to the
+// current UI after an upgrade.
+const CACHE_KEY = "PORTFOLIO_SUMMARY_V2";
+
+/** A transaction's calendar day. Stored at 12:00 UTC (00:00 UTC for older manual rows). */
+const txDay = (date: Date | string | number) => new Date(date).toISOString().slice(0, 10);
 
 /**
  * Drops the cached dashboard so the next read recomputes. Called by the
@@ -50,61 +66,83 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
   if (allPortfolios.length === 0) {
     const empty: PortfolioDashboardData = {
       portfolios: [],
-      totals: { marketValue: 0, costBasis: 0, gainLoss: 0, gainLossPercent: 0, todayReturn: 0, todayReturnPercent: 0, cagr: 0, earliestTransactionDate: new Date().toISOString() },
+      totals: { marketValue: 0, costBasis: 0, gainLoss: 0, gainLossPercent: 0, todayReturn: 0, todayReturnPercent: 0, sinceInception: { amount: 0, percent: 0 }, cagr: 0, earliestTransactionDate: new Date().toISOString() },
       breakdowns: { assetType: [], sector: [], currency: [], topHoldings: [] },
     };
     return empty;
   }
 
+  const today = zonedDateStr(new Date(), MARKET_TIMEZONE);
+  const sessionDay = latestSessionOnOrBefore(today);
+  const currentYear = Number(today.slice(0, 4));
+  const years = [currentYear - 1, currentYear];
+  const yearEndDay = (year: number) => `${year}-12-31`;
+
+  // History has to reach the earliest baseline used below: the close before
+  // last year started. Every 1Y/5D/1M/3M baseline is later than that.
+  const historyFrom = addDays(yearEndDay(currentYear - 2), -10);
+
   // Get unique symbols with shares > 0
   const activeHoldings = allHoldings.filter((h) => h.shares > 0);
   const uniqueSymbols = [...new Set(activeHoldings.map((h) => h.symbol))];
 
-  // Fetch exchange rate, quotes, and sector info all in parallel
-  const exchangeRatePromise = getQuote("USDCAD=X");
-  const quotePromises = uniqueSymbols.map((sym) => getQuote(sym, true));
-  const sectorPromises = uniqueSymbols.map((sym) => getDividendInfo(sym));
-  const [exchangeRateQuote, ...quoteAndSectorResults] = await Promise.all([
-    exchangeRatePromise,
-    ...quotePromises,
-    ...sectorPromises,
+  // Prices are needed at the baselines for every symbol held at any point in
+  // the window, including ones sold since: leaving those out drops them from
+  // the starting value while their sale proceeds still count, which turns a
+  // sale into a gain.
+  const holdingById = new Map<number, typeof allHoldings[number]>();
+  for (const h of allHoldings) holdingById.set(h.id, h);
+  const historySymbols = new Set(uniqueSymbols);
+  for (const t of allTransactions) {
+    const h = holdingById.get(t.holdingId);
+    if (h && txDay(t.date) > historyFrom) historySymbols.add(h.symbol);
+  }
+
+  // Fetch exchange rate, quotes, history and sector info all in parallel
+  const [exchangeRateQuote, quoteResults, historyResults, sectorResults] = await Promise.all([
+    getQuote("USDCAD=X"),
+    Promise.all(uniqueSymbols.map((sym) => getQuote(sym, true))),
+    Promise.all([...historySymbols].map((sym) => getDailyHistory(sym, historyFrom))),
+    Promise.all(uniqueSymbols.map((sym) => getDividendInfo(sym))),
   ]);
 
-  const quoteResults = quoteAndSectorResults.slice(0, uniqueSymbols.length);
-  const sectorResults = quoteAndSectorResults.slice(uniqueSymbols.length);
-
-  const usdCadRate = exchangeRateQuote?.price ?? 1.36;
+  const usdCadRate = await resolveUsdCadRate(exchangeRateQuote?.price);
 
   // Build quote map
   const quoteMap = new Map<string, QuoteWithRange>();
   uniqueSymbols.forEach((sym, i) => {
     const q = quoteResults[i];
-    if (q) quoteMap.set(sym, q as QuoteWithRange);
+    if (q && Number.isFinite(q.price) && q.price > 0) quoteMap.set(sym, q as QuoteWithRange);
+  });
+  const missingSymbols = uniqueSymbols.filter((sym) => !quoteMap.has(sym));
+
+  const historyMap = new Map<string, DailyHistory>();
+  [...historySymbols].forEach((sym, i) => {
+    const h = historyResults[i];
+    if (h) historyMap.set(sym, h);
   });
 
   // Build sector map
   const sectorMap = new Map<string, string>();
   uniqueSymbols.forEach((sym, i) => {
-    const info = sectorResults[i] as Awaited<ReturnType<typeof getDividendInfo>>;
+    const info = sectorResults[i];
     if (info?.sector) sectorMap.set(sym, info.sector);
   });
 
   // Helper: convert value to CAD
   const toCAD = (value: number, currency: string): number => {
-    return currency === "USD" ? value * usdCadRate : value;
+    return currency === "USD" ? value * usdCadRate.rate : value;
   };
 
   // Helper: get canonical currency from quote (falls back to holding record)
   const holdingCurrency = (h: typeof allHoldings[number]): string =>
     (quoteMap.get(h.symbol) as QuoteWithRange | undefined)?.currency || h.currency;
 
-  // Build holding lookup maps
-  const holdingToPortfolio = new Map<number, number>();
-  const holdingById = new Map<number, typeof allHoldings[number]>();
-  for (const h of allHoldings) {
-    holdingToPortfolio.set(h.id, h.portfolioId);
-    holdingById.set(h.id, h);
-  }
+  /** Close of `symbol` on or before `day`, in today's (split-adjusted) share units. */
+  const closeOn = (symbol: string, day: string): number | null => {
+    const history = historyMap.get(symbol);
+    return history ? closeOnOrBeforeDay(history.bars, day) : null;
+  };
 
   // Compute per-portfolio metrics
   let totalMarketValueAll = 0;
@@ -121,61 +159,9 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
     totalMarketValueAll += mvCAD;
   }
 
-  // Determine years for yearly returns
-  const currentYear = new Date().getFullYear();
-  const years = [currentYear - 1, currentYear]; // e.g. [2025, 2026]
-
   // Get all transaction dates to find earliest
   const allTxDates = allTransactions.map((t) => new Date(t.date).getTime());
   const earliestTxDate = allTxDates.length > 0 ? new Date(Math.min(...allTxDates)) : new Date();
-
-  // Compute yearly returns per portfolio
-  // For each year, walk transactions to find positions at year start
-  const yearStartPrices = new Map<string, Map<number, number>>(); // symbol -> year -> price
-
-  // Fetch historical prices for all year/symbol combinations in parallel
-  const allPricePromises = years.flatMap((year) => {
-    const jan1 = new Date(year, 0, 2); // Jan 2 to avoid holiday issues
-    return uniqueSymbols.map(async (sym) => {
-      const price = await getHistoricalPrice(sym, jan1);
-      return { sym, year, price };
-    });
-  });
-
-  const allPriceResults = await Promise.all(allPricePromises);
-  for (const { sym, year, price } of allPriceResults) {
-    if (price !== null) {
-      if (!yearStartPrices.has(sym)) yearStartPrices.set(sym, new Map());
-      yearStartPrices.get(sym)!.set(year, price);
-    }
-  }
-
-  // Fetch historical prices for period returns (5D, 1M, 3M, 1Y)
-  const now = new Date();
-  const periodDefs = [
-    { key: "5D", days: 5 },
-    { key: "1M", days: 30 },
-    { key: "3M", days: 90 },
-    { key: "1Y", days: 365 },
-  ];
-  const periodTargetDates = periodDefs.map(({ days }) => {
-    const d = new Date(now);
-    d.setDate(d.getDate() - days);
-    return d;
-  });
-
-  // One chart call per symbol, extracting all 4 dates
-  const periodPricePromises = uniqueSymbols.map(async (sym) => {
-    const prices = await getHistoricalPricesMultiDate(sym, periodTargetDates);
-    return { sym, prices };
-  });
-  const periodPriceResults = await Promise.all(periodPricePromises);
-
-  // symbol -> Map<targetDateTimestamp, price>
-  const periodPricesMap = new Map<string, Map<number, number>>();
-  for (const { sym, prices } of periodPriceResults) {
-    periodPricesMap.set(sym, prices);
-  }
 
   // Build portfolio summaries
   const portfolioSummaries: PortfolioSummary[] = [];
@@ -184,12 +170,22 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
   // buys) so the totals row uses a real invested base rather than
   // (totalMarketValue - totalAmt), which ignores mid-period cash flows.
   const periodDenomTotals: Record<string, number> = {};
+  let weekDenomTotal = 0;
+  const weekBaseline = digestWeek(today).baseline;
+  const yearDenomTotals: Record<string, number> = {};
+  let totalPeakInvested = 0;
+  const allFlows: CashFlow[] = [];
 
   for (const portfolio of allPortfolios) {
     const pHoldings = activeHoldings.filter((h) => h.portfolioId === portfolio.id);
     const pAllHoldings = allHoldings.filter((h) => h.portfolioId === portfolio.id);
     const holdingIds = new Set(pAllHoldings.map((h) => h.id));
-    const pTransactions = allTransactions.filter((t) => holdingIds.has(t.holdingId));
+    const pTransactions = allTransactions
+      .filter((t) => holdingIds.has(t.holdingId))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.id - b.id);
+    // A holding whose quote failed is missing from market value, so any
+    // return measured against it would read as a loss of the whole position.
+    const portfolioMissing = pHoldings.some((h) => !quoteMap.has(h.symbol));
 
     let marketValue = 0;
     let costBasis = 0;
@@ -201,11 +197,33 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
 
       const mv = holding.shares * quote.price;
       const cb = holding.shares * holding.avgCost;
-      const todayChg = (quote.change ?? 0) * holding.shares;
 
       marketValue += toCAD(mv, holdingCurrency(holding));
       costBasis += toCAD(cb, holdingCurrency(holding));
-      todayReturn += toCAD(todayChg, holdingCurrency(holding));
+    }
+
+    // Today's change: shares held at the last close move by the day's change;
+    // shares traded this session move from their trade price instead, so a
+    // buy at today's price isn't credited with the whole day's move.
+    for (const holding of pAllHoldings) {
+      const quote = quoteMap.get(holding.symbol);
+      const price = quote?.price;
+      const prevClose = quote ? quote.price - (quote.change ?? 0) : closeOn(holding.symbol, addDays(sessionDay, -1));
+      if (price == null && prevClose == null) continue;
+      let sharesAtPrevClose = holding.shares;
+      let amount = 0;
+      for (const t of pTransactions) {
+        if (t.holdingId !== holding.id || txDay(t.date) !== sessionDay) continue;
+        if ((t.type === "buy" || t.type === "transfer_in") && t.price > 0) {
+          sharesAtPrevClose -= t.shares;
+          if (price != null) amount += (price - t.price) * t.shares;
+        } else if (t.type === "sell") {
+          sharesAtPrevClose += t.shares;
+          if (prevClose != null) amount += (t.price - prevClose) * t.shares;
+        }
+      }
+      if (quote && sharesAtPrevClose > 0) amount += (quote.change ?? 0) * sharesAtPrevClose;
+      todayReturn += toCAD(amount, holdingCurrency(holding));
     }
 
     const gainLoss = marketValue - costBasis;
@@ -213,124 +231,110 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
     const todayReturnBase = marketValue - todayReturn;
     const todayReturnPercent = todayReturnBase > 0 ? (todayReturn / todayReturnBase) * 100 : 0;
 
-    // Compute yearly returns
-    const yearlyReturns: Record<string, { amount: number; percent: number }> = {};
+    const txValueCAD = (t: (typeof pTransactions)[number]) => {
+      const holding = holdingById.get(t.holdingId)!;
+      return toCAD(t.shares * t.price, holdingCurrency(holding));
+    };
 
-    for (const year of years) {
-      // Walk transactions to find shares held per symbol at Jan 1 of this year
-      const jan1 = new Date(year, 0, 1);
-      const sharesAtStart = new Map<string, { shares: number; currency: string }>();
-
-      // Only consider transactions for this portfolio's holdings
-      const sortedTxns = [...pTransactions].sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
-
-      for (const txn of sortedTxns) {
-        if (new Date(txn.date) >= jan1) break;
-        const holding = holdingById.get(txn.holdingId);
-        if (!holding) continue;
-
-        const current = sharesAtStart.get(holding.symbol) ?? { shares: 0, currency: holdingCurrency(holding) };
-        if (txn.type === "buy" || txn.type === "transfer_in") {
-          current.shares += txn.shares;
-        } else if (txn.type === "sell") {
-          current.shares -= txn.shares;
-        }
-        sharesAtStart.set(holding.symbol, current);
+    /** Value at the close of `day`, or null if any position there has no price. */
+    const valueAt = (day: string): number | null => {
+      const positions = new Map<number, number>();
+      for (const t of pTransactions) {
+        if (txDay(t.date) > day) break;
+        const cur = positions.get(t.holdingId) ?? 0;
+        if (t.type === "buy" || t.type === "transfer_in") positions.set(t.holdingId, cur + t.shares);
+        else if (t.type === "sell") positions.set(t.holdingId, Math.max(0, cur - t.shares));
       }
-
-      // Compute start value
-      let startValue = 0;
-      for (const [sym, { shares, currency }] of sharesAtStart) {
-        if (shares <= 0) continue;
-        const price = yearStartPrices.get(sym)?.get(year);
-        if (price) {
-          startValue += toCAD(shares * price, currency);
-        }
+      let value = 0;
+      for (const [holdingId, shares] of positions) {
+        if (shares <= 1e-9) continue;
+        const holding = holdingById.get(holdingId)!;
+        const close = closeOn(holding.symbol, day);
+        if (close == null) return null;
+        const units = shares * splitFactorAfter(historyMap.get(holding.symbol)?.splits ?? [], day);
+        value += toCAD(units * close, holdingCurrency(holding));
       }
+      return value;
+    };
 
-      const yearEnd = new Date(year + 1, 0, 1);
-
-      // End value: for the in-progress year use current market value; for a
-      // completed year, price the shares held at year-end using the year-end
-      // close (~Jan 2 of the following year, already fetched into
-      // yearStartPrices for `year + 1`). Using current market value here would
-      // let the completed year absorb all of the following period's movement.
-      let endValue: number;
-      if (year >= currentYear) {
-        endValue = marketValue;
-      } else {
-        const sharesAtEnd = new Map<string, { shares: number; currency: string }>();
-        for (const txn of sortedTxns) {
-          if (new Date(txn.date) >= yearEnd) break;
-          const holding = holdingById.get(txn.holdingId);
-          if (!holding) continue;
-          const cur = sharesAtEnd.get(holding.symbol) ?? { shares: 0, currency: holdingCurrency(holding) };
-          if (txn.type === "buy" || txn.type === "transfer_in") {
-            cur.shares += txn.shares;
-          } else if (txn.type === "sell") {
-            cur.shares -= txn.shares;
-          }
-          sharesAtEnd.set(holding.symbol, cur);
-        }
-        endValue = 0;
-        for (const [sym, { shares, currency }] of sharesAtEnd) {
-          if (shares <= 0) continue;
-          const price = yearStartPrices.get(sym)?.get(year + 1);
-          if (price) {
-            endValue += toCAD(shares * price, currency);
-          }
-        }
-      }
-
-      // Track net flows during the year
-      let netBuys = 0;
-      let netSells = 0;
+    /** Money in and out after the close of `afterDay`, through `throughDay`. */
+    const flowsBetween = (afterDay: string, throughDay = "9999-12-31") => {
+      let buys = 0;
+      let sells = 0;
       let dividends = 0;
-
-      for (const txn of sortedTxns) {
-        const txnDate = new Date(txn.date);
-        if (txnDate < jan1 || txnDate >= yearEnd) continue;
-
-        const holding = holdingById.get(txn.holdingId);
-        if (!holding) continue;
-
-        const value = txn.shares * txn.price;
-        if (txn.type === "buy" || txn.type === "transfer_in") {
-          netBuys += toCAD(value, holdingCurrency(holding));
-        } else if (txn.type === "sell") {
-          netSells += toCAD(value, holdingCurrency(holding));
-        } else if (txn.type === "dividend") {
-          dividends += toCAD(value, holdingCurrency(holding));
-        }
+      for (const t of pTransactions) {
+        const day = txDay(t.date);
+        if (day <= afterDay || day > throughDay) continue;
+        const value = txValueCAD(t);
+        if (t.type === "buy" || t.type === "transfer_in") buys += value;
+        else if (t.type === "sell") sells += value;
+        else if (t.type === "dividend") dividends += value;
       }
+      return { buys, sells, dividends };
+    };
 
-      const returnAmount = endValue - startValue - netBuys + netSells + dividends;
-      const denominator = startValue + netBuys;
-      const returnPercent = denominator > 0 ? (returnAmount / denominator) * 100 : 0;
+    /** Return from the close of `startDay` to `endValue`, net of flows. */
+    const returnFrom = (startDay: string, endValue: number, throughDay?: string) => {
+      const startValue = valueAt(startDay);
+      if (startValue == null) return null;
+      const { buys, sells, dividends } = flowsBetween(startDay, throughDay);
+      const amount = endValue - startValue - buys + sells + dividends;
+      const denominator = startValue + buys;
+      return {
+        amount,
+        percent: denominator > 0 ? (amount / denominator) * 100 : 0,
+        denominator,
+      };
+    };
 
-      yearlyReturns[year.toString()] = { amount: returnAmount, percent: returnPercent };
+    // Compute yearly returns: from the last close of the previous year to the
+    // last close of this one (or now, for the year in progress).
+    const yearlyReturns: Record<string, { amount: number; percent: number }> = {};
+    if (!portfolioMissing) {
+      for (const year of years) {
+        const endValue = year >= currentYear ? marketValue : valueAt(yearEndDay(year));
+        if (endValue == null) continue;
+        const r = returnFrom(
+          yearEndDay(year - 1),
+          endValue,
+          year >= currentYear ? undefined : yearEndDay(year)
+        );
+        if (!r) continue;
+        yearlyReturns[year.toString()] = { amount: r.amount, percent: r.percent };
+        yearDenomTotals[year] = (yearDenomTotals[year] ?? 0) + r.denominator;
+      }
     }
 
-    // Since inception
-    let totalInvested = 0;
+    // Since inception: everything that came back (value now, sale proceeds,
+    // dividends) less everything put in. The percent is over the most money
+    // that was ever in at once, which neither double-counts recycled sale
+    // proceeds nor collapses toward zero after a large withdrawal.
+    let netInvested = 0;
+    let peakInvested = 0;
     let totalDividends = 0;
-    for (const txn of pTransactions) {
-      const holding = holdingById.get(txn.holdingId);
-      if (!holding) continue;
-      const value = txn.shares * txn.price;
-      if (txn.type === "buy" || txn.type === "transfer_in") {
-        totalInvested += toCAD(value, holdingCurrency(holding));
-      } else if (txn.type === "sell") {
-        totalInvested -= toCAD(value, holdingCurrency(holding));
-      } else if (txn.type === "dividend") {
-        totalDividends += toCAD(value, holdingCurrency(holding));
+    const flows: CashFlow[] = [];
+    for (const t of pTransactions) {
+      const value = txValueCAD(t);
+      const day = txDay(t.date);
+      if (t.type === "buy" || t.type === "transfer_in") {
+        netInvested += value;
+        peakInvested = Math.max(peakInvested, netInvested);
+        flows.push({ day, amount: -value });
+      } else if (t.type === "sell") {
+        netInvested -= value;
+        flows.push({ day, amount: value });
+      } else if (t.type === "dividend") {
+        totalDividends += value;
+        flows.push({ day, amount: value });
       }
     }
+    flows.push({ day: today, amount: marketValue });
+    allFlows.push(...flows);
+    totalPeakInvested += peakInvested;
 
-    const sinceInceptionAmount = marketValue - totalInvested + totalDividends;
-    const sinceInceptionPercent = totalInvested > 0 ? (sinceInceptionAmount / totalInvested) * 100 : 0;
+    const sinceInceptionAmount = marketValue - netInvested + totalDividends;
+    const sinceInceptionPercent = peakInvested > 0 ? (sinceInceptionAmount / peakInvested) * 100 : 0;
+    const cagr = portfolioMissing ? 0 : xirr(flows) ?? 0;
 
     // Compute period returns (5D, 1M, 3M, 1Y)
     const periodReturns: Record<string, { amount: number; percent: number }> = {};
@@ -338,67 +342,22 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
     // Reuse today's return for "1D"
     periodReturns["1D"] = { amount: todayReturn, percent: todayReturnPercent };
 
-    const sortedTxnsForPeriod = [...pTransactions].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-
-    for (let pi = 0; pi < periodDefs.length; pi++) {
-      const { key } = periodDefs[pi];
-      const periodStart = periodTargetDates[pi];
-      const periodStartTs = periodStart.getTime();
-
-      // Walk transactions to find shares held at period start
-      const sharesAtPeriodStart = new Map<string, { shares: number; currency: string }>();
-
-      for (const txn of sortedTxnsForPeriod) {
-        if (new Date(txn.date) >= periodStart) break;
-        const h = holdingById.get(txn.holdingId);
-        if (!h) continue;
-        const cur = sharesAtPeriodStart.get(h.symbol) ?? { shares: 0, currency: holdingCurrency(h) };
-        if (txn.type === "buy" || txn.type === "transfer_in") {
-          cur.shares += txn.shares;
-        } else if (txn.type === "sell") {
-          cur.shares -= txn.shares;
-        }
-        sharesAtPeriodStart.set(h.symbol, cur);
+    if (!portfolioMissing) {
+      for (const key of PERIOD_KEYS) {
+        const r = returnFrom(periodBaselineDay(today, key), marketValue);
+        if (!r) continue;
+        periodDenomTotals[key] = (periodDenomTotals[key] ?? 0) + r.denominator;
+        periodReturns[key] = { amount: r.amount, percent: r.percent };
       }
+    }
 
-      // Compute start value using historical prices
-      let startVal = 0;
-      for (const [sym, { shares, currency }] of sharesAtPeriodStart) {
-        if (shares <= 0) continue;
-        const price = periodPricesMap.get(sym)?.get(periodStartTs);
-        if (price) {
-          startVal += toCAD(shares * price, currency);
-        }
+    let weekReturn: { amount: number; percent: number } | undefined;
+    if (!portfolioMissing) {
+      const r = returnFrom(weekBaseline, marketValue);
+      if (r) {
+        weekDenomTotal += r.denominator;
+        weekReturn = { amount: r.amount, percent: r.percent };
       }
-
-      // Track flows during the period
-      let pNetBuys = 0;
-      let pNetSells = 0;
-      let pDividends = 0;
-
-      for (const txn of sortedTxnsForPeriod) {
-        const txnDate = new Date(txn.date);
-        if (txnDate < periodStart) continue;
-        const h = holdingById.get(txn.holdingId);
-        if (!h) continue;
-        const value = txn.shares * txn.price;
-        if (txn.type === "buy" || txn.type === "transfer_in") {
-          pNetBuys += toCAD(value, holdingCurrency(h));
-        } else if (txn.type === "sell") {
-          pNetSells += toCAD(value, holdingCurrency(h));
-        } else if (txn.type === "dividend") {
-          pDividends += toCAD(value, holdingCurrency(h));
-        }
-      }
-
-      const returnAmt = marketValue - startVal - pNetBuys + pNetSells + pDividends;
-      const denom = startVal + pNetBuys;
-      const returnPct = denom > 0 ? (returnAmt / denom) * 100 : 0;
-
-      periodDenomTotals[key] = (periodDenomTotals[key] ?? 0) + denom;
-      periodReturns[key] = { amount: returnAmt, percent: returnPct };
     }
 
     // Use earliest transaction date as inception date (more reliable than createdAt which may have been backfilled)
@@ -420,7 +379,9 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
       percentOfTotal: totalMarketValueAll > 0 ? (marketValue / totalMarketValueAll) * 100 : 0,
       yearlyReturns,
       sinceInception: { amount: sinceInceptionAmount, percent: sinceInceptionPercent },
+      cagr,
       periodReturns,
+      ...(weekReturn ? { weekReturn } : {}),
     });
   }
 
@@ -435,28 +396,38 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
     ? (totalTodayReturn / totalTodayReturnBase) * 100
     : 0;
 
-  // Aggregate period returns across portfolios
-  const totalPeriodReturns: Record<string, { amount: number; percent: number }> = {};
-  const periodKeys = ["1D", "5D", "1M", "3M", "1Y"];
-  for (const key of periodKeys) {
-    let totalAmt = 0;
-    let totalDenom = 0;
-    for (const p of portfolioSummaries) {
-      const pr = p.periodReturns?.[key];
-      if (pr) {
-        totalAmt += pr.amount;
-      }
-    }
-    // Percent uses the summed per-portfolio denominators (startValue + net
-    // buys), consistent with each portfolio's own period-return percent.
-    if (key === "1D") {
-      totalPeriodReturns[key] = { amount: totalTodayReturn, percent: totalTodayReturnPercent };
-    } else {
-      totalDenom = periodDenomTotals[key] ?? 0;
-      const pct = totalDenom > 0 ? (totalAmt / totalDenom) * 100 : 0;
-      totalPeriodReturns[key] = { amount: totalAmt, percent: pct };
-    }
+  // Aggregate period returns across portfolios. A total is shown only when
+  // every portfolio has the period; a partial sum would look like a real one.
+  const sumAcross = (
+    pick: (p: PortfolioSummary) => { amount: number; percent: number } | undefined,
+    denom: number | undefined
+  ) => {
+    const parts = portfolioSummaries.map(pick);
+    if (parts.some((r) => !r)) return undefined;
+    const amount = parts.reduce((s, r) => s + r!.amount, 0);
+    return { amount, percent: denom && denom > 0 ? (amount / denom) * 100 : 0 };
+  };
+
+  const totalPeriodReturns: Record<string, { amount: number; percent: number }> = {
+    "1D": { amount: totalTodayReturn, percent: totalTodayReturnPercent },
+  };
+  for (const key of PERIOD_KEYS) {
+    const r = sumAcross((p) => p.periodReturns?.[key], periodDenomTotals[key]);
+    if (r) totalPeriodReturns[key] = r;
   }
+  const totalYearlyReturns: Record<string, { amount: number; percent: number }> = {};
+  for (const year of years) {
+    const r = sumAcross((p) => p.yearlyReturns[year], yearDenomTotals[year]);
+    if (r) totalYearlyReturns[year] = r;
+  }
+
+  const totalWeekReturn = sumAcross((p) => p.weekReturn, weekDenomTotal);
+
+  const sinceInceptionTotal = portfolioSummaries.reduce((s, p) => s + p.sinceInception.amount, 0);
+  const totalSinceInception = {
+    amount: sinceInceptionTotal,
+    percent: totalPeakInvested > 0 ? (sinceInceptionTotal / totalPeakInvested) * 100 : 0,
+  };
 
   // Total dividends across all portfolios (already computed in CAD during per-portfolio loop)
   let allPortfolioDividends = 0;
@@ -467,13 +438,8 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
     allPortfolioDividends += toCAD(txn.shares * txn.price, holdingCurrency(holding));
   }
 
-  // CAGR
-  const daysSinceStart = (Date.now() - earliestTxDate.getTime()) / (1000 * 60 * 60 * 24);
-  const yearsSinceStart = daysSinceStart / 365.25;
-  const totalInvestedAll = portfolioSummaries.reduce((s, p) => s + p.costBasis, 0);
-  const cagr = totalInvestedAll > 0 && yearsSinceStart > 0
-    ? (Math.pow(totalMarketValue / totalInvestedAll, 1 / yearsSinceStart) - 1) * 100
-    : 0;
+  // Money-weighted annualized return over every portfolio's flows.
+  const cagr = missingSymbols.length > 0 ? 0 : xirr(allFlows) ?? 0;
 
   // Build breakdowns
   // Asset type breakdown
@@ -564,11 +530,14 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
       gainLossPercent: totalGainLossPercent,
       todayReturn: totalTodayReturn,
       todayReturnPercent: totalTodayReturnPercent,
+      sinceInception: totalSinceInception,
       cagr,
       earliestTransactionDate: earliestTxDate.toISOString(),
       totalDividends: allPortfolioDividends,
       totalCash,
       periodReturns: totalPeriodReturns,
+      yearlyReturns: totalYearlyReturns,
+      ...(totalWeekReturn ? { weekReturn: totalWeekReturn } : {}),
     },
     breakdowns: {
       assetType,
@@ -576,21 +545,29 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
       currency,
       topHoldings,
     },
+    ...(missingSymbols.length > 0 || usdCadRate.stale
+      ? { missing: { symbols: missingSymbols, exchangeRate: usdCadRate.stale } }
+      : {}),
   };
 
-  // Cache result
+  // Cache result. An incomplete result (a quote or the exchange rate failed)
+  // is kept for a minute only, so one Yahoo hiccup isn't served for the
+  // full TTL.
+  const fetchedAt = new Date(
+    result.missing ? Date.now() - Math.max(0, CACHE_TTL.portfolioSummary - 60_000) : Date.now()
+  );
   await db
     .insert(schema.stockCache)
     .values({
       symbol: CACHE_KEY,
       data: JSON.stringify(result),
-      fetchedAt: new Date(),
+      fetchedAt,
     })
     .onConflictDoUpdate({
       target: schema.stockCache.symbol,
       set: {
         data: JSON.stringify(result),
-        fetchedAt: new Date(),
+        fetchedAt,
       },
     });
 

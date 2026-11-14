@@ -23,13 +23,19 @@ const TICK_MS = 60_000;
 export { decideDue } from "@/lib/digest/due";
 export type { DueDecision, DueInput } from "@/lib/digest/due";
 
-let timer: ReturnType<typeof setInterval> | null = null;
-let running = false;
+/**
+ * Scheduler state lives on globalThis rather than in module variables: a
+ * dev-server hot reload re-evaluates this module with fresh variables, which
+ * would let a second interval (with its own `running` flag) start alongside
+ * the first and send the same digest twice.
+ */
+const state = ((globalThis as { __stocktraxDigest?: { timer: ReturnType<typeof setInterval> | null; running: boolean } })
+  .__stocktraxDigest ??= { timer: null, running: false });
 
 export async function runTick(now = new Date()): Promise<DueDecision | null> {
   // Ticks are serialised: a slow Yahoo call must not overlap the next minute.
-  if (running) return null;
-  running = true;
+  if (state.running) return null;
+  state.running = true;
 
   try {
     const config = await getDigestConfig();
@@ -86,24 +92,24 @@ export async function runTick(now = new Date()): Promise<DueDecision | null> {
     console.error("[digest] tick failed:", error);
     return null;
   } finally {
-    running = false;
+    state.running = false;
   }
 }
 
 export function startScheduler(): void {
   // Dev-server hot reloads re-run module init; without this guard each reload
   // would leave another interval behind.
-  if (timer) return;
-  timer = setInterval(() => {
+  if (state.timer) return;
+  state.timer = setInterval(() => {
     void runTick();
   }, TICK_MS);
   // Never hold the process open on this timer alone.
-  timer.unref?.();
+  state.timer.unref?.();
   console.log("[digest] scheduler started");
 }
 
 export function stopScheduler(): void {
-  if (!timer) return;
-  clearInterval(timer);
-  timer = null;
+  if (!state.timer) return;
+  clearInterval(state.timer);
+  state.timer = null;
 }

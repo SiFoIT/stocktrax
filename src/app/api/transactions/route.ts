@@ -3,24 +3,45 @@ import { db, schema } from "@/lib/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { recomputeHolding } from "@/lib/holdings";
+import {
+  normalizeSymbol,
+  normalizeTradeDate,
+  resolveEditedTradeDate,
+} from "@/lib/import/trade-date";
 
-const createTransactionSchema = z.object({
-  portfolioId: z.number(),
-  symbol: z.string().min(1).toUpperCase(),
-  type: z.enum(["buy", "sell", "dividend", "transfer_in"]),
-  shares: z.number().positive("Shares must be positive"),
-  price: z.number().nonnegative("Price must be non-negative"),
-  date: z.string().transform((s) => new Date(s)),
+/** A date-only or ISO input, stored at 12:00 UTC on its calendar day. */
+const tradeDateSchema = z.string().transform((s, ctx) => {
+  const date = normalizeTradeDate(s);
+  if (!date) {
+    ctx.addIssue({ code: "custom", message: `Invalid date: ${s}` });
+    return z.NEVER;
+  }
+  return date;
 });
+
+// A negative price is only meaningful on a dividend, where it records a
+// reversal (see the CSV import); every other type must be non-negative.
+const NEGATIVE_PRICE_MESSAGE = "Price must be non-negative";
+
+const createTransactionSchema = z
+  .object({
+    portfolioId: z.number(),
+    symbol: z.string().transform(normalizeSymbol).pipe(z.string().min(1, "Symbol is required")),
+    type: z.enum(["buy", "sell", "dividend", "transfer_in"]),
+    shares: z.number().positive("Shares must be positive"),
+    price: z.number(),
+    date: tradeDateSchema,
+  })
+  .refine((t) => t.type === "dividend" || t.price >= 0, {
+    message: NEGATIVE_PRICE_MESSAGE,
+    path: ["price"],
+  });
 
 const updateTransactionSchema = z.object({
   type: z.enum(["buy", "sell", "dividend", "transfer_in"]).optional(),
   shares: z.number().positive("Shares must be positive").optional(),
-  price: z.number().nonnegative("Price must be non-negative").optional(),
-  date: z
-    .string()
-    .transform((s) => new Date(s))
-    .optional(),
+  price: z.number().optional(),
+  date: tradeDateSchema.optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -196,12 +217,22 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const nextType = validated.type ?? existing.type;
+    const nextPrice = validated.price ?? existing.price;
+    if (nextType !== "dividend" && nextPrice < 0) {
+      return NextResponse.json({ error: NEGATIVE_PRICE_MESSAGE }, { status: 400 });
+    }
+
     // Build update set
     const updateSet: Record<string, unknown> = {};
     if (validated.type !== undefined) updateSet.type = validated.type;
     if (validated.shares !== undefined) updateSet.shares = validated.shares;
     if (validated.price !== undefined) updateSet.price = validated.price;
-    if (validated.date !== undefined) updateSet.date = validated.date;
+    if (validated.date !== undefined) {
+      // The client always sends the date; an unchanged day keeps the stored
+      // timestamp so the trade keeps its place among same-day trades.
+      updateSet.date = resolveEditedTradeDate(new Date(existing.date), validated.date);
+    }
 
     const [updated] = await db
       .update(schema.transactions)

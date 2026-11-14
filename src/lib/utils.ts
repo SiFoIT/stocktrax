@@ -7,11 +7,21 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatCurrency(value: number | undefined, currency = "USD"): string {
   if (value === undefined) return "-";
-  const symbol = currency === "CAD" ? "C$" : currency === "USD" ? "US$" : "$";
-  return `${symbol}${value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  const fixed = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  if (currency === "USD" || currency === "CAD") {
+    const symbol = currency === "CAD" ? "C$" : "US$";
+    return `${symbol}${value.toLocaleString(undefined, fixed)}`;
+  }
+  // Yahoo quotes LSE lines in pence ("GBp"); a pound sign would be off by 100x.
+  if (currency === "GBp" || currency === "GBX") {
+    return `${value.toLocaleString(undefined, fixed)}p`;
+  }
+  try {
+    return value.toLocaleString(undefined, { ...fixed, style: "currency", currency });
+  } catch {
+    // Not an ISO 4217 code: print the code rather than a misleading "$".
+    return `${value.toLocaleString(undefined, fixed)} ${currency}`;
+  }
 }
 
 /**
@@ -26,12 +36,17 @@ export function toCAD(value: number, currency: string | undefined, usdCadRate: n
 
 export function formatPercent(value: number | undefined): string {
   if (value === undefined) return "-";
-  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+  // Normalise after rounding so -0.001 prints "+0.00%", not "-0.00%".
+  const rounded = Number(value.toFixed(2)) || 0;
+  return `${rounded >= 0 ? "+" : ""}${rounded.toFixed(2)}%`;
 }
 
-export function getChangeColor(value: number | undefined): string {
-  if (value === undefined) return "text-muted-foreground";
-  return value >= 0 ? "text-positive" : "text-negative";
+/** Positive/negative for direction; exactly zero (or no value) has none. */
+export function getChangeColor(value: number | null | undefined): string {
+  if (value === undefined || value === null || Number.isNaN(value) || value === 0) {
+    return "text-muted-foreground";
+  }
+  return value > 0 ? "text-positive" : "text-negative";
 }
 
 
@@ -84,9 +99,39 @@ export function formatUpdatedTime(date: Date): string {
   }
 }
 
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * The calendar day a stored date stands for, as YYYY-MM-DD.
+ *
+ * Date-only strings (ex-dividend and pay dates) already are one. Transaction
+ * dates are calendar days stored as instants at 12:00 UTC (older manual rows
+ * at 00:00 UTC), so their day is the UTC date, never the browser's local one:
+ * in Toronto 00:00Z is still the previous evening.
+ */
+export function toCalendarDate(value: string | Date): string {
+  if (typeof value === "string" && DATE_ONLY.test(value)) return value;
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+/** A local-midnight Date for a calendar day, safe to format or compare in local time. */
+export function parseCalendarDate(value: string | Date): Date {
+  const [, y, m, d] = DATE_ONLY.exec(toCalendarDate(value))!;
+  return new Date(Number(y), Number(m) - 1, Number(d));
+}
+
+/** Today's (or the given instant's) date in the browser's own timezone, as YYYY-MM-DD. */
+export function localDateString(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** Format a calendar date (YYYY-MM-DD, or a transaction instant) as "Dec 1, 2026". */
 export function formatDate(value: string | undefined): string {
   if (!value) return "-";
-  return new Date(value).toLocaleDateString(undefined, {
+  return parseCalendarDate(value).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",

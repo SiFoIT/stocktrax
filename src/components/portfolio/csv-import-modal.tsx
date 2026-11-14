@@ -6,12 +6,13 @@ import {
   parseMultipleFiles,
   parseAcbTable,
   stockTxnDedupKey,
-  cashTxnDedupKey,
+  splitDuplicates,
   type WealthSimpleParseResult,
   type ParsedStockTransaction,
   type ParsedCashTransaction,
 } from "@/lib/import/wealthsimple-parser";
 import { TransactionWithSymbol } from "@/types";
+import { toCalendarDate } from "@/lib/utils";
 import { useBodyScrollLock } from "@/lib/hooks/use-body-scroll-lock";
 
 interface CsvImportModalProps {
@@ -69,55 +70,41 @@ export function CsvImportModal({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose, step]);
 
-  // Build dedup set from existing transactions
-  const existingKeys = useCallback(() => {
-    const keys = new Set<string>();
-    for (const txn of existingTransactions) {
-      keys.add(stockTxnDedupKey(txn.date, txn.symbol, txn.type, txn.shares, txn.price));
-    }
-    return keys;
-  }, [existingTransactions]);
+  // Dedup keys of the stored transactions, one per row (identical rows repeat)
+  const existingKeys = useCallback(
+    () =>
+      existingTransactions.map((txn) =>
+        stockTxnDedupKey(txn.date, txn.symbol, txn.type, txn.shares, txn.price)
+      ),
+    [existingTransactions]
+  );
 
   const processFiles = useCallback(
     async (fileList: { name: string; content: string }[]) => {
       const result = parseMultipleFiles(fileList);
       setParseResult(result);
 
-      // Dedup stock transactions against existing
-      const keys = existingKeys();
-      let dupes = 0;
-      const newStock = result.stockTransactions.filter((txn) => {
-        const key = stockTxnDedupKey(txn.date, txn.symbol, txn.type, txn.shares, txn.price);
-        if (keys.has(key)) {
-          dupes++;
-          return false;
-        }
-        // Add to keys so within-batch dupes are also caught
-        keys.add(key);
-        return true;
-      });
+      // Dedup stock transactions against the stored ones. Identical rows in
+      // the file are separate trades, so they are only matched against rows
+      // already stored, never against each other.
+      const { fresh: newStock, duplicates: dupes } = splitDuplicates(
+        result.stockTransactions,
+        existingKeys(),
+        (txn) => stockTxnDedupKey(txn.date, txn.symbol, txn.type, txn.shares, txn.price)
+      );
 
-      // Dedup cash transactions (no existing cash to compare against initially — API handles it)
-      // But we can dedup within the batch
-      const cashKeys = new Set<string>();
-      const newCash = result.cashTransactions.filter((txn) => {
-        const key = cashTxnDedupKey(txn.date, txn.type, txn.amount, txn.currency);
-        if (cashKeys.has(key)) {
-          dupes++;
-          return false;
-        }
-        cashKeys.add(key);
-        return true;
-      });
+      // Cash rows are deduped by the API, which has the stored cash ledger.
+      const newCash = result.cashTransactions;
 
       setDedupedStock(newStock);
       setDedupedCash(newCash);
       setDuplicateCount(dupes);
 
-      // Build ACB entries from transfer_in transactions
+      // Build ACB entries from transferred positions. Split and distribution
+      // shares stay at $0, so they never get an entry or an ACB.
       const transferSymbols = new Map<string, { shares: number; earliestDate: string }>();
       for (const txn of newStock) {
-        if (txn.type === "transfer_in") {
+        if (txn.type === "transfer_in" && !txn.isDistribution) {
           const existing = transferSymbols.get(txn.symbol);
           if (existing) {
             existing.shares += txn.shares;
@@ -194,7 +181,7 @@ export function CsvImportModal({
     // Apply ACB to transfer_in transactions
     const acbMap = new Map(acbEntries.map((e) => [e.symbol, e.acbPerShare]));
     const finalStock = dedupedStock.map((txn) => {
-      if (txn.type === "transfer_in") {
+      if (txn.type === "transfer_in" && !txn.isDistribution) {
         const acb = acbMap.get(txn.symbol) || 0;
         return { ...txn, price: acb };
       }
@@ -219,7 +206,9 @@ export function CsvImportModal({
           stockImported: 0,
           cashImported: 0,
           duplicatesSkipped: 0,
-          errors: [data.error || "Import failed"],
+          errors: [
+            typeof data.error === "string" ? data.error : "Import failed: the server rejected the data",
+          ],
         });
       } else {
         const data = await response.json();
@@ -552,7 +541,7 @@ export function CsvImportModal({
                     {acbEntries.map((entry, i) => (
                       <tr key={entry.symbol} className="border-b border-border">
                         <td className="px-3 py-2 font-semibold text-foreground">{entry.symbol}</td>
-                        <td className="px-3 py-2 text-sm text-muted-foreground">{new Date(entry.date).toLocaleDateString("en-CA")}</td>
+                        <td className="px-3 py-2 text-sm text-muted-foreground">{toCalendarDate(entry.date)}</td>
                         <td className="px-3 py-2 text-right font-mono text-foreground/80">{entry.shares.toLocaleString()}</td>
                         <td className="px-3 py-2 text-right">
                           <input

@@ -22,7 +22,7 @@ export function isCurrencySymbol(symbol: string): boolean {
  * would round away to nothing. Every instrument on the shipped page keeps the
  * width it had.
  */
-function priceDecimals(value: number, symbol: string): number {
+export function priceDecimals(value: number, symbol: string): number {
   const abs = Math.abs(value);
   const currency = isCurrencySymbol(symbol);
   // A failed quote reads 0; it should print as a price, not as 0.000000.
