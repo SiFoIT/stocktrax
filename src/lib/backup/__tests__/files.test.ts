@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
+  dataDir,
+  dbFilePath,
   isBackupDue,
   isBackupFilename,
   listBackupFiles,
   nextBackupDueAt,
+  nextFreeBackupFilename,
   pruneBackups,
   RETRY_AFTER_FAILURE_MS,
   selectForDeletion,
@@ -18,6 +21,11 @@ describe("isBackupFilename", () => {
     expect(isBackupFilename("stocktrax-backup-2026-11-14.json")).toBe(true);
   });
 
+  it("accepts a same-day suffix from 2 up", () => {
+    expect(isBackupFilename("stocktrax-backup-2026-11-14-2.json")).toBe(true);
+    expect(isBackupFilename("stocktrax-backup-2026-11-14-10.json")).toBe(true);
+  });
+
   it.each([
     "../stocktrax-backup-2026-11-14.json",
     "stocktrax-backup-2026-11-14.json/../../etc/passwd",
@@ -26,6 +34,11 @@ describe("isBackupFilename", () => {
     "stocktrax-backup-2026-1-14.json",
     "stocktrax-backup-latest.json",
     "stocktrax.db",
+    "stocktrax-backup-2026-11-14-1.json",
+    "stocktrax-backup-2026-11-14-02.json",
+    "stocktrax-backup-2026-11-14-.json",
+    "stocktrax-backup-2026-11-14-x.json",
+    "pre-migrate-20261114-101500.db",
     "",
   ])("rejects %j", (name) => {
     expect(isBackupFilename(name)).toBe(false);
@@ -56,6 +69,21 @@ describe("selectForDeletion", () => {
 
   it("selects nothing when under the limit", () => {
     expect(selectForDeletion(names, 8)).toEqual([]);
+  });
+
+  it("orders same-day suffixes after the unsuffixed file, numerically", () => {
+    const sameDay = [
+      "stocktrax-backup-2026-01-17.json",
+      "stocktrax-backup-2026-01-17-10.json",
+      "stocktrax-backup-2026-01-17-2.json",
+      "stocktrax-backup-2026-01-10-3.json",
+      "pre-migrate-20260118-000000.db",
+    ];
+    expect(selectForDeletion(sameDay, 2)).toEqual([
+      "stocktrax-backup-2026-01-17.json",
+      "stocktrax-backup-2026-01-10-3.json",
+    ]);
+    expect(selectForDeletion(sameDay, 1)[0]).toBe("stocktrax-backup-2026-01-17-2.json");
   });
 
   it("always keeps at least one", () => {
@@ -91,6 +119,39 @@ describe("files on disk", () => {
     ]);
   });
 
+  it("never overwrites a same-day backup; later ones get a suffix", () => {
+    const a = writeBackupFile(dir, "stocktrax-backup-2026-02-01.json", "good");
+    const b = writeBackupFile(dir, "stocktrax-backup-2026-02-01.json", "second");
+    const c = writeBackupFile(dir, "stocktrax-backup-2026-02-01.json", "third");
+    expect([a.filename, b.filename, c.filename]).toEqual([
+      "stocktrax-backup-2026-02-01.json",
+      "stocktrax-backup-2026-02-01-2.json",
+      "stocktrax-backup-2026-02-01-3.json",
+    ]);
+    expect(readFileSync(join(dir, "stocktrax-backup-2026-02-01.json"), "utf-8")).toBe("good");
+    expect(readdirSync(dir).sort()).toHaveLength(3);
+    expect(listBackupFiles(dir).map((f) => [f.name, f.date])).toEqual([
+      ["stocktrax-backup-2026-02-01-3.json", "2026-02-01"],
+      ["stocktrax-backup-2026-02-01-2.json", "2026-02-01"],
+      ["stocktrax-backup-2026-02-01.json", "2026-02-01"],
+    ]);
+    // Retention keeps the newest, which is the highest suffix.
+    expect(pruneBackups(dir, 1).sort()).toEqual([
+      "stocktrax-backup-2026-02-01-2.json",
+      "stocktrax-backup-2026-02-01.json",
+    ]);
+  });
+
+  it("continues after the highest existing suffix", () => {
+    writeFileSync(join(dir, "stocktrax-backup-2026-02-01-4.json"), "{}");
+    expect(nextFreeBackupFilename(dir, "stocktrax-backup-2026-02-01.json")).toBe(
+      "stocktrax-backup-2026-02-01-5.json"
+    );
+    expect(nextFreeBackupFilename(dir, "stocktrax-backup-2026-02-02.json")).toBe(
+      "stocktrax-backup-2026-02-02.json"
+    );
+  });
+
   it("leaves no temp file behind and refuses bad names", () => {
     writeBackupFile(dir, "stocktrax-backup-2026-02-01.json", "{}");
     expect(readdirSync(dir)).toEqual(["stocktrax-backup-2026-02-01.json"]);
@@ -102,6 +163,25 @@ describe("files on disk", () => {
     expect(listBackupFiles(nested)).toEqual([]);
     writeBackupFile(nested, "stocktrax-backup-2026-02-01.json", "{}");
     expect(listBackupFiles(nested)).toHaveLength(1);
+  });
+});
+
+describe("dataDir", () => {
+  const original = process.env.STOCKTRAX_DB_PATH;
+  afterEach(() => {
+    process.env.STOCKTRAX_DB_PATH = original;
+  });
+
+  it("follows STOCKTRAX_DB_PATH when set", () => {
+    process.env.STOCKTRAX_DB_PATH = "/srv/stocktrax/db/app.db";
+    expect(dataDir()).toBe("/srv/stocktrax/db");
+    expect(dbFilePath()).toBe("/srv/stocktrax/db/app.db");
+  });
+
+  it("defaults to <cwd>/data", () => {
+    delete process.env.STOCKTRAX_DB_PATH;
+    expect(dataDir()).toBe(join(process.cwd(), "data"));
+    expect(dbFilePath()).toBe(join(process.cwd(), "data", "stocktrax.db"));
   });
 });
 
@@ -130,6 +210,16 @@ describe("isBackupDue", () => {
   it("uses the carried-forward success time after an old failure", () => {
     const oldFailure = new Date(now.getTime() - RETRY_AFTER_FAILURE_MS * 2).toISOString();
     expect(isBackupDue({ at: oldFailure, ok: false, lastSuccessAt: daysAgo(2) }, now, 7)).toBe(false);
+  });
+
+  it("re-checks a skipped run after the retry window, from the last real success", () => {
+    const recentSkip = new Date(now.getTime() - RETRY_AFTER_FAILURE_MS / 2).toISOString();
+    const oldSkip = new Date(now.getTime() - RETRY_AFTER_FAILURE_MS * 2).toISOString();
+    expect(isBackupDue({ at: recentSkip, ok: true, skipped: "empty database", lastSuccessAt: null }, now, 7)).toBe(false);
+    expect(isBackupDue({ at: oldSkip, ok: true, skipped: "empty database", lastSuccessAt: null }, now, 7)).toBe(true);
+    expect(isBackupDue({ at: oldSkip, ok: true, skipped: "empty database", lastSuccessAt: daysAgo(2) }, now, 7)).toBe(
+      false
+    );
   });
 
   it("treats a corrupt timestamp as due", () => {

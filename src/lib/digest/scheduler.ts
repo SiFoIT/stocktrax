@@ -39,6 +39,11 @@ interface SchedulerState {
   retries: Map<string, RetryState>;
   /** Market date the cache was last pruned. */
   prunedOn: string | null;
+  /**
+   * The newest module evaluation's `runTick`. The interval calls through this,
+   * so after a dev hot reload it runs the edited code, not the boot-time copy.
+   */
+  tick: () => Promise<unknown>;
 }
 
 const state: SchedulerState = ((globalThis as { __stocktraxDigest?: SchedulerState }).__stocktraxDigest ??= {
@@ -46,6 +51,7 @@ const state: SchedulerState = ((globalThis as { __stocktraxDigest?: SchedulerSta
   running: false,
   retries: new Map(),
   prunedOn: null,
+  tick: async () => null,
 });
 // A state object created before these fields existed (dev hot reload).
 state.retries ??= new Map();
@@ -163,12 +169,15 @@ export async function runTick(now = new Date()): Promise<DueDecision | null> {
   }
 }
 
+// Re-pointed on every evaluation of this module (boot and each hot reload).
+state.tick = () => runTick();
+
 export function startScheduler(): void {
   // Dev-server hot reloads re-run module init; without this guard each reload
   // would leave another interval behind.
   if (state.timer) return;
   state.timer = setInterval(() => {
-    void runTick();
+    void state.tick();
   }, TICK_MS);
   // Never hold the process open on this timer alone.
   state.timer.unref?.();

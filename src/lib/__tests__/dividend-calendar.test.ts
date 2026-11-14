@@ -9,6 +9,12 @@ import {
 
 const TODAY = "2026-11-14";
 
+function addDaysForTest(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Monthly ex-dates on the given day of month, for the 12 months ending at `last`. */
 function monthly(lastMonth: string, day: number, amount: number) {
   return Array.from({ length: 12 }, (_, i) => ({
@@ -45,16 +51,22 @@ describe("window", () => {
 describe("projection", () => {
   it("projects a monthly payer one year forward", () => {
     // Ex-dates on the 25th, Nov 2025 .. Oct 2026; each recurs a year later.
+    // With no known ex→pay lag, pay dates are estimated at ex + 21 days, so
+    // October's (pending) payment lands in November and each projection in the
+    // month after its ex-date: still one payment a month.
     const history = monthly("2026-10", 25, 0.1);
     const cal = calendar([{ symbol: "MO.TO", shares: 100, currency: "CAD", history }]);
     const upcoming = cal.months.filter((m) => m.upcoming);
     expect(upcoming.map((m) => m.expected)).toEqual(Array(12).fill(10));
     expect(cal.totals.next12Expected).toBe(120);
-    expect(upcoming[0].payments[0]).toMatchObject({
+    expect(upcoming[0].payments[0]).toMatchObject({ exDate: "2026-10-25", status: "pending" });
+    expect(upcoming[1].payments[0]).toMatchObject({
       symbol: "MO.TO",
       exDate: "2026-11-25",
+      payDate: "2026-12-16",
+      payDateEstimated: true,
       status: "projected",
-      monthBasis: "ex",
+      monthBasis: "pay",
       perShare: 0.1,
       shares: 100,
     });
@@ -67,7 +79,7 @@ describe("projection", () => {
       { day: "2026-06-01", amount: 1.05 },
       { day: "2026-09-01", amount: 1.05 },
     ];
-    const cal = calendar([{ symbol: "Q.TO", shares: 10, currency: "CAD", history }]);
+    const cal = calendar([{ symbol: "Q.TO", shares: 10, currency: "CAD", quoteType: "EQUITY", history }]);
     const byMonth = Object.fromEntries(cal.months.map((m) => [m.month, m.expected]));
     // Raised to 1.05 in June: every future quarter projects at 1.05.
     expect(byMonth["2026-12"]).toBe(10.5);
@@ -85,7 +97,7 @@ describe("projection", () => {
       { day: "2026-06-10", amount: 0.418 },
       { day: "2026-09-10", amount: 0.188 },
     ];
-    const cal = calendar([{ symbol: "T.TO", shares: 100, currency: "CAD", history }]);
+    const cal = calendar([{ symbol: "T.TO", shares: 100, currency: "CAD", quoteType: "EQUITY", history }]);
     expect(cal.totals.next12Expected).toBeCloseTo(4 * 18.8, 2);
   });
 
@@ -96,7 +108,7 @@ describe("projection", () => {
       { day: "2026-06-10", amount: 1 },
       { day: "2026-09-10", amount: 5 },
     ];
-    const cal = calendar([{ symbol: "S.TO", shares: 10, currency: "CAD", history }]);
+    const cal = calendar([{ symbol: "S.TO", shares: 10, currency: "CAD", quoteType: "EQUITY", history }]);
     expect(cal.totals.next12Expected).toBe(40);
   });
 
@@ -111,6 +123,7 @@ describe("projection", () => {
       symbol: "RY.TO",
       shares: 10,
       currency: "CAD",
+      quoteType: "EQUITY",
       history,
       exDividendDate: "2026-11-26",
       dividendDate: "2026-12-24",
@@ -185,6 +198,136 @@ describe("projection", () => {
   });
 });
 
+describe("fund vs stock amounts", () => {
+  // XEQT.TO's real quarterly distributions: seasonal, not a fixed rate.
+  const xeqt = [
+    { day: "2025-12-30", amount: 0.205 },
+    { day: "2026-03-26", amount: 0.091 },
+    { day: "2026-06-25", amount: 0.322 },
+    { day: "2026-09-24", amount: 0.102 },
+  ];
+
+  it("projects each ETF distribution at its own amount", () => {
+    const cal = calendar([{ symbol: "XEQT.TO", shares: 1000, currency: "CAD", quoteType: "ETF", history: xeqt }]);
+    const byMonth = Object.fromEntries(cal.months.map((m) => [m.month, m.expected]));
+    // ex + 21 days estimated pay dates.
+    expect(byMonth["2027-01"]).toBe(205);
+    expect(byMonth["2027-04"]).toBe(91);
+    expect(byMonth["2027-07"]).toBe(322);
+    expect(byMonth["2027-10"]).toBe(102);
+    expect(cal.totals.next12Expected).toBe(720);
+  });
+
+  it("treats an unknown quote type like a fund", () => {
+    const cal = calendar([{ symbol: "XEQT.TO", shares: 1000, currency: "CAD", history: xeqt }]);
+    expect(cal.totals.next12Expected).toBe(720);
+  });
+
+  it("projects the same history at the latest rate for a stock", () => {
+    const cal = calendar([{ symbol: "S.TO", shares: 1000, currency: "CAD", quoteType: "EQUITY", history: xeqt }]);
+    // Latest 0.102 is not over 2× the median (0.1535), so it is the rate.
+    expect(cal.totals.next12Expected).toBe(408);
+  });
+});
+
+describe("collapsing extras", () => {
+  it("folds a year-end extra into the regular payment (HISU-U.TO)", () => {
+    const history = monthly("2026-10", 28, 0.3).map((e) => (e.day === "2025-12-28" ? { day: "2025-12-30", amount: 0.336 } : e));
+    history.push({ day: "2025-12-31", amount: 0.019 });
+    const p: PositionInput = { symbol: "HISU-U.TO", shares: 100, currency: "USD", quoteType: "ETF", history };
+    const pays = projectPosition(p, TODAY, "2027-10-31", 1);
+    // October's pending payment + 11 projections: 12, not 13.
+    expect(pays).toHaveLength(12);
+    expect(pays.filter((x) => x.status === "pending")).toHaveLength(1);
+    const dec = pays.find((x) => x.exDate === "2026-12-30")!;
+    expect(dec.perShare).toBeCloseTo(0.355, 6);
+    expect(pays.some((x) => x.perShare === 0.019)).toBe(false);
+  });
+
+  it("uses collapsed payments for a stock's current rate", () => {
+    // A regular 1.0 plus a 0.05 top-up three days later is a 1.05 payment, not a cut to 0.05.
+    const history = [
+      { day: "2025-12-10", amount: 1 },
+      { day: "2026-03-10", amount: 1 },
+      { day: "2026-06-10", amount: 1 },
+      { day: "2026-09-10", amount: 1 },
+      { day: "2026-09-13", amount: 0.05 },
+    ];
+    const cal = calendar([{ symbol: "E.TO", shares: 10, currency: "CAD", quoteType: "EQUITY", history }]);
+    expect(cal.totals.next12Expected).toBe(42);
+  });
+});
+
+describe("pending payments", () => {
+  // BCE.TO-style: quarterly, no Yahoo pay date, latest ex-date 12 days ago.
+  const history = [
+    { day: "2025-11-03", amount: 0.438 },
+    { day: "2026-02-02", amount: 0.438 },
+    { day: "2026-05-04", amount: 0.438 },
+    { day: "2026-08-03", amount: 0.438 },
+    { day: "2026-11-02", amount: 0.438 },
+  ];
+  const p: PositionInput = { symbol: "BCE.TO", shares: 100, currency: "CAD", quoteType: "EQUITY", history };
+
+  it("counts a payment between ex-date and pay date once, with an estimated pay date", () => {
+    const pays = projectPosition(p, TODAY, "2027-10-31", 1);
+    const nov = pays.filter((x) => x.exDate! >= "2026-10-01" && x.exDate! <= "2026-11-30");
+    // The real Nov 2 event, not also last year's Nov 3 projected to Nov 3 2026.
+    expect(nov).toHaveLength(1);
+    expect(nov[0]).toMatchObject({
+      exDate: "2026-11-02",
+      payDate: "2026-11-23",
+      payDateEstimated: true,
+      status: "pending",
+      perShare: 0.438,
+    });
+    const cal = calendar([p]);
+    expect(cal.months.find((m) => m.month === "2026-11")!.expected).toBeCloseTo(43.8, 2);
+    expect(cal.totals.next12Expected).toBeCloseTo(4 * 43.8, 2);
+  });
+
+  it("is not pending once a dividend transaction lands on or after the ex-date", () => {
+    const cal = calendar([p], [{ symbol: "BCE.TO", day: "2026-11-10", shares: 1, price: 43.8, currency: "CAD" }]);
+    expect(cal.months.find((m) => m.month === "2026-11")!.expected).toBe(0);
+    expect(cal.totals.receivedThisMonth).toBe(43.8);
+    expect(cal.totals.next12Expected).toBeCloseTo(3 * 43.8, 2);
+  });
+
+  it("does not double count when this year's occurrence already happened (EMA.TO)", () => {
+    const ema: PositionInput = {
+      symbol: "EMA.TO",
+      shares: 100,
+      currency: "CAD",
+      quoteType: "EQUITY",
+      history: [
+        { day: "2025-08-01", amount: 0.725 },
+        { day: "2025-10-31", amount: 0.733 },
+        { day: "2026-01-30", amount: 0.733 },
+        { day: "2026-05-01", amount: 0.733 },
+        { day: "2026-07-31", amount: 0.733 },
+        { day: "2026-10-30", amount: 0.74 },
+      ],
+      exDividendDate: "2026-10-30",
+      dividendDate: "2026-11-13",
+    };
+    const pays = projectPosition(ema, TODAY, "2027-10-31", 1);
+    // Oct 30 2026 (paid yesterday, not yet in the ledger) once; last year's
+    // Oct 31 is not projected to Oct 31 2026 on top of it.
+    expect(pays.filter((x) => x.exDate!.startsWith("2026-10"))).toHaveLength(1);
+    expect(pays[0]).toMatchObject({ exDate: "2026-10-30", payDate: "2026-11-13", status: "announced", perShare: 0.74 });
+    expect(pays).toHaveLength(4);
+
+    const cal = calendar([ema]);
+    // The overdue payment sits in the current month.
+    expect(cal.months.find((m) => m.month === "2026-11")!.expected).toBe(74);
+    expect(cal.totals.next12Expected).toBe(296);
+
+    // Once received, only the next three remain.
+    const after = calendar([ema], [{ symbol: "EMA.TO", day: "2026-11-13", shares: 1, price: 74, currency: "CAD" }]);
+    expect(after.totals.next12Expected).toBe(222);
+  });
+});
+
 describe("received", () => {
   it("counts a sold position's dividends as received but projects nothing", () => {
     const cal = calendar(
@@ -214,7 +357,8 @@ describe("received", () => {
 
   it("splits the current month into received-so-far and expected", () => {
     const cal = calendar(
-      [{ symbol: "M.TO", shares: 10, currency: "CAD", history: [{ day: "2025-11-25", amount: 1 }] }],
+      // Ex Nov 2 → pay ~Nov 23 (estimated): this month, still ahead.
+      [{ symbol: "M.TO", shares: 10, currency: "CAD", history: [{ day: "2025-11-02", amount: 1 }] }],
       [{ symbol: "M.TO", day: "2026-11-03", shares: 1, price: 4, currency: "CAD" }]
     );
     const cur = cal.months.find((m) => m.month === "2026-11")!;
@@ -239,5 +383,23 @@ describe("missing", () => {
       { symbol: "Z.TO", shares: 0, currency: "CAD", history: null },
     ]);
     expect(cal.missing).toEqual(["A.TO", "B.TO"]);
+  });
+});
+
+describe("overdue pending payments", () => {
+  it("assumes a payment more than a week past its pay date was paid, not still expected", () => {
+    // Ex 3 weeks ago, paid 2 weeks ago per Yahoo, nothing in the (stale) ledger.
+    const p: PositionInput = {
+      symbol: "TD.TO",
+      shares: 100,
+      currency: "CAD",
+      quoteType: "EQUITY",
+      history: [{ day: addDaysForTest(TODAY, -21), amount: 1 }],
+      exDividendDate: addDaysForTest(TODAY, -21),
+      dividendDate: addDaysForTest(TODAY, -14),
+    };
+    const cal = calendar([p]);
+    const current = cal.months.find((m) => m.month === TODAY.slice(0, 7))!;
+    expect(current.payments.filter((x) => x.symbol === "TD.TO" && x.status !== "projected")).toHaveLength(0);
   });
 });

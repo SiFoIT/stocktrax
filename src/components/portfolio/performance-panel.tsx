@@ -3,10 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Panel } from "@/components/ui/panel";
+import { SlidersHorizontal } from "lucide-react";
+import { BenchmarkPicker } from "@/components/portfolio/benchmark-picker";
 import { cn, formatCurrency, formatPercent, getChangeColor } from "@/lib/utils";
 import type { PerformanceData, PerformanceReturns } from "@/types";
 
 type Range = "1Y" | "ALL";
+
+const BENCHMARK_KEY = "performance_benchmark";
+const OFF = "OFF";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -74,7 +79,25 @@ export function PerformancePanel({ portfolioId }: { portfolioId?: number }) {
   const [data, setData] = useState<PerformanceData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>("ALL");
-  const [benchmark, setBenchmark] = useState<string>("XEQT");
+  // "OFF" hides the benchmark line. The choice is remembered per browser.
+  // A benchmark symbol, or OFF. Defaults to the first chosen benchmark.
+  const [benchmarkPref, setBenchmarkState] = useState<string | null>(() => {
+    try {
+      return window.localStorage.getItem(BENCHMARK_KEY);
+    } catch {
+      return null;
+    }
+  });
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const setBenchmark = (value: string) => {
+    setBenchmarkState(value);
+    try {
+      window.localStorage.setItem(BENCHMARK_KEY, value);
+    } catch {
+      // Private mode or blocked storage: the choice just isn't remembered.
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -96,7 +119,7 @@ export function PerformancePanel({ portfolioId }: { portfolioId?: number }) {
     return () => {
       cancelled = true;
     };
-  }, [portfolioId]);
+  }, [portfolioId, reloadKey]);
 
   const points = useMemo(() => {
     if (!data) return [];
@@ -124,11 +147,19 @@ export function PerformancePanel({ portfolioId }: { portfolioId?: number }) {
     );
   }
 
+  // The remembered choice if it is still one of the benchmarks (or Off),
+  // otherwise the first benchmark.
+  const benchmark =
+    benchmarkPref === OFF || data.benchmarks.some((b) => b.symbol === benchmarkPref)
+      ? benchmarkPref!
+      : data.benchmarks[0]?.symbol ?? OFF;
+  const benchmarkLabel = data.benchmarks.find((b) => b.symbol === benchmark)?.label ?? benchmark;
+
   const last = data.points[data.points.length - 1];
   const gain = last.value - last.contributed;
   const rows: { label: string; returns: PerformanceReturns | null }[] = [
     { label: "Your portfolio", returns: data.returns.portfolio },
-    ...data.benchmarks.map((b) => ({ label: `Same deposits in ${b.label}`, returns: data.returns.benchmarks[b.label] })),
+    ...data.benchmarks.map((b) => ({ label: `Same deposits in ${b.label}`, returns: data.returns.benchmarks[b.symbol] })),
   ];
 
   return (
@@ -145,13 +176,25 @@ export function PerformancePanel({ portfolioId }: { portfolioId?: number }) {
             earned since {dayLabel(data.since)}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Toggle
             label="Benchmark"
             value={benchmark}
             onChange={setBenchmark}
-            options={data.benchmarks.map((b) => ({ value: b.label, label: b.label }))}
+            options={[
+              ...data.benchmarks.map((b) => ({ value: b.symbol, label: b.label })),
+              { value: OFF, label: "Off" },
+            ]}
           />
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            aria-label="Choose benchmarks"
+            title="Choose benchmarks"
+            className="inline-flex items-center rounded-md border border-border px-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <SlidersHorizontal className="size-3.5" />
+          </button>
           <Toggle
             label="Range"
             value={range}
@@ -203,15 +246,15 @@ export function PerformancePanel({ portfolioId }: { portfolioId?: number }) {
               dot={false}
               isAnimationActive={false}
             />
-            <Line
+            {benchmark !== OFF && <Line
               type="monotone"
               dataKey={(p: PerformanceData["points"][number]) => p.benchmarks[benchmark]}
-              name={`Same deposits in ${benchmark}`}
+              name={`Same deposits in ${benchmarkLabel}`}
               stroke="var(--chart-2)"
               strokeWidth={1.5}
               dot={false}
               isAnimationActive={false}
-            />
+            />}
             <Line
               type="stepAfter"
               dataKey="contributed"
@@ -230,9 +273,11 @@ export function PerformancePanel({ portfolioId }: { portfolioId?: number }) {
         <span className="inline-flex items-center gap-1.5">
           <span className="h-0.5 w-4 rounded" style={{ background: "var(--chart-1)" }} /> Your account
         </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-0.5 w-4 rounded" style={{ background: "var(--chart-2)" }} /> Same deposits in {benchmark}
-        </span>
+        {benchmark !== OFF && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-0.5 w-4 rounded" style={{ background: "var(--chart-2)" }} /> Same deposits in {benchmarkLabel}
+          </span>
+        )}
         <span className="inline-flex items-center gap-1.5">
           <span className="w-4 border-t border-dashed border-muted-foreground" /> Money put in
         </span>
@@ -271,11 +316,14 @@ export function PerformancePanel({ portfolioId }: { portfolioId?: number }) {
         </table>
       </div>
       <p className="mt-2 text-xs text-subtle-foreground">
-        Each benchmark receives the same deposits on the same days, so the comparison isn&apos;t skewed by when
-        money went in. Includes cash. As of {dayLabel(data.asOf)}.
+        Each benchmark receives the same deposits on the same days, with its dividends reinvested, so the
+        comparison isn&apos;t skewed by when money went in. Includes cash. As of {dayLabel(data.asOf)}.
         {data.missing.length > 0 && ` No price history for ${data.missing.join(", ")}; valued at last trade price.`}
         {data.fxStale && " USD/CAD history unavailable; today's rate used throughout."}
       </p>
+      {pickerOpen && (
+        <BenchmarkPicker onClose={() => setPickerOpen(false)} onSaved={() => setReloadKey((k) => k + 1)} />
+      )}
     </Panel>
   );
 }

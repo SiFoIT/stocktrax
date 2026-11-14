@@ -143,6 +143,14 @@ describe("evaluateBackups", () => {
   it("is ok after a recent success", () => {
     expect(evaluateBackups({ ...base, lastScheduled: { at: "2026-11-12T10:00:00Z", ok: true } }).status).toBe("ok");
   });
+  it("warns, not errors, when the last run skipped an empty database", () => {
+    const result = evaluateBackups({
+      ...base,
+      lastScheduled: { at: "2026-11-14T10:00:00Z", ok: true, skipped: "empty database", lastSuccessAt: null },
+    });
+    expect(result.status).toBe("warning");
+    expect(result.summary).toContain("skipped");
+  });
 });
 
 describe("worst", () => {

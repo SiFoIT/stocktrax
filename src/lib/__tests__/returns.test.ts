@@ -104,3 +104,19 @@ describe("xirr", () => {
     ).toBeNull();
   });
 });
+
+describe("alignSplits", () => {
+  it("moves a split to the day the ledger posted the new shares", async () => {
+    const { alignSplits } = await import("../returns");
+    const aligned = alignSplits([{ day: "2026-06-10", ratio: 2 }], ["2026-06-12"]);
+    expect(aligned).toEqual([{ day: "2026-06-12", ratio: 2 }]);
+    // Between Yahoo's date and the ledger's, holdings stay in pre-split units.
+    expect(splitFactorAfter(aligned, "2026-06-11")).toBe(2);
+    expect(splitFactorAfter(aligned, "2026-06-12")).toBe(1);
+  });
+
+  it("leaves a split with no nearby ledger entry alone", async () => {
+    const { alignSplits } = await import("../returns");
+    expect(alignSplits([{ day: "2026-06-10", ratio: 2 }], ["2026-03-01"])).toEqual([{ day: "2026-06-10", ratio: 2 }]);
+  });
+});

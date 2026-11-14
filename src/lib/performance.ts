@@ -3,7 +3,16 @@ import { like } from "drizzle-orm";
 import { getDailyHistory, getQuote, type DailyHistory } from "@/lib/api/yahoo-finance";
 import { readCacheRow, writeCacheRow } from "@/lib/market-data/cache";
 import { addDays, MARKET_TIMEZONE, zonedDateStr } from "@/lib/digest/time";
-import { addMonths, closeOnOrBeforeDay, isMarketDay, splitFactorAfter } from "@/lib/returns";
+import {
+  addMonths,
+  adjCloseOnOrBeforeDay,
+  alignSplits,
+  closeOnOrBeforeDay,
+  isMarketDay,
+  splitFactorAfter,
+} from "@/lib/returns";
+import { bumpGeneration, currentGeneration } from "@/lib/cache-generation";
+import { getBenchmarks } from "@/lib/benchmarks";
 import { annualized, EXTERNAL_CASH_TYPES, modifiedDietz, simulateBenchmark, type Flow } from "@/lib/performance-math";
 import type { PerformanceData, PerformanceReturns } from "@/types";
 
@@ -22,19 +31,18 @@ import type { PerformanceData, PerformanceReturns } from "@/types";
  * whatever the timing of the deposits.
  */
 
-export const BENCHMARKS = [
-  { symbol: "XEQT.TO", label: "XEQT" },
-  { symbol: "^GSPTSE", label: "TSX" },
-] as const;
 
 
-const CACHE_PREFIX = "PERF_V1:";
+/** v3: transfers at market value, aligned splits; benchmarks total-return, keyed by symbol. */
+export const PERFORMANCE_CACHE_PREFIX = "PERF_V3:";
+const CACHE_PREFIX = PERFORMANCE_CACHE_PREFIX;
 const CACHE_TTL_MS = 15 * 60_000;
 
 const txDay = (date: Date | string | number) => new Date(date).toISOString().slice(0, 10);
 
 /** Drop cached performance results; called with the summary invalidation. */
 export async function invalidatePerformance(): Promise<void> {
+  bumpGeneration();
   await db.delete(schema.stockCache).where(like(schema.stockCache.symbol, `${CACHE_PREFIX}%`));
 }
 
@@ -42,7 +50,10 @@ export async function getPerformance(portfolioId?: number): Promise<PerformanceD
   const key = `${CACHE_PREFIX}${portfolioId ?? "all"}`;
   const hit = await readCacheRow<PerformanceData>(key);
   if (hit && Date.now() - hit.fetchedAt < CACHE_TTL_MS) return hit.value;
+  const generation = currentGeneration();
   const data = await computePerformance(portfolioId);
+  // A write since this started makes the result stale: return it uncached.
+  if (currentGeneration() !== generation) return data;
   // An incomplete result is still returned, but not kept for long.
   if (data) await writeCacheRow(key, data, new Date(data.missing.length > 0 ? Date.now() - CACHE_TTL_MS + 60_000 : Date.now()));
   return data;
@@ -76,16 +87,28 @@ async function computePerformance(portfolioId?: number): Promise<PerformanceData
   const from = addDays(firstDay, -10);
 
   const symbols = [...new Set([...holdingById.values()].map((h) => h.symbol))];
-  const [histories, fxHistory, benchHistories, fxQuote] = await Promise.all([
+  const BENCHMARKS = await getBenchmarks();
+  const [histories, fxHistory, benchHistories, benchQuotes, fxQuote] = await Promise.all([
     Promise.all(symbols.map((s) => getDailyHistory(s, from))),
     getDailyHistory("USDCAD=X", from),
     Promise.all(BENCHMARKS.map((b) => getDailyHistory(b.symbol, from))),
+    Promise.all(BENCHMARKS.map((b) => getQuote(b.symbol, true) as Promise<{ currency?: string } | null>)),
     getQuote("USDCAD=X", true),
   ]);
   const historyBySymbol = new Map<string, DailyHistory>();
   const missing: string[] = [];
+  // Split shares the ledger posted as $0 transfers in: align Yahoo's split
+  // dates to them (see alignSplits).
+  const zeroTransferDays = new Map<string, string[]>();
+  for (const t of txns) {
+    if (t.type === "transfer_in" && t.price === 0) {
+      const sym = holdingById.get(t.holdingId)!.symbol;
+      zeroTransferDays.set(sym, [...(zeroTransferDays.get(sym) ?? []), t.day]);
+    }
+  }
   symbols.forEach((s, i) => {
-    if (histories[i]) historyBySymbol.set(s, histories[i]!);
+    const h = histories[i];
+    if (h) historyBySymbol.set(s, { ...h, splits: alignSplits(h.splits, zeroTransferDays.get(s) ?? []) });
     else missing.push(s);
   });
 
@@ -145,11 +168,17 @@ async function computePerformance(portfolioId?: number): Promise<PerformanceData
         cashCad += value;
       } else if (t.type === "transfer_in") {
         positions.set(t.holdingId, held + t.shares);
-        // Shares moved in from outside are external money, at their cost or,
-        // when recorded at $0 (a split or distribution), not money at all.
-        if (value > 0) {
-          flows.push({ day: t.day, amount: value });
-          contributed += value;
+        // Shares moved in from another account are external money worth
+        // their market value that day; the old account's book cost would
+        // count gains made there as earned here. Recorded at $0 (a split or
+        // distribution), they aren't money at all.
+        if (t.price > 0) {
+          const history = historyBySymbol.get(h.symbol);
+          const close = history ? closeOnOrBeforeDay(history.bars, t.day) : null;
+          const worth =
+            close != null ? toCad(t.shares * splitFactorAfter(history!.splits, t.day) * close, currency, t.day) : value;
+          flows.push({ day: t.day, amount: worth });
+          contributed += worth;
         }
       }
       if (t.price > 0 && t.type !== "dividend") lastTradePrice.set(t.holdingId, t.price);
@@ -169,10 +198,17 @@ async function computePerformance(portfolioId?: number): Promise<PerformanceData
     contributedSeries.push(contributed);
   }
 
+  // Each benchmark is bought with the same CAD flows at its total-return
+  // (dividend-adjusted) price in CAD on that day, so distributions are
+  // reinvested just as the account keeps the dividends it receives.
   const benchSeries = BENCHMARKS.map((b, i) => {
     const history = benchHistories[i];
     if (!history) return null;
-    return simulateBenchmark(flows, days, (day) => closeOnOrBeforeDay(history.bars, day));
+    const currency = benchQuotes[i]?.currency ?? "CAD";
+    return simulateBenchmark(flows, days, (day) => {
+      const price = adjCloseOnOrBeforeDay(history.bars, day);
+      return price == null ? null : toCad(price, currency, day);
+    });
   });
 
   const endDay = days[days.length - 1];
@@ -200,16 +236,16 @@ async function computePerformance(portfolioId?: number): Promise<PerformanceData
       value: Math.round(values[i] * 100) / 100,
       contributed: Math.round(contributedSeries[i] * 100) / 100,
       benchmarks: Object.fromEntries(
-        BENCHMARKS.map((b, j) => [b.label, benchSeries[j] ? Math.round(benchSeries[j]![i] * 100) / 100 : null])
+        BENCHMARKS.map((b, j) => [b.symbol, benchSeries[j] ? Math.round(benchSeries[j]![i] * 100) / 100 : null])
       ),
     })),
     returns: {
       portfolio: returnsFor(values),
       benchmarks: Object.fromEntries(
-        BENCHMARKS.map((b, j) => [b.label, benchSeries[j] ? returnsFor(benchSeries[j]!) : null])
+        BENCHMARKS.map((b, j) => [b.symbol, benchSeries[j] ? returnsFor(benchSeries[j]!) : null])
       ),
     },
-    benchmarks: BENCHMARKS.map((b) => ({ ...b })),
+    benchmarks: BENCHMARKS.map((b) => ({ symbol: b.symbol, label: b.label })),
     missing,
     fxStale: !fxHistory,
   };

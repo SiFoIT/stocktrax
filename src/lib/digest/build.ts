@@ -2,7 +2,7 @@ import { db, schema } from "@/lib/db";
 import { gte } from "drizzle-orm";
 import { getQuote, getDailyHistory, getDividendInfo } from "@/lib/api/yahoo-finance";
 import type { DailyHistory, QuoteWithRange } from "@/lib/api/yahoo-finance";
-import { addMonths, closeOnOrBeforeDay, splitFactorAfter } from "@/lib/returns";
+import { addMonths, alignSplits, closeOnOrBeforeDay, splitFactorAfter } from "@/lib/returns";
 import { resolveUsdCadRate } from "@/lib/fx";
 import { getPortfolioSummary } from "@/lib/portfolio-summary";
 import { getDigestConfig, type DigestConfig } from "@/lib/settings";
@@ -385,10 +385,21 @@ export async function buildWeeklyDigest(
     loadQuotes(allSymbols),
     Promise.all(allSymbols.map((symbol) => getDailyHistory(symbol, historyFrom))),
   ]);
+  // Align Yahoo's split dates to the ledger's $0 transfers (see alignSplits).
+  const symbolOfHolding = new Map(allHoldings.map((h) => [h.id, h.symbol]));
+  const zeroTransferDays = new Map<string, string[]>();
+  for (const t of allTransactions) {
+    const sym = symbolOfHolding.get(t.holdingId);
+    if (sym && t.type === "transfer_in" && t.price === 0) {
+      zeroTransferDays.set(sym, [...(zeroTransferDays.get(sym) ?? []), txDateStr(t.date)]);
+    }
+  }
   const historyBySymbol = new Map<string, DailyHistory>();
   allSymbols.forEach((symbol, i) => {
     const history = histories[i];
-    if (history) historyBySymbol.set(symbol, history);
+    if (history) {
+      historyBySymbol.set(symbol, { ...history, splits: alignSplits(history.splits, zeroTransferDays.get(symbol) ?? []) });
+    }
   });
   /** Friday's close in today's share units, or null if unavailable. */
   const baselineClose = (symbol: string): number | null => {
@@ -421,7 +432,16 @@ export async function buildWeeklyDigest(
     if (txDateStr(txn.date) <= week.baseline) {
       sharesAtBaseline.set(symbol, Math.max(0, (sharesAtBaseline.get(symbol) ?? 0) + sign * txn.shares));
     } else {
-      netBoughtSince.set(symbol, (netBoughtSince.get(symbol) ?? 0) + sign * txn.shares * txn.price);
+      // Shares transferred in count at that day's market value, not the old
+      // account's cost; $0 split shares count as nothing.
+      let price = txn.price;
+      if (txn.type === "transfer_in" && txn.price > 0) {
+        const history = historyBySymbol.get(symbol);
+        const day = txDateStr(txn.date);
+        const close = history ? closeOnOrBeforeDay(history.bars, day) : null;
+        if (close != null) price = close * splitFactorAfter(history!.splits, day);
+      }
+      netBoughtSince.set(symbol, (netBoughtSince.get(symbol) ?? 0) + sign * txn.shares * price);
     }
   }
 

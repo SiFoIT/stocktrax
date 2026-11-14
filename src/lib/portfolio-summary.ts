@@ -9,10 +9,13 @@ import {
   PERIOD_KEYS,
   periodBaselineDay,
   splitFactorAfter,
+  alignSplits,
+  dayNumber,
   xirr,
   type CashFlow,
 } from "@/lib/returns";
 import { EXTERNAL_CASH_TYPES } from "@/lib/performance-math";
+import { bumpGeneration, currentGeneration } from "@/lib/cache-generation";
 import { resolveUsdCadRate } from "@/lib/fx";
 import type { PortfolioDashboardData, PortfolioSummary, BreakdownItem } from "@/types";
 import { CACHE_TTL } from "@/lib/config";
@@ -31,9 +34,10 @@ const txDay = (date: Date | string | number) => new Date(date).toISOString().sli
  * the shared Yahoo cache, so it costs about one batched quote request.
  */
 export async function invalidatePortfolioSummary(): Promise<void> {
+  bumpGeneration();
   await db.delete(schema.stockCache).where(eq(schema.stockCache.symbol, CACHE_KEY));
   // The value chart replays the same ledger.
-  await db.delete(schema.stockCache).where(like(schema.stockCache.symbol, "PERF_V1:%"));
+  await db.delete(schema.stockCache).where(like(schema.stockCache.symbol, "PERF_V%"));
 }
 
 /**
@@ -97,15 +101,31 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
   const historySymbols = new Set(uniqueSymbols);
   for (const t of allTransactions) {
     const h = holdingById.get(t.holdingId);
-    if (h && txDay(t.date) > historyFrom) historySymbols.add(h.symbol);
+    // Shares transferred in are valued at that day's close, so their symbol's
+    // history is needed however long ago that was.
+    if (h && (txDay(t.date) > historyFrom || (t.type === "transfer_in" && t.price > 0))) historySymbols.add(h.symbol);
+  }
+  const earliestDay = allTransactions.reduce((min, t) => (txDay(t.date) < min ? txDay(t.date) : min), historyFrom);
+  const historyStart = earliestDay < historyFrom ? addDays(earliestDay, -10) : historyFrom;
+
+  // $0 transfers in are how the ledger records split shares; the split takes
+  // effect in the ledger on that day, which can differ from Yahoo's date.
+  const zeroTransferDays = new Map<string, string[]>();
+  for (const t of allTransactions) {
+    const h = holdingById.get(t.holdingId);
+    if (h && t.type === "transfer_in" && t.price === 0) {
+      zeroTransferDays.set(h.symbol, [...(zeroTransferDays.get(h.symbol) ?? []), txDay(t.date)]);
+    }
   }
 
   // Fetch exchange rate, quotes, history and sector info all in parallel
-  const [exchangeRateQuote, quoteResults, historyResults, sectorResults] = await Promise.all([
+  const generation = currentGeneration();
+  const [exchangeRateQuote, quoteResults, historyResults, sectorResults, fxHistory] = await Promise.all([
     getQuote("USDCAD=X"),
     Promise.all(uniqueSymbols.map((sym) => getQuote(sym, true))),
-    Promise.all([...historySymbols].map((sym) => getDailyHistory(sym, historyFrom))),
+    Promise.all([...historySymbols].map((sym) => getDailyHistory(sym, historyStart))),
     Promise.all(uniqueSymbols.map((sym) => getDividendInfo(sym))),
+    getDailyHistory("USDCAD=X", historyStart),
   ]);
 
   const usdCadRate = await resolveUsdCadRate(exchangeRateQuote?.price);
@@ -121,7 +141,7 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
   const historyMap = new Map<string, DailyHistory>();
   [...historySymbols].forEach((sym, i) => {
     const h = historyResults[i];
-    if (h) historyMap.set(sym, h);
+    if (h) historyMap.set(sym, { ...h, splits: alignSplits(h.splits, zeroTransferDays.get(sym) ?? []) });
   });
 
   // Build sector map
@@ -131,9 +151,16 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
     if (info?.sector) sectorMap.set(sym, info.sector);
   });
 
-  // Helper: convert value to CAD
+  // Helper: convert value to CAD at today's rate (current values)...
   const toCAD = (value: number, currency: string): number => {
     return currency === "USD" ? value * usdCadRate.rate : value;
+  };
+  // ...and at `day`'s rate (past values and flows), so a USD position's
+  // exchange-rate move counts in its returns.
+  const toCADOn = (value: number, currency: string, day: string): number => {
+    if (currency !== "USD") return value;
+    const rate = fxHistory ? closeOnOrBeforeDay(fxHistory.bars, day) : null;
+    return value * (rate ?? usdCadRate.rate);
   };
 
   // Helper: get canonical currency from quote (falls back to holding record)
@@ -233,9 +260,24 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
     const todayReturnBase = marketValue - todayReturn;
     const todayReturnPercent = todayReturnBase > 0 ? (todayReturn / todayReturnBase) * 100 : 0;
 
+    /**
+     * What a transaction moved, in CAD at that day's rate. Shares transferred
+     * in from another account are worth their market value that day, not the
+     * old account's book cost: gains made before the transfer weren't earned
+     * here. (Cost basis keeps book cost; that's for tax, not returns.)
+     */
     const txValueCAD = (t: (typeof pTransactions)[number]) => {
       const holding = holdingById.get(t.holdingId)!;
-      return toCAD(t.shares * t.price, holdingCurrency(holding));
+      const day = txDay(t.date);
+      const currency = holdingCurrency(holding);
+      if (t.type === "transfer_in" && t.price > 0) {
+        const history = historyMap.get(holding.symbol);
+        const close = history ? closeOnOrBeforeDay(history.bars, day) : null;
+        if (close != null) {
+          return toCADOn(t.shares * splitFactorAfter(history!.splits, day) * close, currency, day);
+        }
+      }
+      return toCADOn(t.shares * t.price, currency, day);
     };
 
     /** Value at the close of `day`, or null if any position there has no price. */
@@ -254,34 +296,41 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
         const close = closeOn(holding.symbol, day);
         if (close == null) return null;
         const units = shares * splitFactorAfter(historyMap.get(holding.symbol)?.splits ?? [], day);
-        value += toCAD(units * close, holdingCurrency(holding));
+        value += toCADOn(units * close, holdingCurrency(holding), day);
       }
       return value;
     };
 
-    /** Money in and out after the close of `afterDay`, through `throughDay`. */
-    const flowsBetween = (afterDay: string, throughDay = "9999-12-31") => {
-      let buys = 0;
-      let sells = 0;
-      let dividends = 0;
+    /**
+     * Money moved into the holdings after the close of `afterDay` through
+     * `endDay`: buys and transfers in add, sales and dividends paid out
+     * subtract. `weighted` weights each by the share of the period it was
+     * invested (Modified Dietz), so a buy funded by a sale the same week, or a
+     * reinvested dividend, isn't counted as fresh capital for the whole period.
+     */
+    const flowsBetween = (afterDay: string, endDay: string) => {
+      let net = 0;
+      let weighted = 0;
+      const span = dayNumber(endDay) - dayNumber(afterDay);
       for (const t of pTransactions) {
         const day = txDay(t.date);
-        if (day <= afterDay || day > throughDay) continue;
+        if (day <= afterDay || day > endDay) continue;
         const value = txValueCAD(t);
-        if (t.type === "buy" || t.type === "transfer_in") buys += value;
-        else if (t.type === "sell") sells += value;
-        else if (t.type === "dividend") dividends += value;
+        const flow =
+          t.type === "buy" || t.type === "transfer_in" ? value : t.type === "sell" || t.type === "dividend" ? -value : 0;
+        net += flow;
+        weighted += flow * (span > 0 ? (dayNumber(endDay) - dayNumber(day)) / span : 1);
       }
-      return { buys, sells, dividends };
+      return { net, weighted };
     };
 
-    /** Return from the close of `startDay` to `endValue`, net of flows. */
-    const returnFrom = (startDay: string, endValue: number, throughDay?: string) => {
+    /** Money-weighted (Modified Dietz) return from the close of `startDay` to `endValue` at `endDay`. */
+    const returnFrom = (startDay: string, endValue: number, endDay: string = today) => {
       const startValue = valueAt(startDay);
       if (startValue == null) return null;
-      const { buys, sells, dividends } = flowsBetween(startDay, throughDay);
-      const amount = endValue - startValue - buys + sells + dividends;
-      const denominator = startValue + buys;
+      const { net, weighted } = flowsBetween(startDay, endDay);
+      const amount = endValue - startValue - net;
+      const denominator = startValue + weighted;
       return {
         amount,
         percent: denominator > 0 ? (amount / denominator) * 100 : 0,
@@ -296,11 +345,7 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
       for (const year of years) {
         const endValue = year >= currentYear ? marketValue : valueAt(yearEndDay(year));
         if (endValue == null) continue;
-        const r = returnFrom(
-          yearEndDay(year - 1),
-          endValue,
-          year >= currentYear ? undefined : yearEndDay(year)
-        );
+        const r = returnFrom(yearEndDay(year - 1), endValue, year >= currentYear ? today : yearEndDay(year));
         if (!r) continue;
         yearlyReturns[year.toString()] = { amount: r.amount, percent: r.percent };
         yearDenomTotals[year] = (yearDenomTotals[year] ?? 0) + r.denominator;
@@ -341,12 +386,17 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
     let accountFlows = flows;
     if (external.length > 0) {
       let cashBalance = pCash.reduce((sum, c) => sum + toCAD(c.amount, c.currency), 0);
-      accountFlows = external.map((c) => ({ day: txDay(c.date), amount: -toCAD(c.amount, c.currency) }));
+      accountFlows = external.map((c) => ({
+        day: txDay(c.date),
+        amount: -toCADOn(c.amount, c.currency, txDay(c.date)),
+      }));
       for (const t of pTransactions) {
-        const value = txValueCAD(t);
-        if (t.type === "buy") cashBalance -= value;
-        else if (t.type === "sell" || t.type === "dividend") cashBalance += value;
-        else if (t.type === "transfer_in" && value > 0) accountFlows.push({ day: txDay(t.date), amount: -value });
+        // Cash moves at today's rate (it's today's balance); the transfer
+        // flow is the shares' market value on the day.
+        const cashValue = toCAD(t.shares * t.price, holdingCurrency(holdingById.get(t.holdingId)!));
+        if (t.type === "buy") cashBalance -= cashValue;
+        else if (t.type === "sell" || t.type === "dividend") cashBalance += cashValue;
+        else if (t.type === "transfer_in" && t.price > 0) accountFlows.push({ day: txDay(t.date), amount: -txValueCAD(t) });
       }
       accountFlows.push({ day: today, amount: marketValue + cashBalance });
     }
@@ -583,6 +633,9 @@ export async function getPortfolioSummary(): Promise<PortfolioDashboardData> {
   // Cache result. An incomplete result (a quote or the exchange rate failed)
   // is kept for a minute only, so one Yahoo hiccup isn't served for the
   // full TTL.
+  // A write since this computation started makes it stale: return it, but
+  // don't cache it over the invalidation.
+  if (currentGeneration() !== generation) return result;
   const fetchedAt = new Date(
     result.missing ? Date.now() - Math.max(0, CACHE_TTL.portfolioSummary - 60_000) : Date.now()
   );

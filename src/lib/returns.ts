@@ -12,6 +12,12 @@ import { addDays } from "@/lib/digest/time";
 export interface DailyBar {
   day: string;
   close: number;
+  /**
+   * Close adjusted for dividends (and splits): its changes are the total
+   * return, distributions reinvested. Used for benchmarks, which must count
+   * dividends the way an account that received them does.
+   */
+  adj?: number;
 }
 
 /** A split on `day`: each pre-split share became `ratio` shares. */
@@ -22,10 +28,31 @@ export interface Split {
 
 /** Close of the last bar on or before `day`, or null when none is that old. */
 export function closeOnOrBeforeDay(bars: DailyBar[], day: string): number | null {
-  for (let i = bars.length - 1; i >= 0; i--) {
-    if (bars[i].day <= day) return bars[i].close;
+  const bar = barOnOrBefore(bars, day);
+  return bar ? bar.close : null;
+}
+
+/** Dividend-adjusted close on or before `day` (the close where Yahoo gave none). */
+export function adjCloseOnOrBeforeDay(bars: DailyBar[], day: string): number | null {
+  const bar = barOnOrBefore(bars, day);
+  return bar ? bar.adj ?? bar.close : null;
+}
+
+/** Last bar on or before `day`, by binary search (bars are ascending). */
+function barOnOrBefore(bars: DailyBar[], day: string): DailyBar | null {
+  let lo = 0;
+  let hi = bars.length - 1;
+  let found = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (bars[mid].day <= day) {
+      found = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
   }
-  return null;
+  return found >= 0 ? bars[found] : null;
 }
 
 /**
@@ -50,6 +77,30 @@ export function splitFactorAfter(splits: Split[], day: string): number {
  */
 export function isMarketDay(day: string): boolean {
   return isTradingDay(day) || isTsxTradingDay(day);
+}
+
+/** Whole days since the epoch for a "YYYY-MM-DD" day. */
+export function dayNumber(day: string): number {
+  return Date.parse(`${day}T00:00:00Z`) / 86_400_000;
+}
+
+/**
+ * Move each Yahoo split to the day the ledger recorded it, when the ledger has
+ * a $0 transfer-in (the split shares) within 10 days of it. Yahoo's date is the
+ * exchange's ex-date; the broker often posts the new shares a few days later
+ * or earlier. Valuing with Yahoo's date in between would price post-split
+ * share counts at pre-split units (or the reverse) and halve or multiply the
+ * position for those days.
+ */
+export function alignSplits(splits: Split[], ledgerDays: string[]): Split[] {
+  if (ledgerDays.length === 0) return splits;
+  return splits.map((s) => {
+    const near = ledgerDays
+      .map((d) => ({ d, gap: Math.abs(dayNumber(d) - dayNumber(s.day)) }))
+      .filter((x) => x.gap <= 10)
+      .sort((a, b) => a.gap - b.gap)[0];
+    return near ? { ...s, day: near.d } : s;
+  });
 }
 
 /** Most recent session (either exchange) on or before `day`. */
@@ -123,7 +174,8 @@ export function xirr(flows: CashFlow[]): number | null {
 
   const t0 = Math.min(...items.map((f) => dayIndex(f.day)));
   const t1 = Math.max(...items.map((f) => dayIndex(f.day)));
-  if (t1 - t0 < 30) return null;
+  // Annualizing less than a year turns a good month into a 900% "per year".
+  if (t1 - t0 < 365) return null;
 
   const years = items.map((f) => (dayIndex(f.day) - t0) / 365.25);
   const npv = (rate: number) =>

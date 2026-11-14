@@ -1,6 +1,6 @@
 import { isTradingDay, isTsxTradingDay } from "@/lib/markets/calendar";
 import { addDays, MARKET_TIMEZONE, zonedDateStr, zonedTimeStr } from "@/lib/digest/time";
-import type { BackupRunRecord, BackupFileInfo } from "@/lib/backup/files";
+import { lastBackupSuccessAt, type BackupRunRecord, type BackupFileInfo } from "@/lib/backup/files";
 import type { YahooStats } from "@/lib/market-data/stats";
 import type {
   BackupStatus,
@@ -328,13 +328,16 @@ export interface BackupInput {
 export function evaluateBackups(input: BackupInput): BackupStatus {
   const { now, timezone, enabled, keep, intervalDays, lastScheduled, files, dir } = input;
   const newestFile = files[0] ?? null;
-  const lastSuccessAt = lastScheduled?.ok ? lastScheduled.at : lastScheduled?.lastSuccessAt ?? null;
+  const lastSuccessAt = lastBackupSuccessAt(lastScheduled);
 
   let status: StatusLevel = "ok";
   let summary: string;
   if (lastScheduled && !lastScheduled.ok) {
     status = "error";
     summary = `Scheduled backup failed ${formatAt(lastScheduled.at, timezone)}: ${shortError(lastScheduled.error)}`;
+  } else if (enabled && lastScheduled?.skipped) {
+    status = "warning";
+    summary = `Scheduled backup skipped ${formatAt(lastScheduled.at, timezone)}: ${lastScheduled.skipped}`;
   } else if (!enabled) {
     status = "warning";
     summary = "Scheduled backups are switched off";

@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { existsSync, statSync } from "fs";
-import { join } from "path";
 import { desc, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { getDigestConfig, getSetting, getSmtpConfig, isSmtpConfigured } from "@/lib/settings";
 import { getYahooStats } from "@/lib/market-data/stats";
 import { getPortfolioSummary } from "@/lib/portfolio-summary";
-import { backupsDir, dataDir, listBackupFiles } from "@/lib/backup/files";
+import { backupsDir, dbFilePath, listBackupFiles } from "@/lib/backup/files";
 import { getBackupConfig, getLastBackupRecord } from "@/lib/backup/scheduled";
 import {
   evaluateBackups,
@@ -132,7 +131,7 @@ export async function GET(request: NextRequest) {
       dir,
     });
 
-    const dbPath = join(dataDir(), "stocktrax.db");
+    const dbPath = dbFilePath();
     const dbBytes = fileSize(dbPath);
     const walBytes = fileSize(`${dbPath}-wal`);
     const database: DatabaseStatus = {

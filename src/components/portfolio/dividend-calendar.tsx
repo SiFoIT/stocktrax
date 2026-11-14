@@ -48,6 +48,7 @@ function perShareLabel(p: CalendarPayment): string {
 
 const STATUS_LABEL: Record<CalendarPayment["status"], string> = {
   received: "Received",
+  pending: "Pending",
   announced: "Announced",
   projected: "Projected",
 };
@@ -173,8 +174,8 @@ function MonthRow({ m, current, open, onToggle }: { m: CalendarMonth; current: b
         <span className="text-right font-mono text-foreground">
           {m.upcoming ? (m.expected !== 0 ? cad(m.expected) : <span className="text-subtle-foreground">—</span>) : ""}
         </span>
-        <span className="hidden text-right text-xs text-subtle-foreground sm:block">
-          {hasPayments ? `${m.payments.length} payment${m.payments.length === 1 ? "" : "s"}` : ""}
+        <span className="hidden text-right font-mono text-xs text-muted-foreground sm:block">
+          {hasPayments ? m.payments.length : ""}
         </span>
       </button>
       {open && hasPayments && (
@@ -266,7 +267,7 @@ export function DividendCalendar({ portfolioId }: { portfolioId?: number | strin
               <span className="whitespace-nowrap">
                 Expected next 12 months{" "}
                 <span className="font-mono font-semibold text-foreground">{cad(data.totals.next12Expected)}</span>
-                <InfoTip text="Expected repeats each holding's last 12 months of dividends one year on, at today's share count, replaced by the announced payment where one is known. Months are by pay date where known or estimated, else ex-date. USD converted at today's rate." />
+                <InfoTip text="Expected repeats each holding's last 12 months of dividends one year on, at today's share count: funds at each payment's own amount, stocks at their latest regular rate. It includes payments that went ex-dividend recently but aren't in your transactions yet, and uses the announced payment where one is known. Months are by pay date, estimated (~) where Yahoo has none. USD converted at today's rate." />
               </span>
             </p>
             {data.missing.length > 0 && (
@@ -340,7 +341,7 @@ export function DividendCalendar({ portfolioId }: { portfolioId?: number | strin
               <span>Month</span>
               <span className="text-right">Received</span>
               <span className="text-right">Expected</span>
-              <span className="hidden sm:block" />
+              <span className="hidden text-right sm:block">Payments</span>
             </div>
             {data.months.map((m) => (
               <MonthRow

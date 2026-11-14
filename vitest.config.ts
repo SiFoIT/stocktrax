@@ -16,6 +16,10 @@ export default defineConfig({
           name: "unit",
           include: ["src/**/*.test.ts"],
           exclude: ["src/**/*.route.test.ts", "**/node_modules/**"],
+          // Same schema-only template as the route tests: anything that loads
+          // `@/lib/db` gets a throwaway copy, and yahoo-finance2 always throws.
+          globalSetup: ["src/test/global-setup.ts"],
+          setupFiles: ["src/test/setup-unit.ts"],
         },
       },
       {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/lib/db";
-import { getDailyHistory, getDividendInfo, getQuote } from "@/lib/api/yahoo-finance";
+import { getDailyHistory, getDividendInfo, getQuote, type QuoteWithRange } from "@/lib/api/yahoo-finance";
 import { resolveUsdCadRate } from "@/lib/fx";
 import { zonedDateStr } from "@/lib/digest/time";
 import {
@@ -82,12 +82,15 @@ export async function GET(request: NextRequest) {
       const h = held.get(symbol)!;
       // Dividends are paid in the listing's currency; only USD/CAD are
       // convertible here, so anything else falls back to the holding's.
-      const qc = (quotes[i] as { currency?: string } | null)?.currency;
+      const quote = quotes[i] as QuoteWithRange | null;
+      const qc = quote?.currency;
       const info = infos[i] as { exDividendDate?: string; dividendDate?: string };
       return {
         symbol,
         shares: h.shares,
         currency: qc === "USD" || qc === "CAD" ? qc : h.currency,
+        // EQUITY projects at its current rate; funds repeat each payment.
+        quoteType: quote?.quoteType,
         history: histories[i]?.dividends ?? null,
         exDividendDate: info.exDividendDate,
         dividendDate: info.dividendDate,

@@ -232,10 +232,10 @@ export interface PortfolioSummary {
   yearlyReturns: Record<string, { amount: number; percent: number }>;
   /**
    * Total return since the first transaction: market value + sale proceeds +
-   * dividends − money put in. Percent is over the money put in (buys and
-   * transfers in), so it stays meaningful after large sells.
+   * dividends − money put in (buys, and shares transferred in at their market
+   * value that day). Percent is over the most money that was in at once.
+   * Null when a holding has no quote: the figure would read it as a total loss.
    */
-  /** Null when a holding has no quote: the figure would read it as a total loss. */
   sinceInception: { amount: number; percent: number } | null;
   /**
    * Money-weighted annualized return (XIRR) over the portfolio's cash flows,
@@ -385,11 +385,13 @@ export interface PerformanceData {
   /**
    * One point per session, in CAD: account value (holdings + cash), external
    * money contributed so far, and what the same deposits would be worth in
-   * each benchmark (null when its history is unavailable).
+   * each benchmark, keyed by benchmark symbol (null when its history is
+   * unavailable). Benchmarks are total return: dividends reinvested.
    */
   points: { day: string; value: number; contributed: number; benchmarks: Record<string, number | null> }[];
   returns: {
     portfolio: PerformanceReturns;
+    /** Keyed by benchmark symbol. */
     benchmarks: Record<string, PerformanceReturns | null>;
   };
   benchmarks: { symbol: string; label: string }[];

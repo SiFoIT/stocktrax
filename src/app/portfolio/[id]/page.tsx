@@ -647,7 +647,7 @@ export default function PortfolioPage() {
           <h1 className="text-lg font-semibold tracking-tight text-foreground">{portfolio.name}</h1>
           {/* Only the currency: portfolios.created_at is backfilled for some rows, so the
               summary endpoint uses earliest-transaction date as inception instead. */}
-          <span className="text-xs text-subtle-foreground">{portfolio.currency}</span>
+          <span className="text-xs text-subtle-foreground">All values in CAD</span>
         </div>
 
       {/* Stats Grid */}

@@ -271,6 +271,11 @@ export function PortfolioStats({ data, portfolioId, loading, dividendsCadTotal, 
 
       {/* Period returns row */}
       {totals.periodReturns && (
+        <p className="-mb-1 text-xs text-subtle-foreground">
+          Period returns: holdings only (cash excluded), net of trades. The performance chart below includes cash.
+        </p>
+      )}
+      {totals.periodReturns && (
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-5">
           {[
             { key: "1D", label: "Today" },

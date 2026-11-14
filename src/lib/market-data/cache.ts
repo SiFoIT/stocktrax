@@ -14,7 +14,10 @@ import { eq, inArray, lt, sql } from "drizzle-orm";
  */
 
 export interface CacheOptions {
-  /** Bypass a fresh cached value (a manual refresh). Still deduped. */
+  /**
+   * Bypass a fresh cached value and the negative cache (a manual refresh).
+   * Still deduped against an in-flight fetch.
+   */
   fresh?: boolean;
   /** How old a cached value may be to serve when the fetch fails. */
   maxStaleMs?: number;
@@ -72,7 +75,9 @@ export async function cached<T>(
   const stale = () =>
     row && now - row.fetchedAt < (options.maxStaleMs ?? Number.POSITIVE_INFINITY) ? row.value : null;
 
-  if ((state.failedUntil.get(key) ?? 0) > now) return stale();
+  // A manual refresh always gets a real attempt; the negative cache only
+  // shields Yahoo from the automatic reads.
+  if (!options.fresh && (state.failedUntil.get(key) ?? 0) > now) return stale();
 
   const pending = state.inFlight.get(key) as Promise<T | null> | undefined;
   if (pending) return pending;

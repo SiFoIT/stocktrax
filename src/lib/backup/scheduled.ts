@@ -3,6 +3,7 @@ import { backupFilename, buildBackup } from "@/lib/backup/build";
 import {
   backupsDir,
   isBackupDue,
+  lastBackupSuccessAt,
   pruneBackups,
   writeBackupFile,
   type BackupRunRecord,
@@ -68,6 +69,17 @@ export interface BackupRunResult {
   size?: number;
   removed?: string[];
   error?: string;
+  /** Set when nothing was written on purpose, e.g. "empty database". */
+  skipped?: string;
+}
+
+/**
+ * True when a backup holds no portfolios and no transactions. If the database
+ * was lost or reset while `data/backups` survived, backing that up on a
+ * schedule would only push good backups out through retention.
+ */
+export function isEmptyBackup(backup: { data: { portfolios: unknown[]; transactions: unknown[] } }): boolean {
+  return backup.data.portfolios.length === 0 && backup.data.transactions.length === 0;
 }
 
 /**
@@ -87,9 +99,29 @@ export async function runBackup(
     previous = await getLastBackupRecord(kind);
     const config = await getBackupConfig();
     const backup = await buildBackup({ now });
+
+    // A manual run of an empty database is the user's call; a scheduled one
+    // is skipped, without counting as a success or a failure.
+    if (kind === "scheduled" && isEmptyBackup(backup)) {
+      const skipped = "empty database";
+      const record: BackupRunRecord = {
+        at: now.toISOString(),
+        ok: true,
+        skipped,
+        lastSuccessAt: lastBackupSuccessAt(previous),
+      };
+      await setSetting(key, record);
+      console.warn("[backup] scheduled backup skipped: the database has no portfolios or transactions");
+      return { ran: true, skipped };
+    }
+
     const dir = backupsDir();
-    const filename = backupFilename(now);
-    const { path, size } = writeBackupFile(dir, filename, JSON.stringify(backup, null, 2));
+    // Never overwrites: a second backup on the same day gets a `-N` suffix.
+    const { path, size, filename } = writeBackupFile(
+      dir,
+      backupFilename(now),
+      JSON.stringify(backup, null, 2)
+    );
     const removed = pruneBackups(dir, config.keep);
 
     const record: BackupRunRecord = {
@@ -110,7 +142,7 @@ export async function runBackup(
         at: now.toISOString(),
         ok: false,
         error: message,
-        lastSuccessAt: previous?.ok ? previous.at : previous?.lastSuccessAt ?? null,
+        lastSuccessAt: lastBackupSuccessAt(previous),
       };
       await setSetting(key, record);
     } catch {
@@ -128,14 +160,14 @@ export async function runBackup(
  */
 export async function maybeRunScheduledBackup(
   now: Date
-): Promise<{ ran: boolean; path?: string; error?: string }> {
+): Promise<{ ran: boolean; path?: string; error?: string; skipped?: string }> {
   try {
     const config = await getBackupConfig();
     if (!config.enabled) return { ran: false };
     const last = await getLastBackupRecord("scheduled");
     if (!isBackupDue(last, now, config.intervalDays)) return { ran: false };
     const result = await runBackup("scheduled", now);
-    return { ran: result.ran, path: result.path, error: result.error };
+    return { ran: result.ran, path: result.path, error: result.error, skipped: result.skipped };
   } catch (error) {
     return { ran: false, error: error instanceof Error ? error.message : String(error) };
   }

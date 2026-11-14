@@ -34,8 +34,11 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 /** Quotes: fresh enough for 15-minute-delayed data, and every caller shares them. */
 const QUOTE_TTL = 2 * MINUTE;
-/** A quote older than this is not served in place of a failed fetch. */
-const QUOTE_MAX_STALE = 30 * MINUTE;
+/**
+ * A quote older than this is not served in place of a failed fetch. Short,
+ * because callers (markets, alerts) re-cache what they get as current.
+ */
+const QUOTE_MAX_STALE = 10 * MINUTE;
 /** Daily history is topped up with the last few sessions at most this often. */
 const HISTORY_TTL = HOUR;
 /** Fundamentals, dividend and profile data change daily at most. */
@@ -517,6 +520,28 @@ export function barDay(date: Date, gmtOffsetSeconds: number): string {
   return new Date(date.getTime() + gmtOffsetSeconds * 1000).toISOString().slice(0, 10);
 }
 
+const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * The calendar day of `date` in the exchange's own timezone, with that day's
+ * daylight-saving offset. `barDay` with the chart's single current offset is
+ * wrong for half the year wherever bars are stamped near midnight: USD/CAD
+ * bars are stamped 00:00 London, which in summer is 23:00Z the day before.
+ */
+export function exchangeDay(date: Date, timeZone: string | undefined, fallbackOffsetSeconds: number): string {
+  if (!timeZone) return barDay(date, fallbackOffsetSeconds);
+  let fmt = dayFormatters.get(timeZone);
+  if (!fmt) {
+    try {
+      fmt = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+    } catch {
+      return barDay(date, fallbackOffsetSeconds);
+    }
+    dayFormatters.set(timeZone, fmt);
+  }
+  return fmt.format(date);
+}
+
 export interface DailyHistory {
   bars: DailyBar[];
   splits: Split[];
@@ -542,33 +567,53 @@ async function fetchHistory(symbol: string, from: string): Promise<DailyHistory 
       yahooFinance.chart(symbol, { period1: from, period2: new Date(), interval: "1d", events: "div|split" })
     );
     const offset = chart?.meta?.gmtoffset ?? 0;
+    const tz = chart?.meta?.exchangeTimezoneName;
+    const dayOf = (d: Date) => exchangeDay(d, tz, offset);
     const bars: DailyBar[] = (chart?.quotes ?? [])
       .filter((q) => q.date && q.close != null && Number.isFinite(q.close) && q.close > 0)
-      .map((q) => ({ day: barDay(q.date, offset), close: q.close as number }));
+      .map((q) => ({
+        day: dayOf(q.date),
+        close: q.close as number,
+        ...(q.adjclose != null && Number.isFinite(q.adjclose) && q.adjclose > 0 ? { adj: q.adjclose } : {}),
+      }));
     if (bars.length === 0) return null;
     const splits: Split[] = (chart?.events?.splits ?? [])
       .filter((s) => s.numerator > 0 && s.denominator > 0)
-      .map((s) => ({ day: barDay(new Date(s.date), offset), ratio: s.numerator / s.denominator }));
+      .map((s) => ({ day: dayOf(new Date(s.date)), ratio: s.numerator / s.denominator }));
     const dividends = (chart?.events?.dividends ?? [])
       .filter((d) => d.amount > 0)
-      .map((d) => ({ day: barDay(new Date(d.date), offset), amount: d.amount }));
+      .map((d) => ({ day: dayOf(new Date(d.date)), amount: d.amount }));
     return { bars, splits, dividends };
   } catch {
     return null;
   }
 }
 
-/** Merge a recent fetch onto a stored series, replacing the overlapping days. */
+/**
+ * Merge a recent fetch onto a stored series, replacing the overlapping days.
+ *
+ * Yahoo rebases every past dividend-adjusted close when a new dividend goes
+ * ex, so the stored bars' `adj` values are rescaled onto the recent fetch's
+ * basis using a day both have (the top-up always overlaps). Without that, the
+ * series would mix two bases and silently drop the new dividend.
+ */
 export function mergeHistory(stored: DailyHistory, recent: DailyHistory): DailyHistory {
   const firstNew = recent.bars[0]?.day ?? "9999-12-31";
+  const storedByDay = new Map(stored.bars.map((b) => [b.day, b]));
+  const anchor = recent.bars.find((b) => b.adj != null && storedByDay.get(b.day)?.adj != null);
+  const factor = anchor ? anchor.adj! / storedByDay.get(anchor.day)!.adj! : 1;
+  const rebased = stored.bars.map((b) =>
+    b.adj != null && factor !== 1 ? { ...b, adj: b.adj * factor } : b
+  );
+
   const byDay = <T extends { day: string }>(older: T[], newer: T[]) => {
-    const seen = new Set(newer.map((x) => `${x.day}`));
+    const seen = new Set(newer.map((x) => x.day));
     return [...older.filter((x) => x.day < firstNew && !seen.has(x.day)), ...newer].sort((a, b) =>
       a.day < b.day ? -1 : a.day > b.day ? 1 : 0
     );
   };
   return {
-    bars: byDay(stored.bars, recent.bars),
+    bars: byDay(rebased, recent.bars),
     splits: byDay(stored.splits, recent.splits),
     dividends: byDay(stored.dividends, recent.dividends),
   };
@@ -587,10 +632,12 @@ export function mergeHistory(stored: DailyHistory, recent: DailyHistory): DailyH
  */
 export async function getDailyHistory(symbol: string, from: string): Promise<DailyHistory | null> {
   const upper = symbol.toUpperCase();
+  const key = `y:h3:${upper}`; // v3: bars dated in the exchange's own timezone
   const floor = from < fiveYearsAgo() ? from : fiveYearsAgo();
-  const stored = await cached<StoredHistory>(`y:h:${upper}`, HISTORY_TTL, async (previous) => {
+
+  const refresh = (wantFrom: string) => async (previous: { value: StoredHistory } | null) => {
     const prev = previous?.value;
-    if (prev && prev.from <= floor && prev.bars.length > 0) {
+    if (prev && prev.from <= wantFrom && prev.bars.length > 0) {
       const lastDay = prev.bars[prev.bars.length - 1].day;
       const recent = await fetchHistory(upper, addDays(lastDay, -14));
       if (!recent) return null;
@@ -599,11 +646,19 @@ export async function getDailyHistory(symbol: string, from: string): Promise<Dai
         return { from: prev.from, ...mergeHistory(prev, recent) };
       }
     }
-    const full = await fetchHistory(upper, floor);
-    return full ? { from: floor, ...full } : null;
-  });
-  // A cached series that doesn't reach back far enough (an older, shorter
-  // request) is refetched on its next expiry; until then it serves what it has.
+    // First fetch, a new split, or a caller needing older bars than stored.
+    const start = prev && prev.from < wantFrom ? prev.from : wantFrom;
+    const full = await fetchHistory(upper, start);
+    return full ? { from: start, ...full } : null;
+  };
+
+  let stored = await cached<StoredHistory>(key, HISTORY_TTL, refresh(floor));
+  // The series is shared: another caller may have stored it from a later
+  // floor. If it doesn't reach back far enough, extend it now rather than
+  // pricing older positions from nothing.
+  if (stored && stored.from > floor) {
+    stored = (await cached<StoredHistory>(key, HISTORY_TTL, refresh(floor), { fresh: true })) ?? stored;
+  }
   if (!stored) return null;
   return {
     bars: stored.bars.filter((b) => b.day >= from),
@@ -628,7 +683,9 @@ export async function getTimeSeries(
     async () => {
       const rows = await fetchTimeSeries(symbol, period, interval);
       return rows.length > 0 ? rows : null;
-    }
+    },
+    // Never draw yesterday's intraday line under today's price.
+    { maxStaleMs: intraday ? 30 * MINUTE : 24 * HOUR }
   );
   return series ?? [];
 }
