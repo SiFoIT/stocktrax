@@ -3,7 +3,8 @@
  * market rows, so the two never drift apart.
  */
 
-import { FuturesQuote, MarketData } from "@/types";
+import { MarketData, ProxyQuote } from "@/types";
+import { selectExtendedHours, type ExtendedHoursMove } from "@/lib/extended-hours";
 
 export interface AlertState {
   hasRules: boolean;
@@ -67,44 +68,40 @@ export function alertBellClass(state?: AlertState): string {
 }
 
 /**
- * Futures only add information while the cash index is not trading; during the
- * session the card's own price is live and the two would disagree by the basis.
+ * The proxy ETF only adds information while the cash index is not trading;
+ * during the session the card's own price is live. Which print to show (pre
+ * or after market) follows the same rule as the stock rows.
  *
  * A card with no `extendedHours` at all failed its quote, which is not a
- * session, so the line still shows.
+ * session, so the line still shows when the fund has a print.
  */
-export function showFutures(data: MarketData): boolean {
-  return !!data.futures && data.extendedHours?.marketState !== "REGULAR";
+export function proxyMove(data: MarketData): ExtendedHoursMove | null {
+  if (!data.proxy || data.extendedHours?.marketState === "REGULAR") return null;
+  return selectExtendedHours(data.proxy.extendedHours);
 }
 
-const etTimestamp = new Intl.DateTimeFormat("en-US", {
+const etWeekday = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short" });
+const etTime = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/New_York",
   hour: "numeric",
   minute: "2-digit",
 });
 
 /**
- * The card prints the bare contract code, because "ES" is how the contract is
- * named and "=F" is Yahoo's plumbing. The full name is in the tooltip.
+ * What the row's "After:" leaves out: which fund stands in for the index, its
+ * print, and as of when. The name earns its place on the Nasdaq card, whose
+ * fund tracks the 100 rather than the Composite the card itself shows. Over a
+ * weekend the weekday is what reveals how old the print is.
  */
-export function futuresCode(futures: FuturesQuote): string {
-  return futures.symbol.replace(/=F$/, "");
-}
+export function proxyTooltip(proxy: ProxyQuote, move: ExtendedHoursMove): string {
+  const level = formatMarketPrice(move.price, proxy.symbol);
+  const change =
+    move.change !== undefined ? ` (${formatMarketChange(move.change, proxy.symbol, move.price)})` : "";
+  const parts = [proxy.name, `${proxy.symbol} ${level}${change}`];
 
-/**
- * The detail the bare code leaves out: which contract, at what level, as of
- * when. The name earns its place on the Nasdaq card, whose contract tracks the
- * 100 rather than the Composite the card itself shows. Over a weekend the
- * timestamp is what reveals a stale quote.
- */
-export function futuresTooltip(futures: FuturesQuote): string {
-  const level = formatMarketPrice(futures.price, futures.symbol);
-  const change = formatMarketChange(futures.change, futures.symbol, futures.price);
-  const parts = [futures.name, `${futures.symbol} ${level} (${change})`];
-
-  const traded = futures.lastTradeTime ? new Date(futures.lastTradeTime) : null;
-  if (traded && !Number.isNaN(traded.getTime())) {
-    parts.push(`${etTimestamp.format(traded)} ET`);
+  const at = move.time ? new Date(move.time) : null;
+  if (at && !Number.isNaN(at.getTime())) {
+    parts.push(`${etWeekday.format(at)} ${etTime.format(at)} ET`);
   }
 
   return parts.join(" · ");

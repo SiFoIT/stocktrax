@@ -18,10 +18,10 @@ export interface CatalogEntry {
   description: string;
   group: string;
   /**
-   * The front-month contract quoted while the cash index is closed. The card
-   * prints the bare code from `symbol`; `name` is what its tooltip leads with.
+   * A liquid ETF on the index, whose pre- and post-market move stands in for
+   * the index while it is closed. `name` is what the card's tooltip leads with.
    */
-  futures?: { symbol: string; name: string };
+  proxy?: { symbol: string; name: string };
 }
 
 /** An orientable FX pair. Name, code and prose all derive from the direction. */
@@ -90,10 +90,10 @@ export const HEADLINE_ENTRIES: CatalogEntry[] = [
     short: "US large caps",
     description: "The 500 largest companies listed in the United States",
     group: "US",
-    futures: { symbol: "ES=F", name: "E-mini S&P 500" },
+    proxy: { symbol: "SPY", name: "SPDR S&P 500 ETF" },
   },
   {
-    // The TSX contract is not reliably on Yahoo, so this card has no futures.
+    // Yahoo carries no extended-hours tape for TSX funds, so this card has no proxy.
     symbol: "^GSPTSE",
     name: "S&P/TSX Composite",
     short: "Toronto",
@@ -101,15 +101,14 @@ export const HEADLINE_ENTRIES: CatalogEntry[] = [
     group: "Canada",
   },
   {
-    // NQ=F tracks the Nasdaq 100, not the Composite this card shows. The card
-    // has room only for the code, so the contract's name carries that caveat
-    // into the tooltip.
+    // QQQ tracks the Nasdaq-100, not the Composite this card shows; the fund's
+    // name carries that caveat into the tooltip.
     symbol: "^IXIC",
     name: "Nasdaq",
     short: "US tech-heavy",
     description: "Every company listed on the Nasdaq exchange",
     group: "US",
-    futures: { symbol: "NQ=F", name: "E-mini Nasdaq-100" },
+    proxy: { symbol: "QQQ", name: "Invesco QQQ (Nasdaq-100)" },
   },
   {
     symbol: "^DJI",
@@ -117,7 +116,7 @@ export const HEADLINE_ENTRIES: CatalogEntry[] = [
     short: "US blue chips",
     description: "Thirty long-established US companies, weighted by share price",
     group: "US",
-    futures: { symbol: "YM=F", name: "E-mini Dow" },
+    proxy: { symbol: "DIA", name: "SPDR Dow Jones Industrial Average ETF" },
   },
 ];
 

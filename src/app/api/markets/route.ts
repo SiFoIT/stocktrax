@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { getQuote, getTimeSeries, type QuoteWithRange } from "@/lib/api/yahoo-finance";
+import { getQuote, getTimeSeries } from "@/lib/api/yahoo-finance";
 import { eq } from "drizzle-orm";
 import {
   Category,
@@ -17,7 +17,7 @@ import {
   MarketRange,
   RANGE_CONFIG,
 } from "@/lib/markets/ranges";
-import { ExtendedHoursData, FuturesQuote, MarketData, MarketsResponse } from "@/types";
+import { ExtendedHoursData, MarketData, MarketsResponse, ProxyQuote } from "@/types";
 import { buildSparkline, sparklineWindow, SparklineWindow } from "@/lib/markets/session";
 import { CACHE_TTL } from "@/lib/config";
 
@@ -45,7 +45,7 @@ interface MarketQuote {
    */
   unavailable?: true;
   extendedHours?: ExtendedHoursData;
-  futures?: FuturesQuote;
+  proxy?: ProxyQuote;
 }
 
 async function readCache<T>(key: string, ttl: number, skipCache: boolean): Promise<T | null> {
@@ -70,32 +70,24 @@ async function writeCache(key: string, value: unknown): Promise<void> {
 }
 
 /**
- * A futures quote is strictly additive: if Yahoo has nothing for the contract,
- * the card renders exactly as it did before this existed. The contract's name
- * is left out, because like the row's own labels it comes from the catalog on
- * every request rather than from the cache.
+ * A proxy quote is strictly additive: if Yahoo has nothing for the fund, the
+ * card renders exactly as it did before this existed. The fund's name is left
+ * out, because like the row's own labels it comes from the catalog on every
+ * request rather than from the cache.
  */
-function buildFuturesQuote(
-  futures: { symbol: string } | undefined,
-  quote: QuoteWithRange | null
-): CachedFutures | undefined {
-  if (!futures || !quote) return undefined;
-
-  return {
-    symbol: futures.symbol,
-    price: quote.price,
-    change: quote.change,
-    changePercent: quote.changePercent,
-    marketState: quote.extendedHours?.marketState,
-    lastTradeTime: quote.lastTradeTime,
-  };
+function buildProxyQuote(
+  proxy: { symbol: string } | undefined,
+  quote: { extendedHours?: ExtendedHoursData } | null
+): CachedProxy | undefined {
+  if (!proxy || !quote) return undefined;
+  return { symbol: proxy.symbol, extendedHours: quote.extendedHours };
 }
 
-/** Falls back to the bare code for a contract dropped from the catalog. */
-function nameFutures(
-  cached: CachedFutures | undefined,
+/** Falls back to the bare code for a fund dropped from the catalog. */
+function nameProxy(
+  cached: CachedProxy | undefined,
   entry: { name: string } | undefined
-): FuturesQuote | undefined {
+): ProxyQuote | undefined {
   if (!cached) return undefined;
   return { ...cached, name: entry?.name ?? cached.symbol };
 }
@@ -104,25 +96,24 @@ function nameFutures(
  * The cached half of a quote. Labels are resolved from the catalog on every
  * request instead, so renaming an entry does not wait for a cache to expire.
  */
-type CachedFutures = Omit<FuturesQuote, "name">;
-type CachedQuote = Omit<MarketQuote, "name" | "short" | "description" | "futures"> & {
-  futures?: CachedFutures;
+type CachedProxy = Omit<ProxyQuote, "name">;
+type CachedQuote = Omit<MarketQuote, "name" | "short" | "description" | "proxy"> & {
+  proxy?: CachedProxy;
 };
 
 async function fetchQuote(entry: MarketSymbol, skipCache: boolean): Promise<MarketQuote> {
   const labels = { name: entry.name, short: entry.short, description: entry.description };
-  const cacheKey = `markets_quote_${entry.symbol}`;
+  // v2: the proxy ETF replaced the futures contract in the cached shape.
+  const cacheKey = `markets_quote_v2_${entry.symbol}`;
   const cached = await readCache<CachedQuote>(cacheKey, CACHE_TTL.markets, skipCache);
   if (cached) {
-    return { ...cached, ...labels, futures: nameFutures(cached.futures, entry.futures) };
+    return { ...cached, ...labels, proxy: nameProxy(cached.proxy, entry.proxy) };
   }
 
   try {
-    const [quote, futuresQuote] = await Promise.all([
+    const [quote, proxyQuote] = await Promise.all([
       getQuote(entry.symbol),
-      // includeRange for lastTradeTime, which the card exposes as a tooltip
-      // so a stale weekend quote is inspectable.
-      entry.futures ? getQuote(entry.futures.symbol, true).catch(() => null) : Promise.resolve(null),
+      entry.proxy ? getQuote(entry.proxy.symbol).catch(() => null) : Promise.resolve(null),
     ]);
 
     // getQuote returns null rather than throwing when Yahoo has nothing, so
@@ -137,11 +128,11 @@ async function fetchQuote(entry: MarketSymbol, skipCache: boolean): Promise<Mark
       change: Number.isFinite(quote.change) ? quote.change : 0,
       changePercent: Number.isFinite(quote.changePercent) ? quote.changePercent : 0,
       extendedHours: quote.extendedHours,
-      futures: buildFuturesQuote(entry.futures, futuresQuote as QuoteWithRange | null),
+      proxy: buildProxyQuote(entry.proxy, proxyQuote),
     };
 
     await writeCache(cacheKey, fresh);
-    return { ...fresh, ...labels, futures: nameFutures(fresh.futures, entry.futures) };
+    return { ...fresh, ...labels, proxy: nameProxy(fresh.proxy, entry.proxy) };
   } catch {
     return unavailableQuote(entry, labels);
   }

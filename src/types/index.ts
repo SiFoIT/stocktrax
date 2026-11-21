@@ -122,19 +122,18 @@ export interface WatchlistItemWithQuote extends QuoteFields {
 }
 
 /**
- * A front-month index future, shown on a headline card while its cash index is
- * closed. Only `changePercent` is rendered: the contract trades at a basis to
- * the index, so its price level under the index's close reads as an error.
+ * A liquid ETF on the index, quoted for its pre- and post-market move while
+ * the cash index is closed. Index futures were tried first, but Yahoo measures
+ * a contract's change from the previous 5 PM settlement, so outside the 6 PM
+ * to 9:30 AM session the figure merely repeated the day's change. An ETF's
+ * extended-hours change is measured from the 4 PM close, like any stock's.
+ * Only the change is rendered: the fund's price is a fraction of the index.
  */
-export interface FuturesQuote {
+export interface ProxyQuote {
   symbol: string;
-  /** The contract's name, e.g. "E-mini S&P 500". Shown only in the tooltip. */
+  /** The fund's name, e.g. "SPDR S&P 500 ETF". Shown only in the tooltip. */
   name: string;
-  price: number;
-  change: number;
-  changePercent: number;
-  marketState?: MarketState;
-  lastTradeTime?: string;
+  extendedHours?: ExtendedHoursData;
 }
 
 export interface MarketData {
@@ -165,7 +164,7 @@ export interface MarketData {
   rangeLow?: number;
   rangeHigh?: number;
   extendedHours?: ExtendedHoursData;
-  futures?: FuturesQuote;
+  proxy?: ProxyQuote;
 }
 
 /**

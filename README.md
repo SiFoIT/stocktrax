@@ -51,7 +51,7 @@ docker compose up -d
 ## Features
 
 **Markets** &nbsp;·&nbsp; A glance row (market status, best and worst watchlist mover,
-alerts) above index tiles with sparklines, day ranges and futures. Below that, tables
+alerts) above index tiles with sparklines, day ranges and after-hours moves. Below that, tables
 for indices, commodities, currencies and crypto. Every section is customisable: pick
 which symbols appear, or add your own.
 

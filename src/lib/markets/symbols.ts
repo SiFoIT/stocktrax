@@ -20,10 +20,10 @@ export interface MarketSymbol {
   /** Full sentence, used as the name's tooltip. */
   description?: string;
   /**
-   * The front-month index future quoted while the cash index is not trading.
-   * Only the US indices have one: the TSX contract is not reliably on Yahoo.
+   * The ETF whose extended-hours move is quoted while the cash index is not
+   * trading. Only the US indices have one: TSX funds have no such tape on Yahoo.
    */
-  futures?: { symbol: string; name: string };
+  proxy?: { symbol: string; name: string };
 }
 
 /** A currency row the user has oriented: `{base:"USD",quote:"CAD"}` is USD/CAD. */
@@ -156,7 +156,7 @@ function toMarketSymbol(entry: CatalogEntry | undefined, fallbackSymbol: string)
     name: entry.name,
     short: entry.short,
     description: entry.description,
-    futures: entry.futures,
+    proxy: entry.proxy,
   };
 }
 

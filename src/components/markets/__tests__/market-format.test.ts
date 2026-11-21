@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { FuturesQuote } from "@/types";
+import { MarketData, ProxyQuote } from "@/types";
 import {
   formatMarketChange,
   formatMarketPrice,
-  futuresCode,
-  futuresTooltip,
+  proxyMove,
+  proxyTooltip,
 } from "../market-format";
 
 /**
@@ -61,48 +61,72 @@ describe("formatMarketChange", () => {
   });
 });
 
-function futures(overrides: Partial<FuturesQuote> = {}): FuturesQuote {
+function proxy(overrides: Partial<ProxyQuote> = {}): ProxyQuote {
   return {
-    symbol: "ES=F",
-    name: "E-mini S&P 500",
-    price: 6512.25,
-    change: 27.5,
-    changePercent: 0.42,
-    lastTradeTime: "2026-09-10T20:12:00Z",
+    symbol: "SPY",
+    name: "SPDR S&P 500 ETF",
+    extendedHours: {
+      marketState: "CLOSED",
+      postMarketPrice: 697.49,
+      postMarketChange: 7.68,
+      postMarketChangePercent: 1.11,
+      postMarketTime: "2026-11-21T00:59:00Z",
+    },
     ...overrides,
   };
 }
 
-describe("futuresCode", () => {
-  it("drops Yahoo's contract suffix, because the card names the contract", () => {
-    expect(futuresCode(futures())).toBe("ES");
-    expect(futuresCode(futures({ symbol: "NQ=F" }))).toBe("NQ");
-    expect(futuresCode(futures({ symbol: "YM=F" }))).toBe("YM");
+function card(overrides: Partial<MarketData> = {}): MarketData {
+  return {
+    symbol: "^GSPC",
+    name: "S&P 500",
+    price: 6910.39,
+    change: -265.44,
+    changePercent: -3.7,
+    rangeChange: -265.44,
+    rangeChangePercent: -3.7,
+    sparklineData: [],
+    extendedHours: { marketState: "CLOSED" },
+    proxy: proxy(),
+    ...overrides,
+  };
+}
+
+describe("proxyMove", () => {
+  it("is the fund's after-hours print while the index is closed", () => {
+    expect(proxyMove(card())).toMatchObject({ label: "After:", changePercent: 1.11 });
   });
 
-  it("leaves a code that does not carry the suffix alone", () => {
-    expect(futuresCode(futures({ symbol: "ES" }))).toBe("ES");
+  it("shows nothing during the session, when the card's own price is live", () => {
+    expect(proxyMove(card({ extendedHours: { marketState: "REGULAR" } }))).toBeNull();
+  });
+
+  it("still shows when the index quote itself failed", () => {
+    expect(proxyMove(card({ extendedHours: undefined }))?.label).toBe("After:");
+  });
+
+  it("is nothing for a card without a proxy, such as the TSX", () => {
+    expect(proxyMove(card({ proxy: undefined }))).toBeNull();
   });
 });
 
-describe("futuresTooltip", () => {
-  it("leads with the name, the one thing the bare code cannot carry", () => {
-    expect(futuresTooltip(futures())).toBe(
-      "E-mini S&P 500 · ES=F 6,512.25 (+27.50) · 4:12 PM ET"
-    );
+describe("proxyTooltip", () => {
+  const move = { label: "After:", price: 697.49, change: 7.68, changePercent: 1.11, time: "2026-11-21T00:59:00Z" };
+
+  it("leads with the fund's name, the one thing the row cannot carry", () => {
+    expect(proxyTooltip(proxy(), move)).toBe("SPDR S&P 500 ETF · SPY 697.49 (+7.68) · Fri 7:59 PM ET");
   });
 
-  it("names the Nasdaq contract for the index it actually tracks", () => {
-    // The card above it says "Nasdaq", meaning the Composite; NQ is the 100.
-    const tooltip = futuresTooltip(
-      futures({ symbol: "NQ=F", name: "E-mini Nasdaq-100", price: 20123.5, change: 45 })
+  it("names the Nasdaq fund for the index it actually tracks", () => {
+    // The card above it says "Nasdaq", meaning the Composite; QQQ is the 100.
+    const tooltip = proxyTooltip(
+      proxy({ symbol: "QQQ", name: "Invesco QQQ (Nasdaq-100)" }),
+      { ...move, price: 612.3, change: 9.1 }
     );
-    expect(tooltip).toBe("E-mini Nasdaq-100 · NQ=F 20,124 (+45) · 4:12 PM ET");
+    expect(tooltip).toBe("Invesco QQQ (Nasdaq-100) · QQQ 612.30 (+9.10) · Fri 7:59 PM ET");
   });
 
   it("drops the timestamp Yahoo did not send rather than printing an invalid date", () => {
-    expect(futuresTooltip(futures({ lastTradeTime: undefined }))).toBe(
-      "E-mini S&P 500 · ES=F 6,512.25 (+27.50)"
-    );
+    expect(proxyTooltip(proxy(), { ...move, time: undefined })).toBe("SPDR S&P 500 ETF · SPY 697.49 (+7.68)");
   });
 });

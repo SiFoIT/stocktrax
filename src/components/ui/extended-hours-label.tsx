@@ -1,4 +1,5 @@
 import { ExtendedHoursData } from "@/types";
+import { selectExtendedHours } from "@/lib/extended-hours";
 
 interface ExtendedHoursLabelProps {
   extendedHours?: ExtendedHoursData;
@@ -22,28 +23,10 @@ function formatPercent(value: number | undefined) {
 }
 
 export function ExtendedHoursLabel({ extendedHours, currency = "USD", compact }: ExtendedHoursLabelProps) {
-  if (!extendedHours?.marketState) return null;
-
-  const state = extendedHours.marketState;
-
-  // During regular hours, show nothing
-  if (state === "REGULAR") return null;
-
-  let label: string;
-  let price: number | undefined;
-  let changePercent: number | undefined;
-
-  if ((state === "PRE" || state === "PREPRE") && extendedHours.preMarketPrice != null) {
-    label = "Pre:";
-    price = extendedHours.preMarketPrice;
-    changePercent = extendedHours.preMarketChangePercent;
-  } else if ((state === "POST" || state === "POSTPOST" || state === "CLOSED") && extendedHours.postMarketPrice != null) {
-    label = state === "CLOSED" ? "After:" : "Post:";
-    price = extendedHours.postMarketPrice;
-    changePercent = extendedHours.postMarketChangePercent;
-  } else {
-    return null;
-  }
+  // The same selection the index tiles use, so "After:" means one thing.
+  const move = selectExtendedHours(extendedHours);
+  if (!move) return null;
+  const { label, price, changePercent } = move;
 
   const pct = changePercent ?? 0;
   const changeColor = pct > 0 ? "text-positive" : pct < 0 ? "text-negative" : "text-muted-foreground";

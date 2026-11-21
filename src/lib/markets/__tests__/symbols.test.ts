@@ -89,10 +89,12 @@ describe("resolveSections", () => {
     expect(resolved.markets.slice(0, 4).map((s) => s.symbol)).toEqual([...HEADLINE_SYMBOLS]);
   });
 
-  it("keeps the futures contracts on the headline indices", () => {
+  it("keeps the proxy ETFs on the US headline indices", () => {
     const resolved = resolveSections(DEFAULT_SECTIONS);
     const sp500 = resolved.markets.find((s) => s.symbol === "^GSPC");
-    expect(sp500?.futures).toEqual({ symbol: "ES=F", name: "E-mini S&P 500" });
+    expect(sp500?.proxy).toEqual({ symbol: "SPY", name: "SPDR S&P 500 ETF" });
+    const tsx = resolved.markets.find((s) => s.symbol === "^GSPTSE");
+    expect(tsx?.proxy).toBeUndefined();
   });
 
   it("matches the shipped rows, with AUD/USD in place of CAD/USD", () => {

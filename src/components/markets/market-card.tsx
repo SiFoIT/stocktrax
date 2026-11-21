@@ -6,9 +6,8 @@ import { PriceRangeBar } from "@/components/ui/price-range-bar";
 import {
   alertBellClass,
   formatMarketPrice,
-  futuresCode,
-  futuresTooltip,
-  showFutures,
+  proxyMove,
+  proxyTooltip,
   type AlertState,
 } from "./market-format";
 
@@ -102,20 +101,26 @@ export function MarketCard({ data, onClick, onChartClick, alertState, onAlertCli
       )}
       {/*
         Always occupies a line so the card does not resize at 9:30 when the
-        futures quote drops away.
+        after-hours print drops away.
       */}
       <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-        {showFutures(data) && data.futures ? (
-          <span className="flex items-center gap-1.5" title={futuresTooltip(data.futures)}>
-            <span className="text-muted-foreground">{futuresCode(data.futures)}</span>
-            <span className={getChangeColor(data.futures.changePercent)}>
-              {formatPercent(data.futures.changePercent)}
-            </span>
-          </span>
-        ) : (
-          <span>&nbsp;</span>
-        )}
+        <ProxyLine data={data} />
       </div>
     </div>
+  );
+}
+
+/**
+ * The index's pre- or after-market move, read from its proxy ETF and labelled
+ * like the stock rows ("After:", "Pre:"). The fund itself is in the tooltip.
+ */
+function ProxyLine({ data }: { data: MarketData }) {
+  const move = proxyMove(data);
+  if (!move || !data.proxy) return <span>&nbsp;</span>;
+  return (
+    <span className="flex items-center gap-1.5" title={proxyTooltip(data.proxy, move)}>
+      <span className="text-warning font-medium">{move.label}</span>
+      <span className={getChangeColor(move.changePercent)}>{formatPercent(move.changePercent)}</span>
+    </span>
   );
 }
