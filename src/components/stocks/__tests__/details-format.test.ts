@@ -38,6 +38,17 @@ describe("formatQuoteChange", () => {
     expect(formatQuoteChange(-1.234, { symbol: "AAPL", price: 187 })).toBe("-1.23");
     expect(formatQuoteChange(-0.001, { symbol: "AAPL", price: 187 })).toBe("+0.00");
   });
+
+  it("carries the quote's currency, so it cannot be read as a percentage", () => {
+    expect(formatQuoteChange(-8.26, { symbol: "ANT", currency: "USD", price: 88.91 })).toBe("-$8.26");
+    expect(n(formatQuoteChange(1.5, { symbol: "RY.TO", currency: "CAD", price: 42 }))).toBe("+CA$1.50");
+    expect(formatQuoteChange(-3.5, { symbol: "VOD.L", currency: "GBp", price: 1234 })).toBe("-3.50p");
+  });
+
+  it("leaves index points and FX rates as plain numbers", () => {
+    expect(formatQuoteChange(-12.34, { symbol: "^GSPC", currency: "USD", quoteType: "INDEX", price: 6012 })).toBe("-12.34");
+    expect(formatQuoteChange(0.0042, { symbol: "USDCAD=X", currency: "CAD", price: 1.38 })).toBe("+0.004");
+  });
 });
 
 describe("formatLargeAmount", () => {

@@ -52,16 +52,21 @@ export function formatPerShare(value: number | undefined | null, currency: strin
   return withCurrency(value, 2, currency);
 }
 
-/** A signed price change at the width of the instrument's price. */
+/**
+ * A signed price change at the width of the instrument's price, in its
+ * currency ("-$8.26"), so that beside the percentage it reads as money and not
+ * as a second percentage. Index levels and FX rates stay plain numbers.
+ */
 export function formatQuoteChange(change: number | undefined | null, ctx: PriceContext): string {
   if (change === undefined || change === null) return "-";
   const decimals = priceDecimals(ctx.price ?? change, ctx.symbol);
   const rounded = Number(change.toFixed(decimals)) || 0;
   const sign = rounded >= 0 ? "+" : "-";
-  return `${sign}${Math.abs(rounded).toLocaleString(undefined, {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  })}`;
+  const magnitude = Math.abs(rounded);
+  const body = isPlainQuote(ctx.symbol, ctx.quoteType)
+    ? magnitude.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+    : withCurrency(magnitude, decimals, ctx.currency);
+  return `${sign}${body}`;
 }
 
 /** Market cap, revenue and the like: "-$5.00B", in the quote's currency. */

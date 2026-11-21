@@ -398,12 +398,15 @@ export function StockDetailsModal({ symbol, onClose, range }: StockDetailsModalP
                   </span>
                 </div>
                 <div className="flex items-baseline gap-2 pb-1.5">
+                  {/* Money first, percent in brackets: two bare signed numbers read as two percentages. */}
                   <span className={`text-lg font-semibold ${headlineColor}`}>
                     {formatQuoteChange(headline.change, priceCtx)}
                   </span>
-                  <span className={`text-lg font-semibold ${headlineColor}`}>
-                    {formatSignedPercent(headline.changePercent)}
-                  </span>
+                  {headline.changePercent !== undefined && (
+                    <span className={`text-lg font-semibold ${headlineColor}`}>
+                      ({formatSignedPercent(headline.changePercent)})
+                    </span>
+                  )}
                   {/* Badged, not plain text, so the window reads as a live selection. */}
                   <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-xs font-semibold text-foreground">
                     {headline.label}
